@@ -40,7 +40,7 @@ export function SiteFooter() {
         <div className="grid grid-cols-2 gap-10 sm:grid-cols-3">
           {COLUMNS.map((col) => (
             <div key={col.title}>
-              <p className="mb-4 font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-marfil/50">
+              <p className="mb-4 font-[family-name:var(--font-mono)] tabular-nums text-xs uppercase tracking-widest text-marfil/50">
                 {col.title}
               </p>
               <ul className="flex flex-col gap-2 text-sm">
@@ -61,7 +61,7 @@ export function SiteFooter() {
           ))}
 
           <div className="col-span-2 sm:col-span-1">
-            <p className="mb-4 font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-marfil/50">
+            <p className="mb-4 font-[family-name:var(--font-mono)] tabular-nums text-xs uppercase tracking-widest text-marfil/50">
               Contacto
             </p>
             <ul className="flex flex-col gap-2 text-sm text-marfil/70">

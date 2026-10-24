@@ -44,6 +44,14 @@ const TIMEZONE_CORDOBA = "America/Argentina/Cordoba";
 // mismo resultado sin importar dónde corra. Mismo criterio que
 // `internal/clock.Today()` en el backend (CLAUDE.md) y que
 // `fechaISOLocal` (TR-074) para <input type="date">.
+/** El instante actual en milisegundos (un instante, no una fecha de
+ *  calendario: no depende de la zona). Para que un Server Component pase
+ *  "la hora a la que se armó la pantalla" a un Client Component que
+ *  después sigue con `useAhora` (ver tarjeta-turnos-de-hoy.tsx). */
+export function instanteActual(): number {
+  return Date.now();
+}
+
 export function hoyEnCordoba(): Date {
   const partes = new Intl.DateTimeFormat("en-CA", {
     timeZone: TIMEZONE_CORDOBA,

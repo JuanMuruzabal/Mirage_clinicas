@@ -58,7 +58,7 @@ export default async function DocumentoPage({ params, searchParams }: PageProps<
       <div className="flex flex-col gap-3">
         <MigaDelDocumento documento={documento} titulo={titulo} />
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito max-md:text-[clamp(1.5rem,7vw,1.875rem)]">
+          <h1 className="font-[family-name:var(--font-display)] tracking-tight text-3xl font-semibold text-grafito max-md:text-[clamp(1.5rem,7vw,1.875rem)]">
             {titulo}
           </h1>
           <EstadoDeDocumento estado={documento.estado} />

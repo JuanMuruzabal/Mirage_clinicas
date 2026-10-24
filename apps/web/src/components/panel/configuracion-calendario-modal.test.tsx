@@ -486,9 +486,9 @@ describe("ConfiguracionCalendarioModal", () => {
       name: "Eliminar horario reservado",
     });
 
-    expect(editar.className).toContain("rounded-full");
+    expect(editar.className).toContain("rounded-control");
     expect(editar.className).toContain("border-arena");
-    expect(eliminar.className).toContain("rounded-full");
+    expect(eliminar.className).toContain("rounded-control");
     expect(eliminar.className).toContain("border-terracota");
   });
 
@@ -582,7 +582,7 @@ describe("ConfiguracionCalendarioModal", () => {
     const fila = await screen
       .findByText("Martes")
       .then((td) => td.closest("tr")!);
-    expect(fila).toHaveClass("bg-salvia-claro");
+    expect(fila).toHaveClass("bg-marca-claro");
     // `waitFor` y no una aserción seca (CI, 2026-09-21): `findByText`
     // resuelve con la mutación del DOM, que puede ocurrir ANTES de que
     // React corra el efecto que scrollea. Local pasaba siempre; en CI,
@@ -626,7 +626,7 @@ describe("ConfiguracionCalendarioModal", () => {
       (await screen.findByText("Excepciones de horario")).closest("section")!,
     );
     const fila = seccion.getByText("Esta semana").closest("tr")!;
-    expect(fila).toHaveClass("bg-salvia-claro");
+    expect(fila).toHaveClass("bg-marca-claro");
     await waitFor(() =>
       expect(Element.prototype.scrollIntoView).toHaveBeenCalled(),
     );

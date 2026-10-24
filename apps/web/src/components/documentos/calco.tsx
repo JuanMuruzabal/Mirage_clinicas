@@ -107,10 +107,10 @@ function DatoTocable({
   activo: boolean;
   onElegir?: (campoId: string) => void;
 }) {
-  const anillo = activo ? "ring-2 ring-salvia" : "";
+  const anillo = activo ? "ring-2 ring-marca-medio" : "";
   const clase = vacio
     ? `mx-0.5 inline rounded-sm border border-dashed border-terracota/70 bg-terracota-claro/40 px-1 text-[13px] text-terracota-oscuro ${anillo}`
-    : `inline rounded-sm bg-salvia-claro/70 px-0.5 font-medium text-salvia-oscuro underline decoration-salvia/50 underline-offset-4 ${anillo}`;
+    : `inline rounded-sm bg-marca-claro/70 px-0.5 font-medium text-marca underline decoration-marca-medio/50 underline-offset-4 ${anillo}`;
   const contenido = vacio ? etiqueta : texto;
   if (!onElegir) return <span className={clase}>{contenido}</span>;
   return (

@@ -8,7 +8,7 @@ import { presenciaAction } from "@/app/actions/presencia";
 import { IconChevronRight, IconLogout, IconUser } from "@/components/icons";
 
 const itemDeCuenta =
-  "flex items-center gap-3 rounded-field px-3 py-2.5 text-sm font-medium text-grafito transition-colors hover:bg-salvia-claro hover:text-salvia-oscuro";
+  "flex items-center gap-3 rounded-field px-3 py-2.5 text-sm font-medium text-grafito transition-colors hover:bg-velo hover:text-marca";
 
 const ETIQUETA_ROL: Record<string, string> = {
   owner: "Titular",
@@ -124,7 +124,7 @@ export function EquipoPopover({
         aria-label="Ver colaboradores"
         disabled={bloqueado}
         onClick={() => setAbierto((a) => !a)}
-        className="flex flex-shrink-0 items-center gap-2 rounded-full border-linea bg-marfil p-0 transition-colors hover:border-salvia"
+        className="flex flex-shrink-0 items-center justify-center gap-2 rounded-control border-linea bg-marfil p-0 transition-colors hover:border-marca-medio pointer-coarse:min-h-11 pointer-coarse:min-w-11"
       >
         {/* Los avatares apilados: tres como mucho. Más arriba de eso la
             pila deja de leerse de un vistazo, que es para lo único que
@@ -140,7 +140,7 @@ export function EquipoPopover({
           {enLinea.slice(0, 3).map((m) => (
             <span
               key={m.userId}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-marfil bg-salvia-oscuro text-xs font-semibold text-marfil"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-marfil bg-marca-relleno text-xs font-semibold text-marfil"
             >
               {iniciales(m.nombre)}
             </span>
@@ -165,7 +165,7 @@ export function EquipoPopover({
 
       {abierto && !bloqueado && (
         <div className="absolute right-0 top-[calc(100%+0.5rem)] z-20 flex w-80 max-w-[calc(100vw-3rem)] flex-col rounded-card border border-linea bg-marfil p-2 shadow-soft">
-          <p className="px-3 py-2 font-[family-name:var(--font-mono)] text-[11.5px] uppercase tracking-[0.16em] text-grafito/45">
+          <p className="px-3 py-2 font-[family-name:var(--font-mono)] tabular-nums text-[11.5px] uppercase tracking-[0.16em] text-grafito/45">
             Colaboradores
           </p>
           <ul className="scrollbar-fina flex max-h-[60vh] flex-col gap-0.5 overflow-y-auto">
@@ -176,7 +176,7 @@ export function EquipoPopover({
               <FilaColaborador key={m.userId} miembro={m} onIr={() => setAbierto(false)} />
             ))}
             {ausentes.length > 0 && enLinea.length > 0 && (
-              <li className="px-3 pb-1 pt-3 font-[family-name:var(--font-mono)] text-[11.5px] uppercase tracking-[0.16em] text-grafito/45">
+              <li className="px-3 pb-1 pt-3 font-[family-name:var(--font-mono)] tabular-nums text-[11.5px] uppercase tracking-[0.16em] text-grafito/45">
                 Sin actividad
               </li>
             )}
@@ -187,7 +187,7 @@ export function EquipoPopover({
           <Link
             href="/colaboradores"
             onClick={() => setAbierto(false)}
-            className="mt-1 border-t border-linea px-3 pb-1 pt-3 text-sm font-medium text-salvia-oscuro hover:text-grafito"
+            className="mt-1 border-t border-linea px-3 pb-1 pt-3 text-sm font-medium text-marca hover:text-grafito"
           >
             Ver todos los colaboradores
           </Link>
@@ -237,7 +237,7 @@ function FilaColaborador({ miembro, onIr }: { miembro: MiembroDelEquipo; onIr: (
         href={miembro.esVos ? "/perfil" : `/colaboradores/${miembro.userId}`}
         onClick={onIr}
         aria-label={`Ver perfil de ${miembro.nombre}`}
-        className="group flex items-center gap-3 rounded-field px-3 py-2 transition-colors hover:bg-hueso focus-visible:bg-hueso focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-salvia active:bg-salvia-claro/60"
+        className="group flex items-center gap-3 rounded-field px-3 py-2 transition-colors hover:bg-velo focus-visible:bg-hueso focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-marca active:bg-marca-claro/60"
       >
         <span
           aria-hidden="true"
@@ -265,7 +265,7 @@ function FilaColaborador({ miembro, onIr }: { miembro: MiembroDelEquipo; onIr: (
           </span>
           <span
             aria-hidden="true"
-            className="absolute inset-y-0 right-0 hidden items-center whitespace-nowrap text-xs font-medium text-salvia-oscuro opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 [@media(hover:hover)]:flex"
+            className="absolute inset-y-0 right-0 hidden items-center whitespace-nowrap text-xs font-medium text-marca opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 [@media(hover:hover)]:flex"
           >
             Ver perfil &rarr;
           </span>

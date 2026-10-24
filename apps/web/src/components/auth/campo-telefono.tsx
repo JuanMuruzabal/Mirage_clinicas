@@ -51,7 +51,7 @@ export function CampoTelefono({ label, prefijo, numero, error, placeholder }: Ca
       {/* `focus-within` en el contenedor, y los dos controles sin borde
           propio: es lo que hace que se vea y se comporte como un campo
           solo. */}
-      <div className="flex items-center rounded-[10px] border border-linea bg-hueso focus-within:border-salvia-oscuro">
+      <div className="flex items-center rounded-[10px] border border-linea bg-hueso focus-within:border-marca">
         <select
           aria-label="País"
           className="rounded-l-[10px] bg-transparent py-2.5 pl-3 pr-1 text-grafito outline-none"

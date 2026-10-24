@@ -42,9 +42,10 @@ describe("TablaDeDocumentos", () => {
     expect(screen.getByText("3")).toBeInTheDocument();
     expect(screen.getByText("(colega)")).toBeInTheDocument();
     // En una tabla, el estado es Borrador, Completado o Anulado (2026-10-05).
-    // Va dos veces por fila: en su columna y, para el celular, debajo del
+    // Una vez por fila, en su columna: desde el 2026-10-12 el celular ve la
+    // tabla completa (scroll de costado) y nada se repite debajo del
     // documento.
-    expect(screen.getAllByText("Completado")).toHaveLength(4);
+    expect(screen.getAllByText("Completado")).toHaveLength(2);
     // La huella abreviada en su columna, y la completa al pasar el mouse.
     expect(screen.getByRole("columnheader", { name: "Huella" })).toBeInTheDocument();
     const huellas = screen.getAllByText("a3f1c0de…0000");
@@ -63,8 +64,8 @@ describe("TablaDeDocumentos", () => {
     expect(screen.getByRole("link", { name: "Consentimiento informado: Tratamiento de conducto" })).toBeInTheDocument();
     expect(screen.queryByText("Folio")).not.toBeInTheDocument();
     expect(screen.queryByText("Huella")).not.toBeInTheDocument();
-    // En su columna y, para el celular, debajo del documento.
-    expect(screen.getAllByText("Borrador")).toHaveLength(2);
+    // Solo en su columna (el celular ve la tabla completa).
+    expect(screen.getAllByText("Borrador")).toHaveLength(1);
   });
 
   it("vacía, dice lo que se le pida", () => {
@@ -85,14 +86,14 @@ describe("TablaDeDocumentos", () => {
   it("el chip del encabezado va siempre en una línea", () => {
     render(<EstadoDeDocumento estado="para_imprimir" />);
     const chip = screen.getByText("Listo para imprimir o descargar");
-    expect(chip).toHaveClass("whitespace-nowrap", "rounded-full");
+    expect(chip).toHaveClass("whitespace-nowrap", "rounded-pastilla");
   });
 
   it("la celda de estado de la tabla dice Completado, corto y en una línea", () => {
     render(<TablaDeDocumentos documentos={[paraImprimir()]} vacio="nada" />);
-    // En su columna y, para el celular, debajo del documento.
+    // Solo en su columna (el celular ve la tabla completa).
     const chips = screen.getAllByText("Completado");
-    expect(chips).toHaveLength(2);
+    expect(chips).toHaveLength(1);
     for (const chip of chips) {
       expect(chip.closest("td")).not.toBeNull();
       expect(chip).toHaveClass("whitespace-nowrap");
@@ -118,14 +119,17 @@ describe("TablaDeDocumentos anidada: los anexos de cada historia (5.6b)", () => 
       />,
     );
     const filas = screen.getAllByRole("row").slice(1).map((f) => f.textContent ?? "");
-    expect(filas).toHaveLength(5);
+    expect(filas).toHaveLength(6);
     expect(filas[0]).toContain("Historia clínica general");
     expect(filas[0]).not.toContain("Historia clínica: Historia clínica");
     expect(filas[1]).toContain("Anexo de prueba");
     expect(filas[2]).toBe("Historia de otro profesional, todavía sin terminar");
     expect(filas[3]).toContain("Anexo de prueba");
     expect(filas[3]).not.toContain("Anexo sin historia");
-    expect(filas[4]).toContain("Anexo sin historia");
+    // Los sueltos también son un bloque con su rótulo (correcciones
+    // generales, ítem 8).
+    expect(filas[4]).toBe("Anexos sin su historia en esta lista");
+    expect(filas[5]).toContain("Anexo sin historia");
     expect(screen.getAllByText("Anexo sin historia")).toHaveLength(1);
   });
 });
@@ -133,7 +137,7 @@ describe("TablaDeDocumentos anidada: los anexos de cada historia (5.6b)", () => 
 describe("TablaDeDocumentos: el PDF de cada fila terminada (Fase 5.3)", () => {
   const nombre = "Consentimiento informado: Tratamiento de conducto";
 
-  it("una fila para imprimir y una sellada llevan Imprimir y Descargar PDF; un borrador y uno a firmar, no", () => {
+  it("una fila para imprimir y una sellada se despliegan con Imprimir y Descargar PDF; un borrador y uno a firmar, no", () => {
     render(
       <TablaDeDocumentos
         documentos={[
@@ -146,36 +150,46 @@ describe("TablaDeDocumentos: el PDF de cada fila terminada (Fase 5.3)", () => {
         vacio="nada"
       />,
     );
-    const filas = screen.getAllByRole("row").slice(1);
-    expect(filas).toHaveLength(4);
-    const [papel, sellada, enBorrador, porFirmar] = filas;
-
-    for (const [fila, id] of [
-      [papel, "doc-papel"],
-      [sellada, "doc-sellado"],
-    ] as const) {
-      const imprimir = within(fila).getByRole("link", { name: `Imprimir ${nombre} (se abre en una pestaña nueva)` });
-      expect(imprimir).toHaveAttribute("href", `/panel/documentos/${id}/pdf?para=imprimir`);
-      expect(imprimir).toHaveAttribute("target", "_blank");
-      expect(within(fila).getByRole("link", { name: `Descargar PDF de ${nombre}` })).toHaveAttribute("href", `/panel/documentos/${id}/pdf`);
-    }
+    const filas = () => screen.getAllByRole("row").slice(1);
+    expect(filas()).toHaveLength(4);
+    // Plegadas, ninguna fila muestra las acciones debajo del nombre.
+    expect(screen.queryByRole("link", { name: /^Imprimir/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /^Descargar PDF/ })).not.toBeInTheDocument();
+    const [, , enBorrador, porFirmar] = filas();
     for (const fila of [enBorrador, porFirmar]) {
-      expect(within(fila).queryByRole("link", { name: /^Imprimir/ })).not.toBeInTheDocument();
-      expect(within(fila).queryByRole("link", { name: /^Descargar PDF/ })).not.toBeInTheDocument();
+      expect(within(fila).queryByRole("button", { name: /acciones/ })).not.toBeInTheDocument();
       // Solo el link al documento.
       expect(within(fila).getAllByRole("link").every((l) => !(l.getAttribute("href") ?? "").includes("/pdf"))).toBe(true);
     }
+
+    for (const id of ["doc-papel", "doc-sellado"]) {
+      const fila = screen.getAllByRole("link").find((a) => a.getAttribute("href") === `/panel/documentos/${id}`)!.closest("tr")!;
+      fireEvent.click(within(fila).getByRole("button", { name: "Mostrar acciones" }));
+      // La fila desplegada es la siguiente, y queda una sola abierta.
+      const desplegada = fila.nextElementSibling as HTMLElement;
+      expect(screen.getAllByRole("button", { name: "Ocultar acciones" })).toHaveLength(1);
+      const imprimir = within(desplegada).getByRole("link", { name: `Imprimir ${nombre} (se abre en una pestaña nueva)` });
+      expect(imprimir).toHaveAttribute("href", `/panel/documentos/${id}/pdf?para=imprimir`);
+      expect(imprimir).toHaveAttribute("target", "_blank");
+      expect(within(desplegada).getByRole("link", { name: `Descargar PDF de ${nombre}` })).toHaveAttribute("href", `/panel/documentos/${id}/pdf`);
+    }
   });
 
-  it("los links del PDF no navegan la fila; el resto de la fila sí", () => {
-    render(<TablaDeDocumentos documentos={[paraImprimir({ id: "doc-papel" })]} vacio="nada" />);
-    const fila = screen.getAllByRole("row")[1];
+  it("tocar una fila con PDF la despliega y no navega; tocar una sin PDF sí navega", () => {
+    render(
+      <TablaDeDocumentos documentos={[paraImprimir({ id: "doc-papel" }), { ...borrador(), id: "doc-borrador" }]} vacio="nada" />,
+    );
+    const [conPDF, sinPDF] = screen.getAllByRole("row").slice(1);
+    fireEvent.click(within(conPDF).getAllByRole("cell")[0]);
+    expect(pushMock).not.toHaveBeenCalled();
+    const fila = screen.getAllByRole("row")[2];
     fireEvent.click(within(fila).getByRole("link", { name: `Descargar PDF de ${nombre}` }));
     fireEvent.click(within(fila).getByRole("link", { name: /^Imprimir/ }));
     expect(pushMock).not.toHaveBeenCalled();
+    expect(within(conPDF).getByRole("button", { name: "Ocultar acciones" })).toHaveAttribute("aria-expanded", "true");
 
-    fireEvent.click(within(fila).getAllByRole("cell")[0]);
-    expect(pushMock).toHaveBeenCalledWith("/panel/documentos/doc-papel");
+    fireEvent.click(within(sinPDF).getAllByRole("cell")[0]);
+    expect(pushMock).toHaveBeenCalledWith("/panel/documentos/doc-borrador");
   });
 });
 

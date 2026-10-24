@@ -142,13 +142,15 @@ describe("CalendarGrid", () => {
 
     const bloque = screen.getByRole("button", { name: /María Games/ });
     expect(bloque).toHaveStyle({ background: "var(--color-arena)" });
-    expect(bloque.className).toContain("text-grafito/60");
+    expect(bloque.className).toContain("text-grafito/75");
   });
 
   // Corrección de QA: "en el calendario a los turnos resueltos si son
   // asistidos que tengan un contorno verde y los ausentes un contorno
-  // rojo".
-  it("un turno resuelto marcado 'asistio' tiene contorno verde", () => {
+  // rojo". Desde las correcciones generales (2026-10-11, pedido de la
+  // persona) la asistencia es un ícono arriba a la izquierda, con su
+  // nombre accesible, y el contorno queda el de siempre.
+  it("un turno resuelto marcado 'asistio' lleva el tilde de asistió", () => {
     const diaPasado = new Date(2020, 0, 15);
     const turnoPasado = {
       ...turnos[0],
@@ -159,10 +161,12 @@ describe("CalendarGrid", () => {
     render(<CalendarGrid columnas={columnasDeDias([diaPasado])} turnos={[turnoPasado]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
 
     const bloque = screen.getByRole("button", { name: /María Games/ });
-    expect(bloque).toHaveClass("border-salvia-oscuro");
+    const marca = within(bloque).getByRole("img", { name: "Asistió" });
+    expect(marca.className).toContain("bg-salvia-oscuro");
+    expect(bloque.style.getPropertyValue("--notita-borde")).toBe("var(--color-linea)");
   });
 
-  it("un turno resuelto marcado 'ausente' tiene contorno rojo", () => {
+  it("un turno resuelto marcado 'ausente' lleva la cruz de no asistió", () => {
     const diaPasado = new Date(2020, 0, 15);
     const turnoPasado = {
       ...turnos[0],
@@ -173,7 +177,18 @@ describe("CalendarGrid", () => {
     render(<CalendarGrid columnas={columnasDeDias([diaPasado])} turnos={[turnoPasado]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
 
     const bloque = screen.getByRole("button", { name: /María Games/ });
-    expect(bloque).toHaveClass("border-terracota-oscuro");
+    const marca = within(bloque).getByRole("img", { name: "No asistió" });
+    expect(marca.className).toContain("bg-terracota-oscuro");
+    expect(bloque.style.getPropertyValue("--notita-borde")).toBe("var(--color-linea)");
+  });
+
+  it("la marca anticipada (borrador) se dibuja hueca y dice que falta confirmarla", () => {
+    const turnoDeHoy = { ...turnos[0], asistenciaPreliminar: "asistio" as const };
+    render(<CalendarGrid columnas={columnasDeDias(dias)} turnos={[turnoDeHoy]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
+
+    const bloque = screen.getByRole("button", { name: /María Games/ });
+    const marca = within(bloque).getByRole("img", { name: "Asistió (sin confirmar)" });
+    expect(marca.className).toContain("border-dashed");
   });
 
   it("un turno resuelto sin marcar todavía se queda con el borde neutro de siempre", () => {
@@ -186,8 +201,8 @@ describe("CalendarGrid", () => {
     render(<CalendarGrid columnas={columnasDeDias([diaPasado])} turnos={[turnoPasado]} tiposConsulta={tiposConsulta} onTurnoClick={vi.fn()} />);
 
     const bloque = screen.getByRole("button", { name: /María Games/ });
-    expect(bloque).toHaveClass("border-arena");
-    expect(bloque).not.toHaveClass("border-salvia-oscuro", "border-terracota-oscuro");
+    expect(bloque.style.getPropertyValue("--notita-borde")).toBe("var(--color-linea)");
+    expect(within(bloque).queryByRole("img")).not.toBeInTheDocument();
   });
 
   // Autoreservado (nueva función, pedido textual del cliente,
@@ -687,14 +702,22 @@ describe("CalendarGrid", () => {
       expect(turno.className).not.toContain("rounded-t-turno");
     });
 
-    it("un turno resuelto (sin postturno visible) redondea las cuatro esquinas", () => {
+    // Correcciones generales (2026-10-11, pedido de la persona): un turno
+    // resuelto conserva el tamaño de su tarjeta, con su postturno, y solo
+    // pasa a gris. Antes perdía el postturno y cambiaba de forma.
+    it("un turno resuelto conserva su postturno, en gris, y la misma forma", () => {
       const diaPasado = new Date(2020, 0, 15);
       const tiposConPost = [{ ...tiposConsulta[0], tiempoPostConsultaMinutos: 15 }, tiposConsulta[1]];
       const turnoPasado = { ...turnos[0], horaInicio: new Date(2020, 0, 15, 9, 0).toISOString(), horaFin: new Date(2020, 0, 15, 9, 30).toISOString() };
       render(<CalendarGrid columnas={columnasDeDias([diaPasado])} turnos={[turnoPasado]} tiposConsulta={tiposConPost} onTurnoClick={vi.fn()} />);
       const turno = screen.getByRole("button", { name: /María Games/ });
-      expect(turno.className).toContain("rounded-turno");
-      expect(turno.className).not.toContain("rounded-t-turno");
+      expect(turno.className).toContain("rounded-t-turno");
+      expect(turno.className).not.toContain("rounded-turno");
+      expect(turno).toHaveStyle({ background: "var(--color-arena)" });
+
+      const postturno = screen.getByText("Postturno 15min").closest("div[aria-hidden]")!;
+      expect(postturno.className).toContain("rounded-b-turno");
+      expect(postturno).toHaveStyle({ background: "var(--color-hueso)" });
     });
 
     it("el mini-header 'Ver eventos' CON resto redondea solo arriba, el resto solo abajo", () => {

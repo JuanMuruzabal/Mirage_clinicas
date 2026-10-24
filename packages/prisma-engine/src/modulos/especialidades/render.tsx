@@ -7,7 +7,7 @@ import { envolverSlots } from "../../efectos/envolver-slots";
 import { SLOTS_TARJETA } from "../../efectos/slots";
 
 function Marca() {
-  return <span aria-hidden="true" className="inline-block h-2 w-2 flex-none rounded-full bg-[var(--pp-acento,var(--color-salvia))]" />;
+  return <span aria-hidden="true" className="inline-block h-2 w-2 flex-none rounded-full bg-[var(--pp-acento,var(--color-marca-relleno))]" />;
 }
 
 function Especialidades({ especialidades, config, estiloMovimiento }: { especialidades: string[]; config: Record<string, unknown>; estiloMovimiento?: ContextoPublico["estiloMovimiento"] }): ReactNode {

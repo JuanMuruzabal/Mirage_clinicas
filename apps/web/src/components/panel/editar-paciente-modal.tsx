@@ -1,9 +1,9 @@
 "use client";
 
+import { Dialogo } from "@/components/dialogo";
 import { useState } from "react";
 import type { Paciente, TutorInfo } from "@dental-mirage/shared-types";
 import { editarPacienteAction } from "@/app/actions/pacientes";
-import { ModalPortal } from "./modal-portal";
 
 interface EditarPacienteModalProps {
   paciente: Paciente;
@@ -74,6 +74,9 @@ function tutorEditable(t: TutorInfo): TutorEditable {
 // se corrige pero no acumula alternativos. Todo se guarda de una vez con
 // "Guardar cambios": la lista que ve la persona es el estado final.
 export function EditarPacienteModal({ paciente, onClose, onSuccess }: EditarPacienteModalProps) {
+  // Sobre el Dialogo de todos: foco adentro, Tab atrapado, Escape (el de
+  // arriba si hay varios), el foco vuelve a quien lo abrió y la página de
+  // atrás no scrollea (correcciones generales, 2026-10-12).
   const [dni, setDni] = useState(paciente.dni);
   const [telefono, setTelefono] = useState<Contacto>({
     principal: paciente.telefono ?? "",
@@ -182,150 +185,125 @@ export function EditarPacienteModal({ paciente, onClose, onSuccess }: EditarPaci
   }
 
   return (
-    <ModalPortal>
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Editar datos del paciente"
-        className="fixed inset-0 z-50 flex items-center justify-center bg-grafito/50 p-4 backdrop-blur-sm"
-        onClick={(e) => {
-          if (e.target === e.currentTarget) onClose();
-        }}
-      >
-        <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-w-[90vw]">
-          <div className="flex items-center justify-between border-b-[0.5px] border-arena px-6 py-4">
-            <h2 className="font-[family-name:var(--font-display)] text-xl font-medium text-grafito">Editar datos del paciente</h2>
-            <button type="button" onClick={onClose} aria-label="Cerrar" className="text-2xl leading-none text-grafito/50 hover:text-grafito">
-              ×
-            </button>
-          </div>
+    <Dialogo titulo="Editar datos del paciente" onCerrar={onClose} superficie="marfil" centrado ancho="chico">
 
-          {/* noValidate: la validación nativa de `type="email"` frenaba el
-              envío con su propio globo, antes que el mensaje de acá. */}
-          <form onSubmit={guardar} noValidate className="flex flex-col gap-4 p-6">
-            <Campo label="DNI">
-              <input value={dni} onChange={(e) => setDni(e.target.value)} className={inputClass} />
-            </Campo>
+      {/* noValidate: la validación nativa de `type="email"` frenaba el
+          envío con su propio globo, antes que el mensaje de acá. */}
+      <form onSubmit={guardar} noValidate className="flex flex-col gap-4 p-6">
+        <Campo label="DNI">
+          <input value={dni} onChange={(e) => setDni(e.target.value)} className={inputClass} />
+        </Campo>
 
-            <div className="flex flex-col gap-2">
-              <Campo label="Teléfono principal">
-                <input
-                  value={telefono.principal}
-                  onChange={(e) => setTelefono({ ...telefono, principal: e.target.value })}
-                  className={inputClass}
-                />
-              </Campo>
-              <ListaDeOtros titulo="Otros teléfonos" tipo="tel" contacto={telefono} onChange={setTelefono} />
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <Campo label="Mail principal">
-                <input
-                  type="email"
-                  value={email.principal}
-                  onChange={(e) => setEmail({ ...email, principal: e.target.value })}
-                  className={inputClass}
-                />
-              </Campo>
-              <ListaDeOtros titulo="Otros mails" tipo="email" contacto={email} onChange={setEmail} />
-            </div>
-
-            <fieldset className="flex flex-col gap-3 border-t-[0.5px] border-arena pt-4">
-              <legend className="pb-2 text-xs font-semibold uppercase tracking-wide text-grafito/70">Para los documentos clínicos</legend>
-              <Campo label="Fecha de nacimiento">
-                <input
-                  type="date"
-                  value={personales.fechaNacimiento}
-                  onChange={(e) => setPersonales({ ...personales, fechaNacimiento: e.target.value })}
-                  className={inputClass}
-                />
-              </Campo>
-              <Campo label="Domicilio">
-                <input
-                  value={personales.domicilio}
-                  maxLength={300}
-                  onChange={(e) => setPersonales({ ...personales, domicilio: e.target.value })}
-                  className={inputClass}
-                />
-              </Campo>
-              <Campo label="Obra social">
-                <input
-                  value={personales.obraSocial}
-                  maxLength={150}
-                  onChange={(e) => setPersonales({ ...personales, obraSocial: e.target.value })}
-                  className={inputClass}
-                />
-              </Campo>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Campo label="Plan">
-                  <input
-                    value={personales.obraSocialPlan}
-                    maxLength={100}
-                    onChange={(e) => setPersonales({ ...personales, obraSocialPlan: e.target.value })}
-                    className={inputClass}
-                  />
-                </Campo>
-                <Campo label="Número de afiliado">
-                  <input
-                    value={personales.obraSocialAfiliado}
-                    maxLength={60}
-                    onChange={(e) => setPersonales({ ...personales, obraSocialAfiliado: e.target.value })}
-                    className={inputClass}
-                  />
-                </Campo>
-              </div>
-            </fieldset>
-
-            {tutores.map((t, i) => (
-              <fieldset key={t.id} className="flex flex-col gap-3 border-t-[0.5px] border-arena pt-4">
-                <legend className="pb-2 text-xs font-semibold uppercase tracking-wide text-grafito/50">Tutor · {t.nombre}</legend>
-                <Campo label={`Mail de ${t.nombre}`}>
-                  <input type="email" value={t.email} onChange={(e) => actualizarTutor(i, { email: e.target.value })} className={inputClass} />
-                </Campo>
-                <div className="flex flex-col gap-2">
-                  <Campo label={`Teléfono principal de ${t.nombre}`}>
-                    <input
-                      value={t.telefono.principal}
-                      onChange={(e) => actualizarTutor(i, { telefono: { ...t.telefono, principal: e.target.value } })}
-                      className={inputClass}
-                    />
-                  </Campo>
-                  <ListaDeOtros
-                    titulo={`Otros teléfonos de ${t.nombre}`}
-                    tipo="tel"
-                    contacto={t.telefono}
-                    onChange={(c) => actualizarTutor(i, { telefono: c })}
-                  />
-                </div>
-              </fieldset>
-            ))}
-
-            {error && (
-              <p role="alert" className="text-sm text-terracota-oscuro">
-                {error}
-              </p>
-            )}
-
-            <div className="flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={onClose}
-                className="rounded-full border-[0.5px] border-arena px-5 py-2.5 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                disabled={pending}
-                className="rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
-              >
-                {pending ? "Guardando…" : "Guardar cambios"}
-              </button>
-            </div>
-          </form>
+        <div className="flex flex-col gap-2">
+          <Campo label="Teléfono principal">
+            <input
+              value={telefono.principal}
+              onChange={(e) => setTelefono({ ...telefono, principal: e.target.value })}
+              className={inputClass}
+            />
+          </Campo>
+          <ListaDeOtros titulo="Otros teléfonos" tipo="tel" contacto={telefono} onChange={setTelefono} />
         </div>
-      </div>
-    </ModalPortal>
+
+        <div className="flex flex-col gap-2">
+          <Campo label="Mail principal">
+            <input
+              type="email"
+              value={email.principal}
+              onChange={(e) => setEmail({ ...email, principal: e.target.value })}
+              className={inputClass}
+            />
+          </Campo>
+          <ListaDeOtros titulo="Otros mails" tipo="email" contacto={email} onChange={setEmail} />
+        </div>
+
+        <fieldset className="flex flex-col gap-3 border-t-[0.5px] border-arena pt-4">
+          <legend className="pb-2 text-xs font-semibold uppercase tracking-wide text-grafito/70">Para los documentos clínicos</legend>
+          <Campo label="Fecha de nacimiento">
+            <input
+              type="date"
+              value={personales.fechaNacimiento}
+              onChange={(e) => setPersonales({ ...personales, fechaNacimiento: e.target.value })}
+              className={inputClass}
+            />
+          </Campo>
+          <Campo label="Domicilio">
+            <input
+              value={personales.domicilio}
+              maxLength={300}
+              onChange={(e) => setPersonales({ ...personales, domicilio: e.target.value })}
+              className={inputClass}
+            />
+          </Campo>
+          <Campo label="Obra social">
+            <input
+              value={personales.obraSocial}
+              maxLength={150}
+              onChange={(e) => setPersonales({ ...personales, obraSocial: e.target.value })}
+              className={inputClass}
+            />
+          </Campo>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Campo label="Plan">
+              <input
+                value={personales.obraSocialPlan}
+                maxLength={100}
+                onChange={(e) => setPersonales({ ...personales, obraSocialPlan: e.target.value })}
+                className={inputClass}
+              />
+            </Campo>
+            <Campo label="Número de afiliado">
+              <input
+                value={personales.obraSocialAfiliado}
+                maxLength={60}
+                onChange={(e) => setPersonales({ ...personales, obraSocialAfiliado: e.target.value })}
+                className={inputClass}
+              />
+            </Campo>
+          </div>
+        </fieldset>
+
+        {tutores.map((t, i) => (
+          <fieldset key={t.id} className="flex flex-col gap-3 border-t-[0.5px] border-arena pt-4">
+            <legend className="pb-2 text-xs font-semibold uppercase tracking-wide text-grafito/50">Tutor · {t.nombre}</legend>
+            <Campo label={`Mail de ${t.nombre}`}>
+              <input type="email" value={t.email} onChange={(e) => actualizarTutor(i, { email: e.target.value })} className={inputClass} />
+            </Campo>
+            <div className="flex flex-col gap-2">
+              <Campo label={`Teléfono principal de ${t.nombre}`}>
+                <input
+                  value={t.telefono.principal}
+                  onChange={(e) => actualizarTutor(i, { telefono: { ...t.telefono, principal: e.target.value } })}
+                  className={inputClass}
+                />
+              </Campo>
+              <ListaDeOtros
+                titulo={`Otros teléfonos de ${t.nombre}`}
+                tipo="tel"
+                contacto={t.telefono}
+                onChange={(c) => actualizarTutor(i, { telefono: c })}
+              />
+            </div>
+          </fieldset>
+        ))}
+
+        {error && (
+          <p role="alert" className="text-sm text-terracota-oscuro">
+            {error}
+          </p>
+        )}
+
+        <div className="flex justify-end">
+          <button
+            type="submit"
+            disabled={pending}
+            className="rounded-control boton-primario px-5 py-2.5 text-sm font-semibold"
+          >
+            {pending ? "Guardando…" : "Guardar cambios"}
+          </button>
+        </div>
+      </form>
+    </Dialogo>
   );
 }
 
@@ -374,7 +352,7 @@ function ListaDeOtros({
                     fila, los tres botones dejaban al dato en una columna de
                     tres letras. `overflow-wrap: anywhere` y no `break-all`:
                     corta un mail largo solo si no entra, no letra por letra. */}
-                <span className="w-full min-w-0 font-[family-name:var(--font-mono)] text-sm text-grafito [overflow-wrap:anywhere] sm:w-auto sm:flex-1">
+                <span className="w-full min-w-0 font-[family-name:var(--font-mono)] tabular-nums text-sm text-grafito [overflow-wrap:anywhere] sm:w-auto sm:flex-1">
                   {valor}
                 </span>
                 <span className="flex flex-wrap gap-1.5">
@@ -415,10 +393,10 @@ function ListaDeOtros({
 
 // Los campos del formulario con el borde de CLAUDE.md (`border-linea`):
 // el de medio píxel desaparecía sobre el marfil del modal.
-const inputClass = "rounded-field border border-linea bg-hueso px-3 py-2 text-grafito outline-none focus:border-salvia";
+const inputClass = "rounded-field border border-linea bg-hueso px-3 py-2 text-grafito outline-none focus:border-marca-medio";
 
 const accionClass =
-  "rounded-full border-[0.5px] border-arena px-2.5 py-0.5 text-xs font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro";
+  "rounded-pastilla border-[0.5px] border-arena px-2.5 py-0.5 text-xs font-medium text-grafito hover:border-marca-medio hover:text-marca";
 
 function Campo({ label, children }: { label: string; children: React.ReactNode }) {
   return (

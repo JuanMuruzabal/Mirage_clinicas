@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { aFirmar, conLamina, firma, paraImprimir, sellado, trazo } from "./fixtures";
 
 const { refreshMock } = vi.hoisted(() => ({ refreshMock: vi.fn() }));
@@ -59,7 +59,7 @@ describe("VistaDeDocumento", () => {
   it("sellado: el PDF se descarga por la ruta del BFF, con su código de verificación", () => {
     render(<VistaDeDocumento documento={{ ...sellado(), codigoVerificacion: "04HM-ASW9" }} />);
     expect(screen.getByRole("heading", { name: "PDF del documento" })).toBeInTheDocument();
-    const link = screen.getByRole("link", { name: "Descargar PDF" });
+    const link = screen.getByRole("link", { name: "Descargar PDF de Consentimiento informado: Tratamiento de conducto" });
     expect(link).toHaveAttribute("href", "/panel/documentos/doc-1/pdf");
     expect(screen.getByText(/Código de verificación/)).toBeInTheDocument();
     expect(screen.getByText("04HM-ASW9")).toBeInTheDocument();
@@ -67,7 +67,7 @@ describe("VistaDeDocumento", () => {
 
   it("sellado sin código (respuesta vieja): el link igual está, sin código", () => {
     render(<VistaDeDocumento documento={sellado()} />);
-    expect(screen.getByRole("link", { name: "Descargar PDF" })).toHaveAttribute("href", "/panel/documentos/doc-1/pdf");
+    expect(screen.getByRole("link", { name: "Descargar PDF de Consentimiento informado: Tratamiento de conducto" })).toHaveAttribute("href", "/panel/documentos/doc-1/pdf");
     expect(screen.queryByText(/Código de verificación/)).not.toBeInTheDocument();
   });
 
@@ -76,7 +76,7 @@ describe("VistaDeDocumento", () => {
     ["anulado", () => ({ ...aFirmar(), estado: "anulado" as const, motivoAnulacion: "x", codigoVerificacion: "04HM-ASW9" })],
   ])("%s: ni PDF ni código de verificación", (_, documento) => {
     render(<VistaDeDocumento documento={documento()} />);
-    expect(screen.queryByRole("link", { name: "Descargar PDF" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /^Descargar PDF/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "PDF del documento" })).not.toBeInTheDocument();
     expect(screen.queryByText(/Código de verificación/)).not.toBeInTheDocument();
     expect(screen.queryByText("04HM-ASW9")).not.toBeInTheDocument();
@@ -84,7 +84,7 @@ describe("VistaDeDocumento", () => {
 
   it("sellado: Imprimir abre el PDF en una pestaña nueva (inline), junto a Descargar PDF", () => {
     render(<VistaDeDocumento documento={{ ...sellado(), codigoVerificacion: "04HM-ASW9" }} />);
-    const imprimir = screen.getByRole("link", { name: "Imprimir (abre el PDF en una pestaña nueva)" });
+    const imprimir = screen.getByRole("link", { name: "Imprimir Consentimiento informado: Tratamiento de conducto (se abre en una pestaña nueva)" });
     expect(imprimir).toHaveTextContent("Imprimir");
     expect(imprimir).toHaveAttribute("href", "/panel/documentos/doc-1/pdf?para=imprimir");
     expect(imprimir).toHaveAttribute("target", "_blank");
@@ -182,8 +182,10 @@ describe("FirmarDialogo", () => {
   it("cancelar cierra sin firmar", async () => {
     render(<VistaDeDocumento documento={aFirmar()} />);
     fireEvent.click(screen.getAllByRole("button", { name: "Firmar en este dispositivo" })[0]);
-    await screen.findByRole("dialog");
-    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    const dialogo = await screen.findByRole("dialog");
+    // Sin "Cancelar": el diálogo se cierra con la X.
+    expect(within(dialogo).queryByRole("button", { name: "Cancelar" })).not.toBeInTheDocument();
+    fireEvent.click(within(dialogo).getByRole("button", { name: "Cerrar" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(acciones.firmarDocumentoAction).not.toHaveBeenCalled();
   });

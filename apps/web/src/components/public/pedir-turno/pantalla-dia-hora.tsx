@@ -264,7 +264,7 @@ export function PantallaDiaHora({
                       aria-checked={elegido}
                       onClick={() => onProfesionalChange(p.userId)}
                       className={`flex items-center justify-between gap-3 rounded-field border px-3 py-2.5 text-left transition-colors ${
-                        elegido ? "border-salvia-oscuro bg-salvia-claro" : "border-linea bg-hueso hover:border-salvia"
+                        elegido ? "border-marca bg-marca-claro" : "border-linea bg-hueso hover:border-marca-medio"
                       }`}
                     >
                       <span className="flex flex-col">
@@ -288,7 +288,7 @@ export function PantallaDiaHora({
               type="button"
               aria-expanded={calendarioAbierto}
               onClick={toggleCalendario}
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-salvia-oscuro hover:underline"
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-marca hover:underline"
             >
               <IconCalendar className="h-4 w-4" aria-hidden="true" />
               {calendarioAbierto ? "Cerrar calendario" : "Elegir fecha"}
@@ -349,7 +349,7 @@ export function PantallaDiaHora({
                   type="button"
                   onClick={() => setFranjaElegida(f)}
                   className={`h-8 shrink-0 rounded-full px-3.5 text-xs font-medium ${
-                    franjaActiva === f ? "bg-salvia-oscuro text-marfil" : "bg-hueso text-grafito/70"
+                    franjaActiva === f ? "bg-marca-relleno text-marfil" : "bg-hueso text-grafito/70"
                   }`}
                 >
                   {FRANJA_LABEL[f]} ({porFranja[f].length})
@@ -363,7 +363,7 @@ export function PantallaDiaHora({
           ) : slots.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-4 text-center">
               <p className="text-sm text-grafito/70">No hay turnos este día.</p>
-              <button type="button" onClick={onIrProximoDisponible} className="text-sm font-medium text-salvia-oscuro hover:underline">
+              <button type="button" onClick={onIrProximoDisponible} className="text-sm font-medium text-marca hover:underline">
                 Ir al próximo disponible
               </button>
             </div>
@@ -389,7 +389,7 @@ export function PantallaDiaHora({
                     type="button"
                     onClick={() => onHoraChange(s)}
                     className={`h-[60px] w-[96px] shrink-0 rounded-field font-mono text-[20px] ${
-                      hora === s ? "bg-salvia-oscuro text-marfil" : "bg-hueso text-grafito"
+                      hora === s ? "bg-marca-relleno text-marfil" : "bg-hueso text-grafito"
                     }`}
                   >
                     {s}

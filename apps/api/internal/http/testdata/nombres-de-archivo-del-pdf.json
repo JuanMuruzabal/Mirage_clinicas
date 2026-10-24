@@ -1,5 +1,5 @@
 {
-  "_comentario": "Tabla de paridad de nombreDeArchivoDelPDF (un anexo con su número lleva el x.y de su historia: folioHistoria es el x): la leen TestNombreDeArchivoDelPDF_Paridad (Go, documentos_pdf_nombre_test.go) y pdf-de-documentos.test.ts (Vitest, apps/web/src/lib). Go pone el nombre en el Content-Disposition y TypeScript lo sugiere al 'Guardar como' antes de tener la respuesta: tienen que dar lo mismo. Un caso nuevo va acá, no en uno solo de los dos tests.",
+  "_comentario": "Tabla de paridad de nombreDeArchivoDelPDF (un anexo con su número lleva el x.y de su historia: folioHistoria es el x): la leen TestNombreDeArchivoDelPDF_Paridad (Go, documentos_pdf_nombre_test.go) y pdf-de-documentos.test.ts (Vitest, apps/web/src/lib). Go pone el nombre en el Content-Disposition y TypeScript lo sugiere al 'Guardar como' antes de tener la respuesta: tienen que dar lo mismo. Un caso nuevo va acá, no en uno solo de los dos tests. casosConAnexos: el nombre del PDF de una historia con sus anexos (?con=anexos), que es el de la historia con -con-anexos antes de la extensión (conSusAnexos en Go, nombreDeArchivoDelPDF(d, true) en TypeScript).",
   "casos": [
     { "caso": "acentos y eñes", "tipo": "historia_clinica", "plantillaNombre": "Odontología general — Niños/Ñandú", "folio": 12, "esperado": "historia-clinica-odontologia-general-ninos-nandu-folio-12.pdf" },
     { "caso": "mayúsculas acentuadas y diéresis", "tipo": "consentimiento", "plantillaNombre": "EXTRACCIÓN DE PIEZA — PINGÜINO ÁÉÍÓÚÜÑ", "folio": 4, "esperado": "consentimiento-informado-extraccion-de-pieza-pinguino-aeiouun-folio-4.pdf" },
@@ -19,5 +19,11 @@
     { "caso": "letra acentuada que no está en la tabla", "tipo": "anexo", "plantillaNombre": "Über Ëxtra çà", "folio": null, "esperado": "anexo-uber-xtra-sin-folio.pdf" },
     { "caso": "tipo desconocido: el nombre solo", "tipo": "otro", "plantillaNombre": "Ficha libre", "folio": 9, "esperado": "ficha-libre-folio-9.pdf" },
     { "caso": "sin nada ASCII", "tipo": "otro", "plantillaNombre": "¿¿ — ¡¡", "folio": null, "esperado": "documento-sin-folio.pdf" }
+  ],
+  "casosConAnexos": [
+    { "caso": "historia con sus anexos", "tipo": "historia_clinica", "plantillaNombre": "Historia clínica general", "folio": 3, "esperado": "historia-clinica-general-folio-3-con-anexos.pdf" },
+    { "caso": "historia con sus anexos, el tipo sin repetir y con acentos", "tipo": "historia_clinica", "plantillaNombre": "Historia clínica de odontopediatría", "folio": 12, "esperado": "historia-clinica-de-odontopediatria-folio-12-con-anexos.pdf" },
+    { "caso": "historia que no dice su tipo, con sus anexos", "tipo": "historia_clinica", "plantillaNombre": "Odontología general — Niños/Ñandú", "folio": 1, "esperado": "historia-clinica-odontologia-general-ninos-nandu-folio-1-con-anexos.pdf" },
+    { "caso": "historia sin folio con sus anexos", "tipo": "historia_clinica", "plantillaNombre": "Historia clínica para PcD", "folio": null, "esperado": "historia-clinica-para-pcd-sin-folio-con-anexos.pdf" }
   ]
 }

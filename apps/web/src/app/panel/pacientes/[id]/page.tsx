@@ -67,12 +67,12 @@ export default async function PacienteDetallePage({ params }: PageProps<"/panel/
     <div className="flex flex-col gap-8 p-8 max-md:px-[clamp(1rem,4vw,2rem)] max-md:pt-3 max-md:pb-[clamp(1rem,4vw,2rem)]">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <Link href="/panel/pacientes" className="text-sm font-medium text-salvia-oscuro hover:text-grafito">
+          <Link href="/panel/pacientes" className="text-sm font-medium text-marca hover:text-grafito">
             ← Pacientes
           </Link>
           <div className="mt-2 flex flex-wrap items-center gap-3">
             <AvatarIniciales nombre={paciente.nombre} apellido={paciente.apellido} className="h-11 w-11 text-base" />
-            <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito max-md:text-[clamp(1.25rem,6vw,1.875rem)]">
+            <h1 className="font-[family-name:var(--font-display)] tracking-tight text-3xl font-semibold text-grafito max-md:text-[clamp(1.25rem,6vw,1.875rem)]">
               {paciente.nombre} {paciente.apellido}
             </h1>
             {/* Corrección de QA (2026-09-05), pedido textual del cliente:
@@ -112,18 +112,18 @@ export default async function PacienteDetallePage({ params }: PageProps<"/panel/
             bloque de documentos clínicos. */}
         <DocumentosDeLaFicha pacienteId={paciente.id} esProfesional={esProfesional} cantidad={paciente.documentosClinicos ?? 0} />
         <div className="flex flex-col gap-2 rounded-card border-[0.5px] border-dashed border-arena bg-hueso p-6">
-          <h2 className="font-[family-name:var(--font-display)] text-base font-medium text-grafito/50">Presupuesto</h2>
+          <h2 className="font-[family-name:var(--font-display)] text-base font-semibold text-grafito/50">Presupuesto</h2>
           <p className="text-sm text-grafito/50">Próximamente vas a poder armar y compartir presupuestos desde acá.</p>
         </div>
       </section>
 
       <section className="flex flex-col gap-3 max-md:order-3">
-        <h2 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">Turnos activos</h2>
+        <h2 className="font-[family-name:var(--font-display)] text-lg font-semibold text-grafito">Turnos activos</h2>
         <PacienteTurnosTable turnos={activos} tiposConsulta={tiposConsulta} vacio="No tiene turnos agendados por venir." />
       </section>
 
       <section className="flex flex-col gap-3 max-md:order-4">
-        <h2 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">Historial de turnos</h2>
+        <h2 className="font-[family-name:var(--font-display)] text-lg font-semibold text-grafito">Historial de turnos</h2>
         <PacienteTurnosTable
           turnos={historial}
           tiposConsulta={tiposConsulta}

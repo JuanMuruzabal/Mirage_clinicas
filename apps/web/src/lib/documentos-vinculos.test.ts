@@ -120,6 +120,29 @@ describe("filasDeHistorias", () => {
     ]);
   });
 
+  it("los anexos de una historia van por su número, aunque vengan del más nuevo al más viejo", () => {
+    const filas = filasDeHistorias([
+      h1,
+      anexo("a3", { anexoNumero: 3, anexoDe: vinculo({ id: "h1" }) }),
+      anexo("a1", { anexoNumero: 1, anexoDe: vinculo({ id: "h1" }) }),
+      anexo("a2", { anexoNumero: 2, anexoDe: vinculo({ id: "h1" }) }),
+    ]);
+    expect(filas.map((f) => f.documento.id)).toEqual(["h1", "a1", "a2", "a3"]);
+  });
+
+  it("orden ascendente por número aunque vengan salteados, y los sin número al final en el orden en que vinieron", () => {
+    const filas = filasDeHistorias([
+      anexo("sin-1", { anexoDe: vinculo({ id: "h1" }) }),
+      anexo("a10", { anexoNumero: 10, anexoDe: vinculo({ id: "h1" }) }),
+      h1,
+      anexo("a2", { anexoNumero: 2, anexoDe: vinculo({ id: "h1" }) }),
+      anexo("sin-2", { anexoDe: vinculo({ id: "h1" }) }),
+      anexo("a9", { anexoNumero: 9, anexoDe: vinculo({ id: "h1" }) }),
+    ]);
+    expect(filas.map((f) => f.documento.id)).toEqual(["h1", "a2", "a9", "a10", "sin-1", "sin-2"]);
+    expect(filas.slice(1).every((f) => f.nivel === "anexo")).toBe(true);
+  });
+
   it("al final, primero los anexos de una historia oculta y después los sueltos, cada grupo en su orden", () => {
     const filas = filasDeHistorias([
       anexo("suelto-1"),

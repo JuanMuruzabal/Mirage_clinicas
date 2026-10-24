@@ -150,11 +150,11 @@ function FilaModulo({
           {/* Con nombre propio se pierde a la vista qué ES el módulo: el tipo
               queda como una etiqueta chica al lado. */}
           {nombrePropioDeModulo(modulo.config) && (
-            <span className="shrink-0 rounded-full bg-hueso px-2 py-0.5 text-[10px] uppercase tracking-widest text-grafito/75">
+            <span className="shrink-0 rounded-pastilla bg-hueso px-2 py-0.5 text-[10px] uppercase tracking-widest text-grafito/75">
               {nombreDelTipo(modulo)}
             </span>
           )}
-          {!modulo.visible && <span className="rounded-full bg-hueso px-2 py-0.5 text-[10px] uppercase tracking-widest text-grafito/75">Oculto</span>}
+          {!modulo.visible && <span className="rounded-pastilla bg-hueso px-2 py-0.5 text-[10px] uppercase tracking-widest text-grafito/75">Oculto</span>}
         </button>
         <button
           type="button"
@@ -357,7 +357,7 @@ export function ListaModulos({ borrador, direccionClinica, telefono, equipoElegi
         type="button"
         onClick={() => setCatalogoAbierto(true)}
         disabled={agregables.length === 0 && presetsAgregables.length === 0}
-        className="min-h-11 rounded-card border-[0.5px] border-dashed border-arena p-3 text-sm font-medium text-grafito hover:border-salvia-oscuro hover:text-salvia-oscuro disabled:cursor-not-allowed disabled:opacity-50"
+        className="min-h-11 rounded-card border-[0.5px] border-dashed border-arena p-3 text-sm font-medium text-grafito hover:border-marca hover:text-marca disabled:cursor-not-allowed disabled:opacity-50"
       >
         + Agregar sección
       </button>

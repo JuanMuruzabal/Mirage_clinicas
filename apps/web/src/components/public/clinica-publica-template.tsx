@@ -48,15 +48,15 @@ interface ClinicaPublicaTemplateProps {
 const MENU: Record<TokensResueltos["menu"], { nav: string; link: string }> = {
   pastillas: {
     nav: "mx-auto flex w-full max-w-xl flex-wrap justify-center gap-2",
-    link: "rounded-full border-[0.5px] border-(--pp-borde) bg-(--pp-superficie) px-4 py-1.5 text-xs font-medium text-(--pp-texto) hover:border-[var(--pp-acento,var(--color-salvia))] hover:text-[var(--pp-acento-texto,var(--color-salvia-oscuro))]",
+    link: "rounded-full border-[0.5px] border-(--pp-borde) bg-(--pp-superficie) px-4 py-1.5 text-xs font-medium text-(--pp-texto) hover:border-[var(--pp-acento,var(--color-marca-relleno))] hover:text-[var(--pp-acento-texto,var(--color-marca))]",
   },
   subrayado: {
     nav: "mx-auto flex w-full max-w-xl flex-wrap justify-center gap-x-5 gap-y-2",
-    link: "inline-flex min-h-6 items-center border-b-2 border-transparent pb-0.5 text-sm font-medium text-(--pp-texto) hover:border-[var(--pp-acento,var(--color-salvia))]",
+    link: "inline-flex min-h-6 items-center border-b-2 border-transparent pb-0.5 text-sm font-medium text-(--pp-texto) hover:border-[var(--pp-acento,var(--color-marca-relleno))]",
   },
   barra: {
     nav: "sticky top-0 z-30 -mx-6 flex flex-wrap justify-center gap-x-5 gap-y-2 border-b-[0.5px] border-(--pp-borde) bg-(--pp-superficie) px-6 py-3",
-    link: "inline-flex min-h-6 items-center text-sm font-medium text-(--pp-texto) hover:text-[var(--pp-acento-texto,var(--color-salvia-oscuro))]",
+    link: "inline-flex min-h-6 items-center text-sm font-medium text-(--pp-texto) hover:text-[var(--pp-acento-texto,var(--color-marca))]",
 
   },
 };
@@ -81,7 +81,7 @@ function opcionesDeSeccion(s: SeccionPublica): { className: string; style?: CSSP
   if (s.fondo === "acento" || s.fondo === "contraste") {
     className =
       s.fondo === "acento"
-        ? "rounded-(--pp-radio) bg-[var(--pp-acento-suave,var(--color-salvia-claro))] p-(--pp-relleno)"
+        ? "rounded-(--pp-radio) bg-[var(--pp-acento-suave,var(--color-marca-claro))] p-(--pp-relleno)"
         : "rounded-(--pp-radio) bg-(--pp-contraste-fondo) p-(--pp-relleno)";
     Object.assign(vars, {
       "--pp-superficie": "transparent",
@@ -124,7 +124,7 @@ type TagNombre = "h1" | "p";
 function NombreDeLaClinica({ nombreClinica, Tag }: { nombreClinica: string; Tag: TagNombre }) {
   return (
     <>
-      <QuadrantMark className="text-3xl text-[var(--pp-acento,var(--color-salvia))]" />
+      <QuadrantMark className="text-3xl text-[var(--pp-acento,var(--color-marca-relleno))]" />
       <Tag className={CLASE_NOMBRE}>{nombreClinica}</Tag>
     </>
   );

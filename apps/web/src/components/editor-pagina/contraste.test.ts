@@ -35,7 +35,7 @@ function sobre(frente: [number, number, number], alfa: number, fondo: [number, n
   return frente.map((c, i) => alfa * c + (1 - alfa) * fondo[i]) as [number, number, number];
 }
 
-const FONDOS_DEL_PANEL = ["marfil", "hueso", "salvia-claro"];
+const FONDOS_DEL_PANEL = ["marfil", "hueso", "marca-claro"];
 const alfaSecundario = Number(TONO_SECUNDARIO.match(/text-grafito\/(\d+)/)![1]);
 
 describe("contraste del editor", () => {
@@ -45,8 +45,8 @@ describe("contraste del editor", () => {
   });
 
   it.each([
-    ["salvia-oscuro", "marfil"],
-    ["salvia-oscuro", "salvia-claro"],
+    ["marca", "marfil"],
+    ["marca", "marca-claro"],
     ["terracota-oscuro", "marfil"],
     ["grafito", "hueso"],
   ])("%s sobre %s da 4,5:1", (texto, fondo) => {

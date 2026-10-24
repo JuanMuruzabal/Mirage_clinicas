@@ -48,13 +48,13 @@ export function Stepper({ pasos, actual }: { pasos: readonly PasoStepper[]; actu
             <div className="flex w-full items-center">
               <span
                 aria-hidden="true"
-                className={`h-px flex-1 ${i === 0 ? "invisible" : alcanzado ? "bg-salvia" : "bg-arena"}`}
+                className={`h-px flex-1 ${i === 0 ? "invisible" : alcanzado ? "bg-marca-medio" : "bg-arena"}`}
               />
               <span
                 aria-hidden="true"
                 className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-sm font-semibold transition-colors ${
                   alcanzado
-                    ? "bg-salvia-oscuro text-marfil"
+                    ? "bg-marca-relleno text-marfil"
                     : "border-[0.5px] border-arena bg-marfil text-grafito/40"
                 }`}
               >
@@ -63,7 +63,7 @@ export function Stepper({ pasos, actual }: { pasos: readonly PasoStepper[]; actu
               <span
                 aria-hidden="true"
                 className={`h-px flex-1 ${
-                  i === pasos.length - 1 ? "invisible" : i < indexActual ? "bg-salvia" : "bg-arena"
+                  i === pasos.length - 1 ? "invisible" : i < indexActual ? "bg-marca-medio" : "bg-arena"
                 }`}
               />
             </div>

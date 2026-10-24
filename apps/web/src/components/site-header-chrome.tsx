@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { QuadrantMark } from "./quadrant-mark";
+import { PrismaMark } from "./prisma-mark";
 import { HeaderFrame } from "./header-frame";
 import { HeaderConfigMenu } from "./header-config-menu";
 import { IconMenu, IconX } from "./icons";
@@ -11,6 +11,7 @@ import { isHerramientaRoute, isPanelRoute, mostrarColaboradoresEnHeader } from "
 import { navLinkClass } from "@/lib/styles";
 import { usePanelSidebar } from "@/lib/panel-sidebar-context";
 import { EquipoDelPanel, PanelTopbarProvider, SelectorClinicaDelPanel } from "@/components/panel/panel-topbar";
+import type { DatosDelTopbar } from "@/app/actions/topbar-panel";
 import { CampanaNotificaciones } from "@/components/notificaciones/campana-notificaciones";
 
 /**
@@ -56,7 +57,15 @@ import { CampanaNotificaciones } from "@/components/notificaciones/campana-notif
  */
 export type EstadoHeaderSesion = "anonimo" | "cuentaSinTerminar" | "completo";
 
-export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
+export function SiteHeaderChrome({
+  estado,
+  topbarInicial = null,
+}: {
+  estado: EstadoHeaderSesion;
+  /** Los datos del topbar del panel (colaboradores, clínicas) resueltos en
+   *  el servidor, para que vengan en el HTML (ver site-header.tsx). */
+  topbarInicial?: DatosDelTopbar | null;
+}) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const panelSidebar = usePanelSidebar();
@@ -151,7 +160,7 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
   const mobileLinkClass =
     "rounded-field px-3 py-2.5 text-sm font-medium text-current transition-colors hover:bg-current/10";
   const pillLinkClass =
-    "rounded-full bg-salvia-oscuro px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-marfil hover:brightness-95";
+    "boton-primario rounded-control px-5 py-2.5 text-xs font-bold uppercase tracking-wider";
 
   // TR-065 en docs/Arquitectura y base/tradeoffs.md (pedido explícito del cliente,
   // 2026-08-26): "en desktop hay un gap en la esquina superior derecha,
@@ -188,12 +197,18 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
   // /perfil, que muestran la tuerca en vez del popover— porque si no el
   // salto vuelve entre esas dos y el resto.
   const filaAnchaDeHerramienta = estado !== "anonimo" && isHerramientaRoute(pathname);
+  // Con sesión, la fila es baja (`py-2`, pedido de la persona, 2026-10-19:
+  // "menos alto, más discreto"): 56 px con mouse y 60 en una pantalla
+  // táctil, donde los botones redondos crecen a 44 (`pointer-coarse`).
+  // Antes, 72. El alto lo mide `HeaderFrame` y lo publica en
+  // `--header-height`, así que los rellenos de las páginas, el <main> del
+  // panel, el sidebar y el alto libre de las tablas lo siguen solos.
   const contenedorClass = filaAnchaDeHerramienta
-    ? "flex w-full items-center justify-between gap-3 px-8 py-4 max-md:px-6"
+    ? "flex w-full items-center justify-between gap-3 px-8 py-2 max-md:px-6"
     : "mx-auto flex max-w-5xl items-center justify-between px-6 py-4";
 
   return (
-    <PanelTopbarProvider habilitado={estado === "completo"}>
+    <PanelTopbarProvider habilitado={estado === "completo"} inicial={topbarInicial}>
     <HeaderFrame forceSolid={menuOpen}>
       <div className={contenedorClass}>
         <div className="flex min-w-0 flex-1 items-center gap-4 md:flex-none">
@@ -216,7 +231,7 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
                   aria-expanded={panelSidebar.open}
                   aria-controls="panel-sidebar-drawer"
                   aria-label={panelSidebar.open ? "Cerrar menú" : "Abrir menú"}
-                  className="flex h-10 w-10 flex-shrink-0 items-center justify-center text-current md:hidden"
+                  className="flex h-10 w-10 flex-shrink-0 pointer-coarse:h-11 pointer-coarse:w-11 items-center justify-center text-current md:hidden"
                 >
                   {panelSidebar.open ? <IconX className="h-6 w-6" /> : <IconMenu className="h-6 w-6" />}
                 </button>
@@ -231,7 +246,7 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
                 onClick={closeMenu}
                 className={`flex items-center gap-2 text-current ${enRutaConSidebar ? "hidden md:flex" : ""}`}
               >
-                <QuadrantMark className="text-steel" />
+                <PrismaMark className="text-steel" />
                 <span className="text-sm font-semibold">Panel</span>
               </Link>
               {/* El selector de clínica, pegado al logo (Fase 3.2.5,
@@ -243,14 +258,14 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
             </>
           ) : esClinicas ? (
             <span className="flex items-center gap-2 text-current">
-              <QuadrantMark className="text-steel" />
+              <PrismaMark className="text-steel" />
               <span className="font-[family-name:var(--font-display)] text-lg font-black uppercase tracking-tight">
                 PRISMA
               </span>
             </span>
           ) : esSeleccionarServicio ? (
             <Link href="/clinicas" className="flex items-center gap-2 text-current" onClick={closeMenu}>
-              <QuadrantMark className="text-steel" />
+              <PrismaMark className="text-steel" />
               <span className="text-sm font-semibold">Clínicas</span>
             </Link>
           ) : (
@@ -258,7 +273,7 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
                (pedido explícito del cliente, 2026-08-26) — antes llevaba a
                /seleccionar-servicio con onboarding completo. */
             <Link href="/" className="flex items-center gap-2 text-current" onClick={closeMenu}>
-              <QuadrantMark className="text-steel" />
+              <PrismaMark className="text-steel" />
               <span className="font-[family-name:var(--font-display)] text-lg font-black uppercase tracking-tight">
                 PRISMA
               </span>
@@ -334,7 +349,7 @@ export function SiteHeaderChrome({ estado }: { estado: EstadoHeaderSesion }) {
               aria-controls="menu-mobile-header"
               aria-label={menuOpen ? "Cerrar menú" : "Abrir menú"}
               onClick={toggleMenu}
-              className="flex h-10 w-10 flex-shrink-0 flex-col items-center justify-center gap-1.5 md:hidden"
+              className="flex h-10 w-10 flex-shrink-0 pointer-coarse:h-11 pointer-coarse:w-11 flex-col items-center justify-center gap-1.5 md:hidden"
             >
               <span
                 className={`h-px w-5 bg-current transition-transform duration-200 ${

@@ -218,23 +218,34 @@ func TienePDF(d db.DocumentoClinico, p *Plantilla) bool {
 
 // GenerarPDF — el PDF de un documento terminado: sellado o para imprimir.
 func GenerarPDF(f FuenteDelPDF) ([]byte, error) {
+	parte, err := f.preparar()
+	if err != nil {
+		return nil, err
+	}
+	return parte.bytes()
+}
+
+// validar — lo que el estado del documento garantiza y su PDF necesita: la
+// plantilla con su lámina, el contenido congelado con su huella y, en uno
+// sellado, el folio, el sello y su eslabón de la cadena.
+func (f FuenteDelPDF) validar() error {
 	d := f.Documento
 	if f.Plantilla == nil {
-		return nil, errors.New("falta la plantilla del documento")
+		return errors.New("falta la plantilla del documento")
 	}
 	if f.Plantilla.Lamina == nil || len(f.Plantilla.Lamina.Paginas) == 0 {
-		return nil, ErrPlantillaSinLamina
+		return ErrPlantillaSinLamina
 	}
 	sellado := d.Estado == db.DocumentoSellado
 	if !sellado && d.Estado != db.DocumentoParaImprimir {
-		return nil, fmt.Errorf("%w (estado %q)", ErrDocumentoNoTerminado, d.Estado)
+		return fmt.Errorf("%w (estado %q)", ErrDocumentoNoTerminado, d.Estado)
 	}
 	// Lo que todo documento terminado tiene (chk_documento_congelado).
 	switch {
 	case d.ContenidoCanonico == nil:
-		return nil, incompleto("al documento terminado le falta su contenido congelado")
+		return incompleto("al documento terminado le falta su contenido congelado")
 	case d.HashContenido == nil:
-		return nil, incompleto("al documento terminado le falta la huella de su contenido")
+		return incompleto("al documento terminado le falta la huella de su contenido")
 	}
 	// El FOLIO: uno sellado siempre lo tiene (chk_documento_sellado_completo),
 	// salvo un anexo, que lleva el "x.y" de su historia (FolioDe). Uno para
@@ -245,24 +256,36 @@ func GenerarPDF(f FuenteDelPDF) ([]byte, error) {
 	if sellado {
 		switch {
 		case folio.Valor == "":
-			return nil, incompleto("al documento sellado le falta su folio")
+			return incompleto("al documento sellado le falta su folio")
 		case d.HashSello == nil:
-			return nil, incompleto("al documento sellado le falta la huella de su sello")
+			return incompleto("al documento sellado le falta la huella de su sello")
 		case d.SelladoEn == nil:
-			return nil, incompleto("al documento sellado le falta la fecha del sello")
+			return incompleto("al documento sellado le falta la fecha del sello")
 		case d.CadenaN == nil:
-			return nil, incompleto("al documento sellado le falta su eslabón de la cadena")
+			return incompleto("al documento sellado le falta su eslabón de la cadena")
 		}
 	} else if d.TerminadoEn == nil {
-		return nil, incompleto("al documento para imprimir le falta la fecha en que se terminó")
+		return incompleto("al documento para imprimir le falta la fecha en que se terminó")
 	}
+	return nil
+}
+
+// preparar — la parte del PDF de un documento terminado: la lámina con lo
+// congelado y, en uno sellado, las hojas de su constancia.
+func (f FuenteDelPDF) preparar() (parteDelPDF, error) {
+	if err := f.validar(); err != nil {
+		return parteDelPDF{}, err
+	}
+	d := f.Documento
 	var contenido ContenidoCongelado
 	if err := json.Unmarshal([]byte(*d.ContenidoCanonico), &contenido); err != nil {
-		return nil, &DocumentoIncompletoError{Falta: "el contenido congelado del documento no se puede leer", Causa: err}
+		return parteDelPDF{}, &DocumentoIncompletoError{Falta: "el contenido congelado del documento no se puede leer", Causa: err}
 	}
 	if pideComposicion(f.Plantilla) && len(contenido.Lamina) == 0 {
-		return nil, ErrSinComposicion
+		return parteDelPDF{}, ErrSinComposicion
 	}
+	sellado := d.Estado == db.DocumentoSellado
+	folio := FolioDe(d, f.FolioDeLaHistoria)
 
 	// Lo que cambia entre las dos formas: de qué huella sale el /ID, qué
 	// instante va en /CreationDate, qué dice el pie y si hay firmas y
@@ -279,7 +302,7 @@ func GenerarPDF(f FuenteDelPDF) ([]byte, error) {
 		huellaDelID, creado = *d.HashSello, *d.SelladoEn
 		codigo = CodigoDeVerificacion(*d.HashSello)
 		if codigo == "" {
-			return nil, incompleto("la huella del sello del documento no es un SHA-256 en hexadecimal")
+			return parteDelPDF{}, incompleto("la huella del sello del documento no es un SHA-256 en hexadecimal")
 		}
 		hojas = hojasDeConstancia(d, contenido, f.Firmas, nombre, folio, codigo)
 	} else {
@@ -288,9 +311,9 @@ func GenerarPDF(f FuenteDelPDF) ([]byte, error) {
 	semilla, err := hex.DecodeString(strings.TrimSpace(huellaDelID))
 	if err != nil {
 		if sellado {
-			return nil, incompleto("la huella del sello del documento no es hexadecimal")
+			return parteDelPDF{}, incompleto("la huella del sello del documento no es hexadecimal")
 		}
-		return nil, incompleto("la huella del contenido del documento no es hexadecimal")
+		return parteDelPDF{}, incompleto("la huella del contenido del documento no es hexadecimal")
 	}
 
 	lamina := f.Plantilla.Lamina
@@ -310,31 +333,32 @@ func GenerarPDF(f FuenteDelPDF) ([]byte, error) {
 	if folio.Valor != "" {
 		tituloDelPDF = nombre + " · " + strings.ToLower(folio.Rotulo) + " " + folio.Valor
 	}
-	doc := pdf.Nuevo(pdf.Info{
-		Titulo:  tituloDelPDF,
-		Creado:  clock.In(creado),
-		Semilla: semilla,
-	})
-
-	for i, medidas := range lamina.Paginas {
-		numero := i + 1
-		pag := doc.Pagina(medidas.Ancho, medidas.Alto)
-		// Una página con escala se dibuja entera —el original y todo lo de
-		// encima— más chica, arriba y centrada; el pie no, va en la hoja.
-		escala, dx := medidas.encuadre()
-		pag.Escalado(escala, dx, 0, func() {
-			dibujarPaginaDeLamina(pag, f, contenido, numero, sellado)
-		})
-		pie(pag, numero)
-	}
-
-	for i, hoja := range hojas {
-		pag := doc.Pagina(anchoA4, altoA4)
-		dibujarRenglones(pag, hoja)
-		pie(pag, len(lamina.Paginas)+i+1)
-	}
-
-	return doc.Bytes()
+	return parteDelPDF{
+		info: pdf.Info{
+			Titulo:  tituloDelPDF,
+			Creado:  clock.In(creado),
+			Semilla: semilla,
+		},
+		dibujar: func(doc *pdf.Documento) {
+			for i, medidas := range lamina.Paginas {
+				numero := i + 1
+				pag := doc.Pagina(medidas.Ancho, medidas.Alto)
+				// Una página con escala se dibuja entera —el original y todo lo
+				// de encima— más chica, arriba y centrada; el pie no, va en la
+				// hoja.
+				escala, dx := medidas.encuadre()
+				pag.Escalado(escala, dx, 0, func() {
+					dibujarPaginaDeLamina(pag, f, contenido, numero, sellado)
+				})
+				pie(pag, numero)
+			}
+			for i, hoja := range hojas {
+				pag := doc.Pagina(anchoA4, altoA4)
+				dibujarRenglones(pag, hoja)
+				pie(pag, len(lamina.Paginas)+i+1)
+			}
+		},
+	}, nil
 }
 
 // dibujarPie — el pie de una hoja, centrado abajo. Detrás, un recuadro

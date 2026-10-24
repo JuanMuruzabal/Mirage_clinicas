@@ -160,13 +160,13 @@ describe("LaminaDocumento con un odontograma (Fase 5.5)", () => {
     };
     const base = { campoActivo: null, errores: {}, onElegir: vi.fn() };
     const [vacio, sinExistentes] = caja({ ...base, valores: {} });
-    expect(vacio).toContain("bg-salvia/15");
-    expect(sinExistentes).toContain("bg-salvia/15");
+    expect(vacio).toContain("bg-marca-medio/15");
+    expect(sinExistentes).toContain("bg-marca-medio/15");
     // Con piezas pero sin el número: el dibujo está cargado y la caja del número, no.
     const [cargado, todaviaSinNumero] = caja({ ...base, valores: { odontograma: { piezas: { "16": { marcas: { x: "rojo" } } } } } });
-    expect(cargado).not.toContain("bg-salvia/15");
-    expect(todaviaSinNumero).toContain("bg-salvia/15");
-    expect(caja({ ...base, campoActivo: "odontograma" })[0]).toContain("bg-salvia/20");
+    expect(cargado).not.toContain("bg-marca-medio/15");
+    expect(todaviaSinNumero).toContain("bg-marca-medio/15");
+    expect(caja({ ...base, campoActivo: "odontograma" })[0]).toContain("bg-marca-medio/20");
     expect(caja({ ...base, errores: { odontograma: "Hay una cara que no existe." } })[0]).toContain("ring-terracota-oscuro");
   });
 
@@ -305,7 +305,7 @@ describe("LaminaDocumento con un dibujo (Fase 5.6b)", () => {
     const caja = screen.getByRole("button", { name: "Completar: Genograma" });
     expect(caja).toHaveAttribute("data-dibujo", "genograma");
     expect(enLaPagina(container, recuadro.pagina).contains(caja)).toBe(true);
-    expect(caja.className).toContain("bg-salvia/15");
+    expect(caja.className).toContain("bg-marca-medio/15");
     caja.click();
     expect(onElegir).toHaveBeenCalledWith("genograma");
     unmount();
@@ -318,9 +318,9 @@ describe("LaminaDocumento con un dibujo (Fase 5.6b)", () => {
       return c;
     };
     const base = { campoActivo: null, errores: {}, onElegir: vi.fn() };
-    expect(clase({ ...base, valores: conTrazos as never })).not.toContain("bg-salvia/15");
-    expect(clase({ ...base, valores: { genograma: { ancho: 1000, alto: 375, trazos: [] } } as never })).toContain("bg-salvia/15");
-    expect(clase({ ...base, campoActivo: "genograma" })).toContain("bg-salvia/20");
+    expect(clase({ ...base, valores: conTrazos as never })).not.toContain("bg-marca-medio/15");
+    expect(clase({ ...base, valores: { genograma: { ancho: 1000, alto: 375, trazos: [] } } as never })).toContain("bg-marca-medio/15");
+    expect(clase({ ...base, campoActivo: "genograma" })).toContain("bg-marca-medio/20");
     expect(clase({ ...base, errores: { genograma: "Hay un punto fuera del lienzo." } })).toContain("ring-terracota-oscuro");
   });
 

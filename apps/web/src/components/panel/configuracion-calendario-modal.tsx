@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CajaDeTabla } from "./caja-de-tabla";
+import { CLASE_CABECERA, CLASE_CAJA_TABLA_EN_DIALOGO, CLASE_CELDA, CLASE_CELDA_SECUNDARIA, CLASE_FILA, CLASE_MONO, CLASE_TABLA } from "./tabla";
 import type {
   BloqueoHorario,
   HorarioAtencion,
@@ -16,7 +17,7 @@ import {
   listTiposConsultaAction,
   putHorarioAtencionGeneralAction,
 } from "@/app/actions/calendario-config";
-import { ModalPortal } from "./modal-portal";
+import { Dialogo } from "@/components/dialogo";
 import { AgregarReglaModal } from "./agregar-regla-modal";
 import {
   AgregarHorarioAtencionModal,
@@ -260,300 +261,282 @@ export function ConfiguracionCalendarioModal({
   }
 
   return (
-    <ModalPortal>
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Configuración de calendario"
-        className="fixed inset-0 z-50 flex items-center justify-center bg-grafito/50 p-4 backdrop-blur-sm"
-        onClick={(e) => {
-          if (e.target === e.currentTarget) onClose();
-        }}
-      >
-        {/* bg-marfil — vuelta atrás (pedido explícito del cliente,
-            2026-08-30): había pasado a bg-hueso para probar el mismo
-            beige del resto de la página, pero se pidió volver al blanco
-            de siempre, mismo criterio que el resto de los modales del
-            panel. */}
-        <div className="flex max-h-[90vh] w-full max-w-2xl max-md:max-w-[90vw] flex-col overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
-          <div className="flex items-center justify-between border-b-[0.5px] border-arena px-6 py-4">
-            <h2 className="font-[family-name:var(--font-display)] text-xl font-medium text-grafito">
-              Configuración de calendario
-            </h2>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Cerrar"
-              className="text-2xl leading-none text-grafito/50 hover:text-grafito"
-            >
-              ×
-            </button>
-          </div>
+    <>
+      {/* Sobre `Dialogo` (correcciones generales, ítem 4): era un
+          `role="dialog"` propio que no llevaba el foco adentro al abrirse
+          ni se cerraba con Escape. `Dialogo` trae las dos cosas, atrapa el
+          Tab, devuelve el foco al botón que lo abrió y pone la misma cruz
+          que el resto. Fondo blanco (`marfil`), como pidió el cliente el
+          2026-08-30, y el ancho de siempre (`max-w-2xl`). Los modales que
+          se abren encima (una regla, un tipo de consulta, una excepción)
+          van como hermanos, con su propio portal: Escape cierra solo el
+          de arriba (la pila de `useDialogoAbierto`). */}
+      <Dialogo titulo="Configuración de calendario" onCerrar={onClose} ancho="medio" superficie="marfil" centrado>
+        {/* Arriba del todo, antes que cualquier sección: todo lo que
+            sigue es la configuración de UNA agenda, y hay que saber de
+            quién antes de leerlo. Para quien no es recepción no se
+            dibuja nada. */}
+        <SelectorDeVistaDeRecepcion
+          onCambio={() => {
+            setVersion((v) => v + 1);
+            onAgendaCambiada?.();
+          }}
+          hayCambiosSinGuardar={() =>
+            horarioGeneral?.horaDesde !==
+              horarioGuardadoRef.current?.horaDesde ||
+            horarioGeneral?.horaHasta !==
+              horarioGuardadoRef.current?.horaHasta
+          }
+        />
 
-          {/* Arriba del todo, antes que cualquier sección: todo lo que
-              sigue es la configuración de UNA agenda, y hay que saber de
-              quién antes de leerlo. Para quien no es recepción no se
-              dibuja nada. */}
-          <SelectorDeVistaDeRecepcion
-            onCambio={() => {
-              setVersion((v) => v + 1);
-              onAgendaCambiada?.();
-            }}
-            hayCambiosSinGuardar={() =>
-              horarioGeneral?.horaDesde !==
-                horarioGuardadoRef.current?.horaDesde ||
-              horarioGeneral?.horaHasta !==
-                horarioGuardadoRef.current?.horaHasta
-            }
-          />
+        <div className="flex flex-col gap-8 p-4 sm:p-6">
+          {/* Horario de atención — la general, aplica a todos los días
+              salvo que una excepción temporal la tape (F2.3.2,
+              rediseño 2026-09-01, corrección de QA: "puede que un
+              profesional tenga horarios de atención variable"). */}
+          <section className="flex flex-col gap-3">
+            <h3 className="font-semibold text-grafito">
+              Horario de atención
+            </h3>
+            {horarioGeneral === null ? (
+              <p className="text-sm text-grafito/75">Cargando…</p>
+            ) : (
+              <form
+                onSubmit={guardarHorarioGeneral}
+                className="flex flex-wrap items-end gap-4"
+              >
+                <Campo label="Desde">
+                  <input
+                    type="time"
+                    value={horarioGeneral.horaDesde ?? ""}
+                    onChange={(e) =>
+                      setHorarioGeneral({
+                        ...horarioGeneral,
+                        horaDesde: e.target.value,
+                      })
+                    }
+                    className={inputClass}
+                  />
+                </Campo>
+                <Campo label="Hasta">
+                  <input
+                    type="time"
+                    value={horarioGeneral.horaHasta ?? ""}
+                    onChange={(e) =>
+                      setHorarioGeneral({
+                        ...horarioGeneral,
+                        horaHasta: e.target.value,
+                      })
+                    }
+                    className={inputClass}
+                  />
+                </Campo>
+                <button
+                  type="submit"
+                  disabled={guardandoHorario}
+                  className="rounded-control boton-primario px-5 py-2 text-sm font-semibold"
+                >
+                  {guardandoHorario ? "Guardando…" : "Guardar"}
+                </button>
+              </form>
+            )}
+            {horarioError && (
+              <p role="alert" className="text-sm text-terracota-oscuro">
+                {horarioError}
+              </p>
+            )}
+          </section>
 
-          <div className="flex flex-col gap-8 p-6">
-            {/* Horario de atención — la general, aplica a todos los días
-                salvo que una excepción temporal la tape (F2.3.2,
-                rediseño 2026-09-01, corrección de QA: "puede que un
-                profesional tenga horarios de atención variable"). */}
-            <section className="flex flex-col gap-3">
+          {/* Excepciones de horario de atención (corrección de QA,
+              2026-09-01): "puede que un profesional tenga horarios de
+              atención variable... esta semana/este mes/después de este
+              estará de qué día a qué día" — mientras esté vigente,
+              tapa a la general (rango > semana > mes > general, mismo
+              criterio que bloqueos_horario). Una sin horario ("no
+              trabaja") deja ese período sin nada que ofrecer en
+              /disponibilidad. */}
+          <section className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
               <h3 className="font-semibold text-grafito">
-                Horario de atención
+                Excepciones de horario
               </h3>
-              {horarioGeneral === null ? (
-                <p className="text-sm text-grafito/60">Cargando…</p>
-              ) : (
-                <form
-                  onSubmit={guardarHorarioGeneral}
-                  className="flex flex-wrap items-end gap-4"
-                >
-                  <Campo label="Desde">
-                    <input
-                      type="time"
-                      value={horarioGeneral.horaDesde ?? ""}
-                      onChange={(e) =>
-                        setHorarioGeneral({
-                          ...horarioGeneral,
-                          horaDesde: e.target.value,
-                        })
-                      }
-                      className={inputClass}
-                    />
-                  </Campo>
-                  <Campo label="Hasta">
-                    <input
-                      type="time"
-                      value={horarioGeneral.horaHasta ?? ""}
-                      onChange={(e) =>
-                        setHorarioGeneral({
-                          ...horarioGeneral,
-                          horaHasta: e.target.value,
-                        })
-                      }
-                      className={inputClass}
-                    />
-                  </Campo>
-                  <button
-                    type="submit"
-                    disabled={guardandoHorario}
-                    className="rounded-full bg-salvia-oscuro px-5 py-2 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
-                  >
-                    {guardandoHorario ? "Guardando…" : "Guardar"}
-                  </button>
-                </form>
-              )}
-              {horarioError && (
-                <p role="alert" className="text-sm text-terracota-oscuro">
-                  {horarioError}
-                </p>
-              )}
-            </section>
+              <button
+                type="button"
+                onClick={() => setAgregandoExcepcion("nuevo")}
+                className="rounded-control boton-primario px-4 py-1.5 text-sm font-semibold"
+              >
+                {/* "+ Excepción" (corrección de QA, 2026-09-06): antes
+                    "+ Agregar excepción" — muy grande en mobile. Acortado
+                    solo acá, adentro de Configuración de calendario; los
+                    accesos rápidos del calendario ("+ Agregar turno"/
+                    "+ Reservar horario") quedan como estaban. */}
+                + Excepción
+              </button>
+            </div>
+            <p className="text-xs text-grafito/75">
+              Para un horario distinto al de siempre — esta semana, este mes,
+              o un rango de fechas elegido a mano. También sirve para marcar
+              un período sin atención.
+            </p>
+            <ExcepcionesHorarioTable
+              excepciones={excepciones}
+              horarioAtencionAFocalizarId={horarioAtencionAFocalizarId}
+              filaFocalizadaRef={filaFocalizadaExcepcionRef}
+              onEditar={(h) => setAgregandoExcepcion(h)}
+              onEliminar={eliminarExcepcion}
+            />
+          </section>
 
-            {/* Excepciones de horario de atención (corrección de QA,
-                2026-09-01): "puede que un profesional tenga horarios de
-                atención variable... esta semana/este mes/después de este
-                estará de qué día a qué día" — mientras esté vigente,
-                tapa a la general (rango > semana > mes > general, mismo
-                criterio que bloqueos_horario). Una sin horario ("no
-                trabaja") deja ese período sin nada que ofrecer en
-                /disponibilidad. */}
-            <section className="flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-grafito">
-                  Excepciones de horario
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => setAgregandoExcepcion("nuevo")}
-                  className="rounded-full bg-salvia-oscuro px-4 py-1.5 text-sm font-semibold text-marfil hover:brightness-95"
-                >
-                  {/* "+ Excepción" (corrección de QA, 2026-09-06): antes
-                      "+ Agregar excepción" — muy grande en mobile. Acortado
-                      solo acá, adentro de Configuración de calendario; los
-                      accesos rápidos del calendario ("+ Agregar turno"/
-                      "+ Reservar horario") quedan como estaban. */}
-                  + Excepción
-                </button>
-              </div>
-              <p className="text-xs text-grafito/60">
-                Para un horario distinto al de siempre — esta semana, este mes,
-                o un rango de fechas elegido a mano. También sirve para marcar
-                un período sin atención.
+          {/* Horarios reservados generales (nombre pedido por el
+              cliente, 2026-08-30 — antes "Reglas globales") — aplican a
+              un rango amplio (esta semana, este mes, todos los meses);
+              pierden contra un horario reservado específico que se
+              solape (TR-084 en docs/Arquitectura y base/tradeoffs.md). */}
+          <section className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-grafito">
+                Horarios reservados generales
+              </h3>
+              <button
+                type="button"
+                onClick={() => setAgregando({ especifico: false })}
+                className="rounded-control boton-primario px-4 py-1.5 text-sm font-semibold"
+              >
+                {/* "+ Horario" (corrección de QA, 2026-09-06): antes
+                    "+ Agregar horario reservado" — muy grande en mobile. */}
+                + Horario
+              </button>
+            </div>
+            <p className="text-xs text-grafito/75">
+              Se repiten por día de la semana, en un rango amplio: esta
+              semana, este mes, o todos los meses.
+            </p>
+            <ReglasTable
+              reglas={generales}
+              especifico={false}
+              vacioMensaje="Todavía no cargaste ningún horario reservado general."
+              reglaAFocalizarId={reglaAFocalizarId}
+              filaFocalizadaRef={filaFocalizadaRef}
+              onEditar={(r) => setAgregando({ especifico: false, regla: r })}
+              onEliminar={(id) => eliminarRegla(id, "general")}
+            />
+          </section>
+
+          {/* Horarios reservados específicos (nombre pedido por el
+              cliente, 2026-08-30 — antes "Reglas específicas") — un día
+              concreto, ganan sobre cualquier horario reservado general
+              que se solape ese mismo día/horario. */}
+          <section className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-grafito">
+                Horarios reservados específicos
+              </h3>
+              <button
+                type="button"
+                onClick={() => setAgregando({ especifico: true })}
+                className="rounded-control boton-primario px-4 py-1.5 text-sm font-semibold"
+              >
+                {/* "+ Horario" — ver el comentario en la sección de
+                    horarios reservados generales, arriba. */}
+                + Horario
+              </button>
+            </div>
+            <p className="text-xs text-grafito/75">
+              Aplican a un día puntual — si se solapan con un horario
+              reservado general, gana el específico.
+            </p>
+            <ReglasTable
+              reglas={especificas}
+              especifico={true}
+              vacioMensaje="Todavía no cargaste ningún horario reservado específico."
+              reglaAFocalizarId={reglaAFocalizarId}
+              filaFocalizadaRef={filaFocalizadaRef}
+              onEditar={(r) => setAgregando({ especifico: true, regla: r })}
+              onEliminar={(id) => eliminarRegla(id, "especifica")}
+            />
+          </section>
+
+          {/* Tipos de consulta (F2.3.7): color, duración, tiempo
+              post-consulta y cantidad de sesiones — antes solo se
+              podían ver (GET /tipos-consulta), no gestionar. */}
+          <section className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-grafito">
+                Tipos de consulta
+              </h3>
+              {/* Los tipos que ya usa la clínica viven ADENTRO de este
+                  modal desde el 2026-09-14, como punto de partida del
+                  formulario — no en un botón aparte que copiaba y
+                  cerraba. Ver tipo-consulta-form-modal.tsx. */}
+              <button
+                type="button"
+                onClick={() => setEditandoTipo("nuevo")}
+                className="rounded-control boton-primario px-4 py-1.5 text-sm font-semibold"
+              >
+                + Agregar tipo
+              </button>
+            </div>
+            {tiposConsulta === null ? (
+              <p className="text-sm text-grafito/75">Cargando…</p>
+            ) : tiposConsulta.length === 0 ? (
+              <p className="text-sm text-grafito/75">
+                Todavía no cargaste ningún tipo de consulta.
               </p>
-              <ExcepcionesHorarioTable
-                excepciones={excepciones}
-                horarioAtencionAFocalizarId={horarioAtencionAFocalizarId}
-                filaFocalizadaRef={filaFocalizadaExcepcionRef}
-                onEditar={(h) => setAgregandoExcepcion(h)}
-                onEliminar={eliminarExcepcion}
-              />
-            </section>
-
-            {/* Horarios reservados generales (nombre pedido por el
-                cliente, 2026-08-30 — antes "Reglas globales") — aplican a
-                un rango amplio (esta semana, este mes, todos los meses);
-                pierden contra un horario reservado específico que se
-                solape (TR-084 en docs/Arquitectura y base/tradeoffs.md). */}
-            <section className="flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-grafito">
-                  Horarios reservados generales
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => setAgregando({ especifico: false })}
-                  className="rounded-full bg-salvia-oscuro px-4 py-1.5 text-sm font-semibold text-marfil hover:brightness-95"
-                >
-                  {/* "+ Horario" (corrección de QA, 2026-09-06): antes
-                      "+ Agregar horario reservado" — muy grande en mobile. */}
-                  + Horario
-                </button>
-              </div>
-              <p className="text-xs text-grafito/60">
-                Se repiten por día de la semana, en un rango amplio: esta
-                semana, este mes, o todos los meses.
+            ) : (
+              // Organizado en tabla, mismo criterio visual que las
+              // reglas globales/específicas de arriba (corrección de
+              // QA) — antes era una lista de tarjetas suelta, distinta
+              // del resto del modal. max-h-64 + overflow-auto: mismo
+              // motivo que ReglasTable, "que no se agrande la página".
+              <CajaDeTabla className={`${CLASE_CAJA_TABLA_EN_DIALOGO} max-h-64 max-md:max-h-[var(--alto-mobile,16rem)]`}>
+                <table className={CLASE_TABLA}>
+                  <thead>
+                    <tr>
+                      <th className={CLASE_CABECERA}>Nombre</th>
+                      <th className={CLASE_CABECERA}>
+                        Duración
+                      </th>
+                      <th className={CLASE_CABECERA}>
+                        Post-consulta
+                      </th>
+                      <th className={CLASE_CABECERA}>
+                        Sesiones
+                      </th>
+                      {/* hidden md:table-cell (corrección de QA,
+                          2026-08-30: "se forma un gap blanco que queda
+                          mal") — esta columna de acciones no se ve en
+                          mobile (las acciones viven en la fila
+                          desplegable de abajo), pero un <th> vacío
+                          SIN ocultar seguía reservándole ancho a la
+                          columna en la fila de encabezado, dejando una
+                          franja blanca a la derecha en todas las
+                          filas. */}
+                      <th className={`${CLASE_CABECERA} hidden md:table-cell`}>
+              <span className="sr-only">Acciones</span>
+            </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tiposConsulta.map((t) => (
+                      <FilaTipoConsulta
+                        key={t.id}
+                        tipo={t}
+                        onEditar={() => setEditandoTipo(t)}
+                        onEliminar={() => eliminarTipo(t.id)}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </CajaDeTabla>
+            )}
+            {errorTipo && (
+              <p role="alert" className="text-sm text-terracota-oscuro">
+                {errorTipo}
               </p>
-              <ReglasTable
-                reglas={generales}
-                especifico={false}
-                vacioMensaje="Todavía no cargaste ningún horario reservado general."
-                reglaAFocalizarId={reglaAFocalizarId}
-                filaFocalizadaRef={filaFocalizadaRef}
-                onEditar={(r) => setAgregando({ especifico: false, regla: r })}
-                onEliminar={(id) => eliminarRegla(id, "general")}
-              />
-            </section>
-
-            {/* Horarios reservados específicos (nombre pedido por el
-                cliente, 2026-08-30 — antes "Reglas específicas") — un día
-                concreto, ganan sobre cualquier horario reservado general
-                que se solape ese mismo día/horario. */}
-            <section className="flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-grafito">
-                  Horarios reservados específicos
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => setAgregando({ especifico: true })}
-                  className="rounded-full bg-salvia-oscuro px-4 py-1.5 text-sm font-semibold text-marfil hover:brightness-95"
-                >
-                  {/* "+ Horario" — ver el comentario en la sección de
-                      horarios reservados generales, arriba. */}
-                  + Horario
-                </button>
-              </div>
-              <p className="text-xs text-grafito/60">
-                Aplican a un día puntual — si se solapan con un horario
-                reservado general, gana el específico.
-              </p>
-              <ReglasTable
-                reglas={especificas}
-                especifico={true}
-                vacioMensaje="Todavía no cargaste ningún horario reservado específico."
-                reglaAFocalizarId={reglaAFocalizarId}
-                filaFocalizadaRef={filaFocalizadaRef}
-                onEditar={(r) => setAgregando({ especifico: true, regla: r })}
-                onEliminar={(id) => eliminarRegla(id, "especifica")}
-              />
-            </section>
-
-            {/* Tipos de consulta (F2.3.7): color, duración, tiempo
-                post-consulta y cantidad de sesiones — antes solo se
-                podían ver (GET /tipos-consulta), no gestionar. */}
-            <section className="flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-grafito">
-                  Tipos de consulta
-                </h3>
-                {/* Los tipos que ya usa la clínica viven ADENTRO de este
-                    modal desde el 2026-09-14, como punto de partida del
-                    formulario — no en un botón aparte que copiaba y
-                    cerraba. Ver tipo-consulta-form-modal.tsx. */}
-                <button
-                  type="button"
-                  onClick={() => setEditandoTipo("nuevo")}
-                  className="rounded-full bg-salvia-oscuro px-4 py-1.5 text-sm font-semibold text-marfil hover:brightness-95"
-                >
-                  + Agregar tipo
-                </button>
-              </div>
-              {tiposConsulta === null ? (
-                <p className="text-sm text-grafito/60">Cargando…</p>
-              ) : tiposConsulta.length === 0 ? (
-                <p className="text-sm text-grafito/60">
-                  Todavía no cargaste ningún tipo de consulta.
-                </p>
-              ) : (
-                // Organizado en tabla, mismo criterio visual que las
-                // reglas globales/específicas de arriba (corrección de
-                // QA) — antes era una lista de tarjetas suelta, distinta
-                // del resto del modal. max-h-64 + overflow-auto: mismo
-                // motivo que ReglasTable, "que no se agrande la página".
-                <CajaDeTabla className="max-h-64 overflow-auto rounded-card border-[0.5px] border-arena max-md:max-h-[var(--alto-mobile,16rem)]">
-                  <table className="w-full text-left text-sm">
-                    <thead>
-                      <tr className="sticky top-0 border-b-[0.5px] border-arena bg-hueso text-xs font-semibold uppercase tracking-wide text-grafito/60">
-                        <th className="whitespace-nowrap px-4 py-2">Nombre</th>
-                        <th className="whitespace-nowrap px-4 py-2">
-                          Duración
-                        </th>
-                        <th className="whitespace-nowrap px-4 py-2">
-                          Post-consulta
-                        </th>
-                        <th className="whitespace-nowrap px-4 py-2">
-                          Sesiones
-                        </th>
-                        {/* hidden md:table-cell (corrección de QA,
-                            2026-08-30: "se forma un gap blanco que queda
-                            mal") — esta columna de acciones no se ve en
-                            mobile (las acciones viven en la fila
-                            desplegable de abajo), pero un <th> vacío
-                            SIN ocultar seguía reservándole ancho a la
-                            columna en la fila de encabezado, dejando una
-                            franja blanca a la derecha en todas las
-                            filas. */}
-                        <th className="hidden px-4 py-2 md:table-cell" />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {tiposConsulta.map((t) => (
-                        <FilaTipoConsulta
-                          key={t.id}
-                          tipo={t}
-                          onEditar={() => setEditandoTipo(t)}
-                          onEliminar={() => eliminarTipo(t.id)}
-                        />
-                      ))}
-                    </tbody>
-                  </table>
-                </CajaDeTabla>
-              )}
-              {errorTipo && (
-                <p role="alert" className="text-sm text-terracota-oscuro">
-                  {errorTipo}
-                </p>
-              )}
-            </section>
-          </div>
+            )}
+          </section>
         </div>
-      </div>
+      </Dialogo>
 
       {agregando && (
         <AgregarReglaModal
@@ -581,7 +564,7 @@ export function ConfiguracionCalendarioModal({
           onGuardado={excepcionGuardada}
         />
       )}
-    </ModalPortal>
+    </>
   );
 }
 
@@ -603,25 +586,27 @@ function ExcepcionesHorarioTable({
   onEliminar: (id: string) => void;
 }) {
   if (excepciones === null) {
-    return <p className="text-sm text-grafito/60">Cargando…</p>;
+    return <p className="text-sm text-grafito/75">Cargando…</p>;
   }
   if (excepciones.length === 0) {
     return (
-      <p className="text-sm text-grafito/60">
+      <p className="text-sm text-grafito/75">
         Todavía no cargaste ninguna excepción de horario.
       </p>
     );
   }
 
   return (
-    <CajaDeTabla className="max-h-64 overflow-auto rounded-card border-[0.5px] border-arena max-md:max-h-[var(--alto-mobile,16rem)]">
-      <table className="w-full text-left text-sm">
+    <CajaDeTabla className={`${CLASE_CAJA_TABLA_EN_DIALOGO} max-h-64 max-md:max-h-[var(--alto-mobile,16rem)]`}>
+      <table className={CLASE_TABLA}>
         <thead>
-          <tr className="sticky top-0 border-b-[0.5px] border-arena bg-hueso text-xs font-semibold uppercase tracking-wide text-grafito/60">
-            <th className="whitespace-nowrap px-4 py-2">Alcance</th>
-            <th className="whitespace-nowrap px-4 py-2">Vigencia</th>
-            <th className="whitespace-nowrap px-4 py-2">Horario</th>
-            <th className="hidden px-4 py-2 md:table-cell" />
+          <tr>
+            <th className={CLASE_CABECERA}>Alcance</th>
+            <th className={CLASE_CABECERA}>Vigencia</th>
+            <th className={CLASE_CABECERA}>Horario</th>
+            <th className={`${CLASE_CABECERA} hidden md:table-cell`}>
+              <span className="sr-only">Acciones</span>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -661,24 +646,24 @@ function FilaExcepcionHorario({
       <tr
         ref={focalizada ? filaFocalizadaRef : undefined}
         onClick={() => setDesplegada((actual) => !actual)}
-        className={`cursor-pointer border-b-[0.5px] border-arena last:border-b-0 hover:bg-hueso md:cursor-default ${
-          focalizada ? "bg-salvia-claro" : desplegada ? "bg-hueso" : ""
+        className={`${CLASE_FILA} cursor-pointer hover:bg-velo md:cursor-default ${
+          focalizada ? "bg-marca-claro" : desplegada ? "bg-hueso" : ""
         }`}
       >
-        <td className="px-4 py-2 text-grafito">
+        <td className={CLASE_CELDA}>
           {ALCANCE_LABEL_EXCEPCION[h.alcance] ?? h.alcance}
         </td>
-        <td className="px-4 py-2 text-grafito/70">
+        <td className={CLASE_CELDA_SECUNDARIA}>
           {h.fechaDesde && h.fechaHasta
             ? `${h.fechaDesde} – ${h.fechaHasta}`
             : "—"}
         </td>
-        <td className="px-4 py-2 font-[family-name:var(--font-mono)] text-grafito">
+        <td className={`${CLASE_CELDA} ${CLASE_MONO}`}>
           {h.horaDesde && h.horaHasta
             ? `${h.horaDesde}–${h.horaHasta}`
             : "No trabaja"}
         </td>
-        <td className="hidden px-4 py-2 text-right md:table-cell">
+        <td className={`${CLASE_CELDA} hidden text-right md:table-cell`}>
           <div className="flex justify-end gap-3">
             <AccionesFila
               onEditar={onEditar}
@@ -691,7 +676,7 @@ function FilaExcepcionHorario({
         </td>
       </tr>
       {desplegada && (
-        <tr className="border-b-[0.5px] border-arena bg-hueso last:border-b-0 md:hidden">
+        <tr className={`${CLASE_FILA} bg-hueso md:hidden`}>
           <td colSpan={4} className="px-4 py-2">
             <div className="flex flex-wrap justify-start gap-3">
               <AccionesFila
@@ -727,10 +712,10 @@ function ReglasTable({
   onEliminar: (id: string) => void;
 }) {
   if (reglas === null) {
-    return <p className="text-sm text-grafito/60">Cargando…</p>;
+    return <p className="text-sm text-grafito/75">Cargando…</p>;
   }
   if (reglas.length === 0) {
-    return <p className="text-sm text-grafito/60">{vacioMensaje}</p>;
+    return <p className="text-sm text-grafito/75">{vacioMensaje}</p>;
   }
 
   return (
@@ -738,21 +723,23 @@ function ReglasTable({
     // scrollbar cuando se acumulen muchos [registros], así no se agranda
     // la página" — antes la tabla crecía sin límite y empujaba todo el
     // modal (que ya tiene su propio scroll general) cada vez más largo.
-    <CajaDeTabla className="max-h-64 overflow-auto rounded-card border-[0.5px] border-arena max-md:max-h-[var(--alto-mobile,16rem)]">
-      <table className="w-full text-left text-sm">
+    <CajaDeTabla className={`${CLASE_CAJA_TABLA_EN_DIALOGO} max-h-64 max-md:max-h-[var(--alto-mobile,16rem)]`}>
+      <table className={CLASE_TABLA}>
         <thead>
-          <tr className="sticky top-0 border-b-[0.5px] border-arena bg-hueso text-xs font-semibold uppercase tracking-wide text-grafito/60">
-            <th className="whitespace-nowrap px-4 py-2">
+          <tr>
+            <th className={CLASE_CABECERA}>
               {especifico ? "Fecha" : "Día"}
             </th>
             {!especifico && (
-              <th className="whitespace-nowrap px-4 py-2">Alcance</th>
+              <th className={CLASE_CABECERA}>Alcance</th>
             )}
-            <th className="whitespace-nowrap px-4 py-2">Horario</th>
-            <th className="whitespace-nowrap px-4 py-2">Motivo</th>
+            <th className={CLASE_CABECERA}>Horario</th>
+            <th className={CLASE_CABECERA}>Motivo</th>
             {/* hidden md:table-cell — ver el comentario igual en la tabla
                 de Tipos de consulta más abajo. */}
-            <th className="hidden px-4 py-2 md:table-cell" />
+            <th className={`${CLASE_CABECERA} hidden md:table-cell`}>
+              <span className="sr-only">Acciones</span>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -808,11 +795,11 @@ function FilaRegla({
       <tr
         ref={focalizada ? filaFocalizadaRef : undefined}
         onClick={() => setDesplegada((actual) => !actual)}
-        className={`cursor-pointer border-b-[0.5px] border-arena last:border-b-0 hover:bg-hueso md:cursor-default ${
-          focalizada ? "bg-salvia-claro" : desplegada ? "bg-hueso" : ""
+        className={`${CLASE_FILA} cursor-pointer hover:bg-velo md:cursor-default ${
+          focalizada ? "bg-marca-claro" : desplegada ? "bg-hueso" : ""
         } ${desplegada ? "" : "md:border-b-[0.5px]"}`}
       >
-        <td className="px-4 py-2 text-grafito">
+        <td className={CLASE_CELDA}>
           {especifico
             ? r.fecha
             : r.diaSemana !== undefined
@@ -820,15 +807,15 @@ function FilaRegla({
               : "—"}
         </td>
         {!especifico && (
-          <td className="px-4 py-2 text-grafito">
+          <td className={CLASE_CELDA}>
             {r.alcance ? ALCANCE_LABEL[r.alcance] : "—"}
           </td>
         )}
-        <td className="px-4 py-2 font-[family-name:var(--font-mono)] text-grafito">
+        <td className={`${CLASE_CELDA} ${CLASE_MONO}`}>
           {r.horaDesde}–{r.horaHasta}
         </td>
-        <td className="px-4 py-2 text-grafito/70">{r.motivo || "—"}</td>
-        <td className="hidden px-4 py-2 text-right md:table-cell">
+        <td className={CLASE_CELDA_SECUNDARIA}>{r.motivo || "—"}</td>
+        <td className={`${CLASE_CELDA} hidden text-right md:table-cell`}>
           <div className="flex justify-end gap-3">
             <AccionesFila
               onEditar={() => onEditar(r)}
@@ -841,7 +828,7 @@ function FilaRegla({
         </td>
       </tr>
       {desplegada && (
-        <tr className="border-b-[0.5px] border-arena bg-hueso last:border-b-0 md:hidden">
+        <tr className={`${CLASE_FILA} bg-hueso md:hidden`}>
           {/* justify-start (corrección de QA, 2026-08-30: "los botones
               tienen que estar a la izquierda") — esta fila es angosta y
               propia (no comparte columnas con la fila principal), no
@@ -883,9 +870,9 @@ function FilaTipoConsulta({
     <>
       <tr
         onClick={() => setDesplegada((actual) => !actual)}
-        className={`cursor-pointer border-b-[0.5px] border-arena last:border-b-0 hover:bg-hueso md:cursor-default ${desplegada ? "bg-hueso" : ""}`}
+        className={`${CLASE_FILA} cursor-pointer hover:bg-velo md:cursor-default ${desplegada ? "bg-hueso" : ""}`}
       >
-        <td className="px-4 py-2 text-grafito">
+        <td className={CLASE_CELDA}>
           <span className="flex items-center gap-2">
             <span
               className="h-3 w-3 flex-shrink-0 rounded-full"
@@ -895,18 +882,18 @@ function FilaTipoConsulta({
             <span className="font-semibold">{t.nombre}</span>
           </span>
         </td>
-        <td className="px-4 py-2 text-grafito">
+        <td className={CLASE_CELDA}>
           {t.duracionMinutos ?? "—"} min
         </td>
-        <td className="px-4 py-2 text-grafito/70">
+        <td className={CLASE_CELDA_SECUNDARIA}>
           {t.tiempoPostConsultaMinutos
             ? `${t.tiempoPostConsultaMinutos} min`
             : "—"}
         </td>
-        <td className="px-4 py-2 text-grafito/70">
+        <td className={CLASE_CELDA_SECUNDARIA}>
           {t.cantidadSesiones ?? "—"}
         </td>
-        <td className="hidden px-4 py-2 text-right md:table-cell">
+        <td className={`${CLASE_CELDA} hidden text-right md:table-cell`}>
           <div className="flex justify-end gap-3">
             <AccionesFila
               onEditar={onEditar}
@@ -919,7 +906,7 @@ function FilaTipoConsulta({
         </td>
       </tr>
       {desplegada && (
-        <tr className="border-b-[0.5px] border-arena bg-hueso last:border-b-0 md:hidden">
+        <tr className={`${CLASE_FILA} bg-hueso md:hidden`}>
           <td colSpan={5} className="px-4 py-2">
             <div className="flex flex-wrap justify-start gap-3">
               <AccionesFila
@@ -981,7 +968,7 @@ function AccionesFila({
           }}
           className={
             mobile
-              ? "rounded-full bg-terracota-oscuro px-3 py-1.5 text-xs font-semibold text-marfil hover:brightness-95"
+              ? "rounded-control bg-terracota-oscuro px-3 py-1.5 text-xs font-semibold text-marfil hover:brightness-95"
               : "text-sm font-medium text-terracota-oscuro hover:brightness-90"
           }
         >
@@ -995,7 +982,7 @@ function AccionesFila({
           }}
           className={
             mobile
-              ? "rounded-full border-[0.5px] border-arena bg-marfil px-3 py-1.5 text-xs font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
+              ? "rounded-control border-[0.5px] border-arena bg-marfil px-3 py-1.5 text-xs font-medium text-grafito hover:border-marca-medio hover:text-marca"
               : "text-sm font-medium text-grafito hover:text-grafito/70"
           }
         >
@@ -1016,8 +1003,8 @@ function AccionesFila({
         aria-label={labelEditar}
         className={
           mobile
-            ? "rounded-full border-[0.5px] border-arena bg-marfil px-3 py-1.5 text-xs font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
-            : "text-sm font-medium text-salvia-oscuro hover:brightness-90"
+            ? "rounded-control border-[0.5px] border-arena bg-marfil px-3 py-1.5 text-xs font-medium text-grafito hover:border-marca-medio hover:text-marca"
+            : "text-sm font-medium text-marca hover:brightness-90"
         }
       >
         Editar
@@ -1031,7 +1018,7 @@ function AccionesFila({
         aria-label={labelEliminar}
         className={
           mobile
-            ? "rounded-full border-[0.5px] border-terracota bg-marfil px-3 py-1.5 text-xs font-medium text-terracota-oscuro hover:bg-terracota-claro"
+            ? "rounded-control border-[0.5px] border-terracota bg-marfil px-3 py-1.5 text-xs font-medium text-terracota-oscuro hover:bg-terracota-claro"
             : "text-sm font-medium text-terracota-oscuro hover:brightness-90"
         }
       >
@@ -1042,7 +1029,7 @@ function AccionesFila({
 }
 
 const inputClass =
-  "rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-grafito outline-none focus:border-salvia";
+  "rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-grafito outline-none focus:border-marca-medio";
 
 function Campo({
   label,

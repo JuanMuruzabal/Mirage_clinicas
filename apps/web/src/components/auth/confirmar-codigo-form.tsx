@@ -115,7 +115,7 @@ export function ConfirmarCodigoForm({ email: emailInicial, emailFijo = true }: C
             type="button"
             onClick={reenviar}
             disabled={reenviando}
-            className="font-medium text-salvia-oscuro hover:text-grafito disabled:opacity-60"
+            className="font-medium text-marca hover:text-grafito disabled:opacity-60"
           >
             {reenviando ? "Reenviando…" : "Reenviar código"}
           </button>

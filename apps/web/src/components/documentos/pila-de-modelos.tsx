@@ -142,7 +142,7 @@ export function HojaDelModelo({ modelo, hoy, pagina }: { modelo: Modelo; hoy: st
 // que "Pantalla completa"; "Página" sigue ahí para el lector de pantalla
 // (`aria-live` lee "Página 1 de 4").
 function PasarPagina({ pagina, total, onCambiar }: { pagina: number; total: number; onCambiar: (n: number) => void }) {
-  const flecha = `flex min-h-10 min-w-10 items-center justify-center px-2 text-grafito/70 transition-colors hover:bg-hueso hover:text-grafito disabled:opacity-40 disabled:hover:bg-transparent ${CLASE_TACTIL}`;
+  const flecha = `flex min-h-10 min-w-10 items-center justify-center px-2 text-grafito/70 transition-colors hover:bg-velo hover:text-grafito disabled:opacity-40 disabled:hover:bg-transparent ${CLASE_TACTIL}`;
   return (
     <div role="group" aria-label="Páginas del modelo" className="flex items-stretch overflow-hidden rounded-card border border-linea bg-marfil shadow-soft">
       <button type="button" aria-label="Página anterior" disabled={pagina <= 1} onClick={() => onCambiar(pagina - 1)} className={flecha}>

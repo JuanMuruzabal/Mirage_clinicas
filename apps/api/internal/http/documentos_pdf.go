@@ -77,10 +77,28 @@ func folioDeLaHistoria(tx *gorm.DB, d db.DocumentoClinico) (*int, error) {
 	return folio, err
 }
 
+// pdfConAnexos — el valor de `?con=` que pide el PDF de una historia seguida
+// de sus anexos.
+const pdfConAnexos = "anexos"
+
+// errSoloLaHistoriaConAnexos — `?con=anexos` sobre algo que no es una
+// historia clínica: un anexo o un consentimiento no tienen anexos.
+const errSoloLaHistoriaConAnexos = "solo una historia clínica se descarga con sus anexos"
+
+// conSusAnexos — el nombre del archivo de una historia con sus anexos: el de
+// la historia con "-con-anexos" antes de la extensión
+// ("historia-clinica-general-folio-3-con-anexos.pdf"). El mismo que arma
+// nombreDeArchivoDelPDF de apps/web/src/lib/pdf-de-documentos.ts.
+func conSusAnexos(nombre string) string {
+	return strings.TrimSuffix(nombre, ".pdf") + "-con-anexos.pdf"
+}
+
 // descargarPDFHandler — GET /documentos/{id}/pdf: el PDF de un documento
 // terminado que veo (TR-186), con su evento "exportado" en la auditoría.
 // Con `?para=imprimir` se sirve para abrirlo en el navegador (inline) e
-// imprimirlo, y el evento lo dice; sin eso, como descarga (attachment).
+// imprimirlo, y el evento lo dice; sin eso, como descarga (attachment). Con
+// `?con=anexos`, una historia clínica seguida de sus anexos con PDF
+// (entregarPDFConAnexos).
 func descargarPDFHandler(gdb *gorm.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		clinicID, ok := profesionalIDFromRequest(w, r)
@@ -92,91 +110,221 @@ func descargarPDFHandler(gdb *gorm.DB) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "id de documento inválido")
 			return
 		}
+		con := r.URL.Query().Get("con")
+		if con != "" && con != pdfConAnexos {
+			writeError(w, http.StatusBadRequest, `"con" solo admite "anexos"`)
+			return
+		}
 		var doc db.DocumentoClinico
 		if err := gdb.Scopes(documentosQueVeo(r, clinicID)).
 			Where("documentos_clinicos.id = ? AND documentos_clinicos.clinic_id = ?", docID, clinicID).First(&doc).Error; err != nil {
 			writeError(w, http.StatusNotFound, "documento no encontrado")
 			return
 		}
-		switch doc.Estado {
-		case db.DocumentoAbierto:
-			entregarPDFDeContinuacion(gdb, w, r, doc)
-			return
-		case db.DocumentoSellado, db.DocumentoParaImprimir:
-		case db.DocumentoAFirmar:
-			writeError(w, http.StatusConflict, "todavía faltan firmas: el PDF está cuando el documento se sella")
-			return
-		default:
-			writeError(w, http.StatusConflict, "solo un documento terminado tiene PDF")
-			return
-		}
-
-		plantilla, ok := documentos.PorID(doc.PlantillaID, doc.PlantillaVersion)
-		if !ok {
-			slog.Error("el PDF de un documento no tiene su plantilla",
-				slog.String("documento_id", doc.ID.String()),
-				slog.String("plantilla_id", doc.PlantillaID), slog.Int("plantilla_version", doc.PlantillaVersion))
-			writeError(w, http.StatusInternalServerError, "no se pudo generar el PDF del documento: la API no tiene la versión de la plantilla con la que se hizo")
-			return
-		}
-		folioHistoria, err := folioDeLaHistoria(gdb, doc)
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "no se pudo generar el PDF del documento")
-			return
-		}
-		var firmas []db.DocumentoFirma
-		if doc.Estado == db.DocumentoSellado {
-			if err := gdb.Where("documento_id = ?", doc.ID).Order("rol").Find(&firmas).Error; err != nil {
-				writeError(w, http.StatusInternalServerError, "no se pudo generar el PDF del documento")
+		if doc.Estado == db.DocumentoAbierto {
+			if con != "" {
+				writeError(w, http.StatusConflict, errSoloLaHistoriaConAnexos)
 				return
 			}
-		}
-		datos, err := documentos.GenerarPDF(documentos.FuenteDelPDF{Documento: doc, Firmas: firmas, Plantilla: plantilla, FolioDeLaHistoria: folioHistoria})
-		if errors.Is(err, documentos.ErrSinComposicion) {
-			// Un documento sellado antes de que se congelara la composición
-			// de la lámina (TR-187 decisión 14): se ve en pantalla, en su
-			// versión de texto, pero su PDF sería el formulario en blanco.
-			// No es una falla: ese documento no tiene PDF. Sin evento —
-			// no se exportó nada— y sin log de error.
-			writeError(w, http.StatusConflict, err.Error())
+			entregarPDFDeContinuacion(gdb, w, r, doc)
 			return
 		}
+		fuente, ok := fuenteDelTerminado(gdb, w, doc)
+		if !ok {
+			return
+		}
+		if con != "" {
+			entregarPDFConAnexos(gdb, w, r, clinicID, fuente)
+			return
+		}
+		datos, err := documentos.GenerarPDF(fuente)
 		if err != nil {
-			// Solo el id: nada del contenido va a los logs (TR-186). Los
-			// errores de GenerarPDF no llevan contenido del documento.
-			slog.Error("no se pudo generar el PDF de un documento",
-				slog.String("documento_id", doc.ID.String()), slog.String("error", err.Error()))
-			var incompleto *documentos.DocumentoIncompletoError
-			switch {
-			case errors.Is(err, documentos.ErrPlantillaSinLamina):
-				// No hay página sobre la cual dibujar: no es una falla del
-				// servidor sino algo que este documento no tiene.
-				writeError(w, http.StatusConflict, err.Error())
-			case errors.Is(err, documentos.ErrDocumentoNoTerminado):
-				writeError(w, http.StatusConflict, "solo un documento terminado tiene PDF")
-			case errors.As(err, &incompleto):
-				// Un dato que el estado del documento garantiza y no está:
-				// el documento guardado está dañado. Sigue siendo un 500,
-				// pero dice qué falta.
-				writeError(w, http.StatusInternalServerError, "no se pudo generar el PDF del documento: "+incompleto.Falta)
-			default:
-				writeError(w, http.StatusInternalServerError, "no se pudo generar el PDF del documento")
-			}
+			responderErrorDelPDF(w, doc.ID, err)
 			return
 		}
-
-		entregarPDF(gdb, w, r, doc, nombreDeArchivoDelPDF(doc, plantilla, documentos.FolioDe(doc, folioHistoria)), datos)
+		entregarPDF(gdb, w, r, []db.DocumentoClinico{doc}, nombreDeArchivoDelPDF(doc, fuente.Plantilla, documentos.FolioDe(doc, fuente.FolioDeLaHistoria)), datos)
 	}
 }
 
-// entregarPDF — deja la exportación en la auditoría y sirve el PDF: como
-// descarga o, con `?para=imprimir`, para abrirlo en el navegador.
-func entregarPDF(gdb *gorm.DB, w http.ResponseWriter, r *http.Request, doc db.DocumentoClinico, nombre string, datos []byte) {
+// fuenteDelTerminado — lo que hace falta para el PDF de un documento sellado
+// o para imprimir: su plantilla, el folio de su historia si es un anexo y, si
+// está sellado, sus firmas. Si falta algo, responde y devuelve false.
+func fuenteDelTerminado(gdb *gorm.DB, w http.ResponseWriter, doc db.DocumentoClinico) (documentos.FuenteDelPDF, bool) {
+	switch doc.Estado {
+	case db.DocumentoSellado, db.DocumentoParaImprimir:
+	case db.DocumentoAFirmar:
+		writeError(w, http.StatusConflict, "todavía faltan firmas: el PDF está cuando el documento se sella")
+		return documentos.FuenteDelPDF{}, false
+	default:
+		writeError(w, http.StatusConflict, "solo un documento terminado tiene PDF")
+		return documentos.FuenteDelPDF{}, false
+	}
+	plantilla, ok := documentos.PorID(doc.PlantillaID, doc.PlantillaVersion)
+	if !ok {
+		slog.Error("el PDF de un documento no tiene su plantilla",
+			slog.String("documento_id", doc.ID.String()),
+			slog.String("plantilla_id", doc.PlantillaID), slog.Int("plantilla_version", doc.PlantillaVersion))
+		writeError(w, http.StatusInternalServerError, "no se pudo generar el PDF del documento: la API no tiene la versión de la plantilla con la que se hizo")
+		return documentos.FuenteDelPDF{}, false
+	}
+	folioHistoria, err := folioDeLaHistoria(gdb, doc)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "no se pudo generar el PDF del documento")
+		return documentos.FuenteDelPDF{}, false
+	}
+	var firmas []db.DocumentoFirma
+	if doc.Estado == db.DocumentoSellado {
+		if err := gdb.Where("documento_id = ?", doc.ID).Order("rol").Find(&firmas).Error; err != nil {
+			writeError(w, http.StatusInternalServerError, "no se pudo generar el PDF del documento")
+			return documentos.FuenteDelPDF{}, false
+		}
+	}
+	return documentos.FuenteDelPDF{Documento: doc, Firmas: firmas, Plantilla: plantilla, FolioDeLaHistoria: folioHistoria}, true
+}
+
+// responderErrorDelPDF — la respuesta a un error del generador del PDF. Lo
+// que el documento no tiene no es una falla del servidor: un documento sellado
+// antes de que se congelara la composición de la lámina (TR-187 decisión 14),
+// que se ve en pantalla pero cuyo PDF sería el formulario en blanco, o una
+// historia sin anexos con PDF. Eso es un 409 sin log ni evento: no se exportó
+// nada. El resto se loguea solo con el id —nada del contenido va a los logs
+// (TR-186)—, y los errores del generador no lo llevan.
+func responderErrorDelPDF(w http.ResponseWriter, docID uuid.UUID, err error) {
+	if errors.Is(err, documentos.ErrSinComposicion) || errors.Is(err, documentos.ErrSinAnexosConPDF) {
+		writeError(w, http.StatusConflict, err.Error())
+		return
+	}
+	slog.Error("no se pudo generar el PDF de un documento",
+		slog.String("documento_id", docID.String()), slog.String("error", err.Error()))
+	var incompleto *documentos.DocumentoIncompletoError
+	switch {
+	case errors.Is(err, documentos.ErrPlantillaSinLamina):
+		// No hay página sobre la cual dibujar: no es una falla del servidor
+		// sino algo que este documento no tiene.
+		writeError(w, http.StatusConflict, err.Error())
+	case errors.Is(err, documentos.ErrDocumentoNoTerminado):
+		writeError(w, http.StatusConflict, "solo un documento terminado tiene PDF")
+	case errors.As(err, &incompleto):
+		// Un dato que el estado del documento garantiza y no está: el
+		// documento guardado está dañado. Sigue siendo un 500, pero dice qué
+		// falta.
+		writeError(w, http.StatusInternalServerError, "no se pudo generar el PDF del documento: "+incompleto.Falta)
+	default:
+		writeError(w, http.StatusInternalServerError, "no se pudo generar el PDF del documento")
+	}
+}
+
+// entregarPDFConAnexos — `?con=anexos`: el PDF de una historia clínica
+// terminada seguida de los anexos con PDF que ve quien pide
+// (documentos.GenerarPDFConAnexos), con un evento "exportado" por cada
+// documento incluido. Las validaciones de la historia son las de su PDF
+// suelto y van antes que el 409 de "sin anexos con PDF".
+func entregarPDFConAnexos(gdb *gorm.DB, w http.ResponseWriter, r *http.Request, clinicID uuid.UUID, historia documentos.FuenteDelPDF) {
+	if historia.Plantilla.Tipo != documentos.TipoHistoriaClinica {
+		writeError(w, http.StatusConflict, errSoloLaHistoriaConAnexos)
+		return
+	}
+	anexos, fuentes, err := anexosConPDF(gdb, r, clinicID, historia.Documento)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "no se pudo generar el PDF del documento")
+		return
+	}
+	datos, err := documentos.GenerarPDFConAnexos(historia, fuentes)
+	if err != nil {
+		responderErrorDelPDF(w, historia.Documento.ID, err)
+		return
+	}
+	d := historia.Documento
+	nombre := conSusAnexos(nombreDeArchivoDelPDF(d, historia.Plantilla, documentos.FolioDe(d, historia.FolioDeLaHistoria)))
+	entregarPDF(gdb, w, r, append([]db.DocumentoClinico{d}, anexos...), nombre, datos)
+}
+
+// anexosConPDF — los anexos de una historia que ve quien pide y tienen PDF
+// (documentos.TienePDF, el criterio del resumen), por número, con lo que hace
+// falta para armar cada uno: los asientos de los de continuación y las firmas
+// de los sellados. Tres consultas fijas como máximo, nunca una por anexo
+// (TR-177). El folio de cada uno es el de la historia, que ya está cargada.
+func anexosConPDF(tx *gorm.DB, r *http.Request, clinicID uuid.UUID, historia db.DocumentoClinico) ([]db.DocumentoClinico, []documentos.FuenteDeAnexo, error) {
+	var filas []db.DocumentoClinico
+	if err := tx.Scopes(documentosQueVeo(r, clinicID)).
+		Where("documentos_clinicos.clinic_id = ? AND documentos_clinicos.anexo_de = ?", clinicID, historia.ID).
+		Order("documentos_clinicos.anexo_numero").Find(&filas).Error; err != nil {
+		return nil, nil, err
+	}
+	anexos := make([]db.DocumentoClinico, 0, len(filas))
+	plantillas := make(map[uuid.UUID]*documentos.Plantilla, len(filas))
+	var continuaciones, sellados []uuid.UUID
+	for _, a := range filas {
+		p, ok := documentos.PorID(a.PlantillaID, a.PlantillaVersion)
+		if !ok || !documentos.TienePDF(a, p) {
+			continue
+		}
+		anexos = append(anexos, a)
+		plantillas[a.ID] = p
+		switch a.Estado {
+		case db.DocumentoAbierto:
+			continuaciones = append(continuaciones, a.ID)
+		case db.DocumentoSellado:
+			sellados = append(sellados, a.ID)
+		}
+	}
+	asientos, err := porDocumento(tx, continuaciones, "numero", func(a db.DocumentoAsiento) uuid.UUID { return a.DocumentoID })
+	if err != nil {
+		return nil, nil, err
+	}
+	firmas, err := porDocumento(tx, sellados, "rol", func(f db.DocumentoFirma) uuid.UUID { return f.DocumentoID })
+	if err != nil {
+		return nil, nil, err
+	}
+	fuentes := make([]documentos.FuenteDeAnexo, len(anexos))
+	for i, a := range anexos {
+		if a.Estado == db.DocumentoAbierto {
+			fuentes[i] = documentos.FuenteDeContinuacion{Documento: a, Asientos: asientos[a.ID], FolioDeLaHistoria: historia.Folio}
+			continue
+		}
+		fuentes[i] = documentos.FuenteDelPDF{Documento: a, Firmas: firmas[a.ID], Plantilla: plantillas[a.ID], FolioDeLaHistoria: historia.Folio}
+	}
+	return anexos, fuentes, nil
+}
+
+// porDocumento — las filas de una tabla hija (asientos, firmas) de varios
+// documentos en una sola consulta, agrupadas por documento y, en cada uno, en
+// el mismo orden que su PDF suelto: así cada parte sale igual que sola.
+func porDocumento[T any](tx *gorm.DB, ids []uuid.UUID, orden string, documentoDe func(T) uuid.UUID) (map[uuid.UUID][]T, error) {
+	grupos := make(map[uuid.UUID][]T, len(ids))
+	if len(ids) == 0 {
+		return grupos, nil
+	}
+	var filas []T
+	if err := tx.Where("documento_id IN ?", ids).Order("documento_id, " + orden).Find(&filas).Error; err != nil {
+		return nil, err
+	}
+	for _, f := range filas {
+		id := documentoDe(f)
+		grupos[id] = append(grupos[id], f)
+	}
+	return grupos, nil
+}
+
+// entregarPDF — deja en la auditoría la exportación de cada documento
+// incluido (uno, o una historia con sus anexos) y sirve el PDF: como descarga
+// o, con `?para=imprimir`, para abrirlo en el navegador. Los eventos van en un
+// solo INSERT, dentro de la transacción de GORM —quedan todos o ninguno—, y
+// antes de la respuesta: sin auditoría no se entrega nada.
+func entregarPDF(gdb *gorm.DB, w http.ResponseWriter, r *http.Request, incluidos []db.DocumentoClinico, nombre string, datos []byte) {
+	consulta := r.URL.Query()
 	detalle, disposicion := "pdf", "attachment"
-	if r.URL.Query().Get("para") == "imprimir" {
+	if consulta.Get("para") == "imprimir" {
 		detalle, disposicion = "impresión", "inline"
 	}
-	if err := registrarEvento(gdb, r, doc, db.EventoDocumentoExportado, detalle); err != nil {
+	if consulta.Get("con") == pdfConAnexos {
+		detalle += " con anexos"
+	}
+	eventos := make([]db.DocumentoEvento, len(incluidos))
+	for i, d := range incluidos {
+		eventos[i] = eventoDelDocumento(r, d, db.EventoDocumentoExportado, detalle)
+	}
+	if err := gdb.Create(&eventos).Error; err != nil {
 		writeError(w, http.StatusInternalServerError, "no se pudo registrar la descarga")
 		return
 	}

@@ -58,37 +58,33 @@ describe("PacientesTable", () => {
     expect(screen.queryByText(`DNI ${paciente.dni}`)).not.toBeInTheDocument();
   });
 
-  it("sin email, la columna y el panel desplegable muestran —", async () => {
-    const user = userEvent.setup();
+  it("sin email, la columna muestra —", () => {
     render(<PacientesTable pacientes={[{ ...paciente, email: null }]} />);
     expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(1);
-
-    await user.click(screen.getByRole("button", { name: "Mostrar datos" }));
-    expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(2);
   });
 
-  it("tocar el chevron despliega DNI/Email sin navegar, y tocar la fila sí navega", async () => {
+  // Correcciones generales, ítem 9 (2026-10-12): la tabla va completa en
+  // todos los anchos, así que no hay panel desplegable ni chevron; tocar la
+  // fila lleva a la ficha.
+  it("no hay panel desplegable: tocar la fila navega a la ficha", async () => {
     const user = userEvent.setup();
     render(<PacientesTable pacientes={[paciente]} />);
 
-    await user.click(screen.getByRole("button", { name: "Mostrar datos" }));
-    expect(pushMock).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "Ocultar datos" })).toBeInTheDocument();
-
-    await user.click(screen.getByText("Bruno Iglesias"));
+    expect(screen.queryByRole("button", { name: "Mostrar datos" })).not.toBeInTheDocument();
+    await user.click(screen.getByText("30111222"));
     expect(pushMock).toHaveBeenCalledWith("/panel/pacientes/p-1");
   });
 
-  it("el link 'Ver ficha' apunta a la ficha del paciente", () => {
+  it("el nombre es el link a la ficha del paciente", () => {
     render(<PacientesTable pacientes={[paciente]} />);
-    expect(screen.getByRole("link", { name: "Ver ficha" })).toHaveAttribute("href", "/panel/pacientes/p-1");
+    expect(screen.getByRole("link", { name: "Bruno Iglesias" })).toHaveAttribute("href", "/panel/pacientes/p-1");
   });
 
   // Extra 2.3.4 (E4.1): un email largo ya no se muestra inline (rompía el
   // ancho de la fila) — se reemplaza por el botón "Ver email"
   // (VerTextoBoton, Extra 2.3.1/E1.7), que abre el texto completo en un
   // modal aparte, sin navegar a la ficha (stopPropagation propio de
-  // VerTextoBoton, mismo criterio que el chevron/"Ver ficha").
+  // VerTextoBoton, mismo criterio que el link del nombre).
   describe("E4.1: 'Ver email' para un email largo", () => {
     const emailLargo = "bruno.alejandro.iglesias.paciente.frecuente@clinica-ejemplo.com.ar";
     const pacienteEmailLargo = { ...paciente, email: emailLargo };
@@ -178,11 +174,19 @@ describe("PacientesTable", () => {
       expect(screen.queryByRole("link", { name: "Ver tutores" })).not.toBeInTheDocument();
     });
 
-    it("con más de un tutor, muestra un link 'Ver tutores' hacia la ficha", () => {
+    // 2026-10-17 (pedido de la persona): "Ver tutores" pasa a ser el mismo
+    // botón que "Ver teléfonos" y abre un modal con cada tutor, en vez de
+    // llevar a la ficha.
+    it("con más de un tutor, 'Ver tutores' abre un modal con todos, sin navegar", async () => {
+      const user = userEvent.setup();
       render(<PacientesTable pacientes={[{ ...paciente, tutores: [tutor1, tutor2] }]} />);
       expect(screen.queryByText("Julián Ortiz")).not.toBeInTheDocument();
-      const link = screen.getByRole("link", { name: "Ver tutores" });
-      expect(link).toHaveAttribute("href", `/panel/pacientes/${paciente.id}`);
+      await user.click(screen.getByRole("button", { name: "Ver tutores" }));
+      const dialogo = await screen.findByRole("dialog", { name: "Tutores" });
+      expect(within(dialogo).getByText("Julián Ortiz")).toBeInTheDocument();
+      expect(within(dialogo).getByText("Familiar")).toBeInTheDocument();
+      expect(within(dialogo).getByText("rosa@example.com")).toBeInTheDocument();
+      expect(pushMock).not.toHaveBeenCalled();
     });
   });
 
@@ -190,35 +194,24 @@ describe("PacientesTable", () => {
   // Teléfono competía con Nombre/Estado por el ancho y quedaba recortado.
   // Pasa a max-md:hidden (mismo criterio que DNI/Email), visible desde
   // `md` como columna propia y, en mobile, dentro del panel desplegable.
-  describe("Teléfono pasa al panel desplegable en mobile (2026-09-06)", () => {
-    it("Teléfono sigue siendo una columna visible en la fila (desktop)", () => {
+  describe("Teléfono es una columna en todos los anchos (2026-10-12)", () => {
+    it("Teléfono es una columna visible en la fila", () => {
       render(<PacientesTable pacientes={[paciente]} />);
       expect(screen.getByRole("cell", { name: paciente.telefono })).toBeInTheDocument();
     });
 
-    it("al desplegar, el panel muestra también el teléfono junto a DNI/Email", async () => {
-      const user = userEvent.setup();
+    it("no se repite en un panel desplegable", () => {
       render(<PacientesTable pacientes={[paciente]} />);
-
-      await user.click(screen.getByRole("button", { name: "Mostrar datos" }));
-
-      // getAllByText porque el teléfono ahora aparece dos veces (la celda
-      // de siempre + el panel desplegado) — mismo criterio ya establecido
-      // en este archivo para el email largo/corto.
-      expect(screen.getAllByText(paciente.telefono).length).toBe(2);
+      expect(screen.getAllByText(paciente.telefono)).toHaveLength(1);
     });
   });
 
-  // Pedido textual del cliente (2026-09-06): "en mobile, tocar la fila
-  // debería mostrar la demás info [en vez de navegar], como en Turnos...
-  // poner un botón en mobile para ver la ficha". Por debajo de 768px
-  // (mockeando matchMedia), tocar la fila despliega el panel en vez de
-  // navegar — la navegación real pasa al botón "Ver ficha" de adentro del
-  // panel. En escritorio (matchMedia por default en este archivo, ver el
-  // stub de vitest.setup.ts) sigue navegando directo, sin cambios
-  // (confirmado más arriba, "tocar el chevron despliega... y tocar la
-  // fila sí navega").
-  describe("en mobile, tocar la fila despliega en vez de navegar (2026-09-06)", () => {
+  // Hasta el 2026-10-12, en el celular tocar la fila desplegaba un panel
+  // con las columnas escondidas y un botón "Ver ficha" propio (pedido del
+  // 2026-09-06). Desde las correcciones generales (ítem 9) el celular ve la
+  // tabla completa, con scroll de costado, y tocar la fila hace lo mismo
+  // que en la computadora: lleva a la ficha.
+  describe("en mobile, tocar la fila navega como en la computadora (2026-10-12)", () => {
     function mockearMobile() {
       const original = window.matchMedia;
       window.matchMedia = ((query: string) => ({
@@ -236,36 +229,28 @@ describe("PacientesTable", () => {
       };
     }
 
-    it("tocar la fila despliega el panel sin navegar", async () => {
+    it("tocar la fila navega a la ficha, sin desplegar nada", async () => {
       const restaurar = mockearMobile();
       try {
         const user = userEvent.setup();
         render(<PacientesTable pacientes={[paciente]} />);
-        const llamadasPrevias = pushMock.mock.calls.length;
 
-        await user.click(screen.getByText("Bruno Iglesias"));
+        await user.click(screen.getByText("30111222"));
 
-        expect(pushMock.mock.calls.length).toBe(llamadasPrevias);
-        expect(screen.getByRole("button", { name: "Ocultar datos" })).toBeInTheDocument();
+        expect(pushMock).toHaveBeenCalledWith("/panel/pacientes/p-1");
+        expect(screen.queryByRole("button", { name: "Ocultar datos" })).not.toBeInTheDocument();
       } finally {
         restaurar();
       }
     });
 
-    it("el panel desplegado tiene un botón 'Ver ficha' propio que sí navega (es un link)", async () => {
+    it("hay un solo link a la ficha por fila, el del nombre", () => {
       const restaurar = mockearMobile();
       try {
-        const user = userEvent.setup();
         render(<PacientesTable pacientes={[paciente]} />);
-
-        await user.click(screen.getByText("Bruno Iglesias"));
-
-        // Dos links "Ver ficha" en el DOM a la vez (el de siempre,
-        // max-md:hidden vía CSS, y el nuevo del panel) — ambos con el
-        // mismo href, ninguno depende de JS para funcionar.
-        const links = screen.getAllByRole("link", { name: "Ver ficha" });
-        expect(links.length).toBe(2);
-        links.forEach((link) => expect(link).toHaveAttribute("href", "/panel/pacientes/p-1"));
+        const links = screen.getAllByRole("link", { name: "Bruno Iglesias" });
+        expect(links).toHaveLength(1);
+        expect(links[0]).toHaveAttribute("href", "/panel/pacientes/p-1");
       } finally {
         restaurar();
       }

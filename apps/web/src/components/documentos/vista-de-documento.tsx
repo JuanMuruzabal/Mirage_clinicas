@@ -7,7 +7,7 @@ import Link from "next/link";
 import { IconDownload, IconPrinter } from "@/components/icons";
 import { registrarImpresionAction } from "@/app/actions/documentos";
 import { MODELO_RETIRADO, contenidoCongelado, fechaYHora, huellaCorta, nombreConTipo, nombreDeModelo, rotuloDeFolio } from "@/lib/documentos";
-import { CLASE_BOTON_PDF, nombreDeArchivoDelPDF, rutaDelPDF, tienePDF } from "./acciones-de-pdf";
+import { CLASE_BOTON_PDF, ImprimirYDescargar, nombreDeArchivoDelPDF, tienePDF } from "./acciones-de-pdf";
 import { CalcoCongelado } from "./calco";
 import { BotonDescargarPDF } from "./descargar-pdf";
 import { PastillaDeEstado } from "./pastilla-de-estado";
@@ -86,14 +86,14 @@ export function VistaDeDocumento({ documento }: { documento: DocumentoDetalle })
       </p>
       <p>
         Terminado el {fechaYHora(documento.terminadoEn)} · huella del contenido{" "}
-        <span title={documento.hashContenido} className="font-[family-name:var(--font-mono)]">
+        <span title={documento.hashContenido} className="font-[family-name:var(--font-codigo)]">
           {huellaCorta(documento.hashContenido)}
         </span>
       </p>
       {documento.estado === "sellado" && (
         <p>
           Sellado el {fechaYHora(documento.selladoEn)} · {rotuloDeFolio(documento.folioMostrado)} · sello{" "}
-          <span title={documento.hashSello} className="font-[family-name:var(--font-mono)]">
+          <span title={documento.hashSello} className="font-[family-name:var(--font-codigo)]">
             {huellaCorta(documento.hashSello)}
           </span>
         </p>
@@ -131,7 +131,7 @@ export function VistaDeDocumento({ documento }: { documento: DocumentoDetalle })
         >
           {documento.estado === "sellado" && (
             <section className="rounded-card border border-salvia/40 bg-salvia-claro p-4 text-sm text-salvia-oscuro">
-              <h3 className="font-[family-name:var(--font-display)] text-lg font-medium">Firmado y sellado</h3>
+              <h3 className="font-[family-name:var(--font-display)] text-lg font-semibold">Firmado y sellado</h3>
               <p className="mt-1">
                 Es parte de la historia clínica del paciente y ya no se puede modificar ni borrar. Si hace falta corregir algo, se hace con un documento nuevo.
               </p>
@@ -147,7 +147,7 @@ export function VistaDeDocumento({ documento }: { documento: DocumentoDetalle })
           )}
           {documento.estado === "sellado" && !conPDF && (
             <section className="rounded-card border border-linea bg-marfil p-4 shadow-soft">
-              <h3 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">Sin PDF</h3>
+              <h3 className="font-[family-name:var(--font-display)] text-lg font-semibold text-grafito">Sin PDF</h3>
               <p className="mt-1 text-sm text-grafito/80">
                 Este documento se selló antes de que existiera la lámina: se ve en pantalla, pero no tiene PDF.
               </p>
@@ -155,58 +155,40 @@ export function VistaDeDocumento({ documento }: { documento: DocumentoDetalle })
           )}
           {documento.estado === "sellado" && conPDF && (
             // El PDF (Fase 5.3): la lámina sellada más la hoja de constancia de
-            // las firmas. "Imprimir" es un <a> y no un <Link>: es una ruta que
-            // devuelve un archivo, no una pantalla. "Descargar PDF" baja el
-            // archivo y lo guarda según el dispositivo (`BotonDescargarPDF`).
+            // las firmas; una historia con anexos ofrece también el de todo
+            // junto (`ImprimirYDescargar`).
             <section className="rounded-card border border-linea bg-marfil p-4 shadow-soft">
-              <h3 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">PDF del documento</h3>
+              <h3 className="font-[family-name:var(--font-display)] text-lg font-semibold text-grafito">PDF del documento</h3>
               <p className="mt-1 text-sm text-grafito/80">
                 El documento sellado, con la constancia de cómo, cuándo y desde dónde se hizo cada firma. Cada descarga e impresión queda registrada.
               </p>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <a
-                  href={rutaDelPDF(documento.id, true)}
-                  target="_blank"
-                  rel="noopener"
-                  aria-label="Imprimir (abre el PDF en una pestaña nueva)"
-                  className={`${CLASE_BOTON_PDF} rounded-full`}
-                >
-                  <IconPrinter className="h-3.5 w-3.5 shrink-0" />
-                  Imprimir
-                </a>
-                <BotonDescargarPDF
-                  id={documento.id}
-                  nombreDeArchivo={nombreDeArchivoDelPDF(documento)}
-                  titulo={nombreConTipo(documento)}
-                  icono={<IconDownload className="h-3.5 w-3.5 shrink-0" />}
-                  className={`${CLASE_BOTON_PDF} rounded-full`}
-                  claseDelAviso="basis-full text-xs"
-                />
+              <div className="mt-3">
+                <ImprimirYDescargar documento={documento} />
               </div>
               {documento.codigoVerificacion && (
                 <p className="mt-3 text-xs text-grafito/75">
                   Código de verificación:{" "}
-                  <span className="font-[family-name:var(--font-mono)] text-sm text-grafito">{documento.codigoVerificacion}</span>
+                  <span className="font-[family-name:var(--font-codigo)] text-sm text-grafito">{documento.codigoVerificacion}</span>
                 </p>
               )}
             </section>
           )}
           {documento.estado === "anulado" && (
             <section className="rounded-card border border-linea bg-arena p-4 text-sm text-grafito">
-              <h3 className="font-[family-name:var(--font-display)] text-lg font-medium">Anulado</h3>
+              <h3 className="font-[family-name:var(--font-display)] text-lg font-semibold">Anulado</h3>
               <p className="mt-1">{documento.motivoAnulacion}</p>
             </section>
           )}
 
           {paraImprimir ? (
             <section className="rounded-card border border-linea bg-marfil p-4 shadow-soft">
-              <h3 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">Listo para imprimir o descargar</h3>
+              <h3 className="font-[family-name:var(--font-display)] text-lg font-semibold text-grafito">Listo para imprimir o descargar</h3>
               <p className="mt-1 text-sm text-grafito/80">
                 Este consentimiento se firma a mano. Imprimilo y que lo firmen el paciente —o quien lo represente— y el profesional: el papel firmado es el
                 documento legal, y se guarda con la historia clínica del paciente.
               </p>
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                <button type="button" onClick={imprimir} className={`${CLASE_BOTON_PDF} rounded-full`}>
+                <button type="button" onClick={imprimir} className={`${CLASE_BOTON_PDF} rounded-control`}>
                   <IconPrinter className="h-3.5 w-3.5 shrink-0" />
                   Imprimir
                 </button>
@@ -216,7 +198,7 @@ export function VistaDeDocumento({ documento }: { documento: DocumentoDetalle })
                     nombreDeArchivo={nombreDeArchivoDelPDF(documento)}
                     titulo={nombreConTipo(documento)}
                     icono={<IconDownload className="h-3.5 w-3.5 shrink-0" />}
-                    className={`${CLASE_BOTON_PDF} rounded-full`}
+                    className={`${CLASE_BOTON_PDF} rounded-control`}
                     claseDelAviso="basis-full text-xs"
                   />
                 )}
@@ -225,7 +207,7 @@ export function VistaDeDocumento({ documento }: { documento: DocumentoDetalle })
                 {documento.esMio ? "Ya no se puede editar." : `Lo hizo ${documento.autorNombre}.`} Si hay que corregir algo,{" "}
                 <Link
                   href={`/panel/documentos?paciente=${documento.paciente.id}&plantilla=${documento.plantillaId}`}
-                  className="font-medium text-salvia-oscuro underline-offset-4 hover:underline"
+                  className="font-medium text-marca underline-offset-4 hover:underline"
                 >
                   hacé uno nuevo
                 </Link>
@@ -234,7 +216,7 @@ export function VistaDeDocumento({ documento }: { documento: DocumentoDetalle })
             </section>
           ) : (
             <section className="rounded-card border border-linea bg-marfil p-4 shadow-soft">
-              <h3 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">Firmas</h3>
+              <h3 className="font-[family-name:var(--font-display)] text-lg font-semibold text-grafito">Firmas</h3>
               <ul className="mt-2 flex flex-col divide-y divide-linea">
                 {contenido.firmas.map((definicion) => {
                   const firma = documento.firmas.find((f) => f.rol === definicion.rol);
@@ -255,7 +237,7 @@ export function VistaDeDocumento({ documento }: { documento: DocumentoDetalle })
                           <button
                             type="button"
                             onClick={() => setFirmando(definicion)}
-                            className="min-h-11 self-start rounded-full bg-salvia-oscuro px-4 text-sm font-semibold text-marfil hover:brightness-95"
+                            className="min-h-11 self-start rounded-control boton-primario px-4 text-sm font-semibold"
                           >
                             Firmar en este dispositivo
                           </button>

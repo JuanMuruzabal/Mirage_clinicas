@@ -1,8 +1,5 @@
 import type { Metadata } from "next";
-import type { ContadoresDePacientes } from "@dental-mirage/shared-types";
-import Link from "next/link";
 import {
-  apiContadoresDePacientes,
   apiListConflictosPaciente,
   apiListPacientesPaginado,
 } from "@/lib/api";
@@ -12,7 +9,9 @@ import { getSessionToken, requireOnboardingComplete } from "@/lib/session";
 import { datosDeLaVista } from "@/lib/vista-de-recepcion";
 import { tiposConsultaDeLaVista } from "@/lib/tipos-de-la-vista";
 import { ZonaProfesional } from "@/components/panel/zona-profesional";
+import { CLASE_PANTALLA_CON_ENCABEZADO, EncabezadoDeSeccion } from "@/components/panel/encabezado-de-seccion";
 import { PacientesTable } from "@/components/panel/pacientes-table";
+import { CLASE_CAJA_VACIA } from "@/components/panel/tabla";
 import { AgregarPacienteButton } from "@/components/panel/agregar-paciente-button";
 import { ConflictosPacienteBanner } from "@/components/panel/conflictos-paciente-banner";
 import { QueEsVerificadoBoton } from "@/components/panel/que-es-verificado-boton";
@@ -24,17 +23,11 @@ function firstParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
-// TabPacientes — corrección de estética (2026-09-06, foto de referencia
-// "nuevoestilopacientes.png"): pestañas Todos/Verificados/Sin verificar
-// con cantidad al lado, mismo criterio que las pestañas de Turnos
-// (TABS/conteoPorTab en turnos/page.tsx) — se calcula en JS a partir de
-// `Paciente.verificado` (Fase 2.4.1), ya viene en la lista, sin pedir
-// nada nuevo al backend.
-type TabPacientes = "todos" | "verificados" | "sin_verificar";
-
-function parseTabPacientes(value: string | undefined): TabPacientes {
-  return value === "verificados" || value === "sin_verificar" ? value : "todos";
-}
+// Sin pestañas Todos/Verificados/Sin verificar (correcciones generales,
+// ítem 5, 2026-10-11, pedido de la persona): la lista muestra siempre a
+// todos, y cada fila sigue diciendo si la ficha está verificada. Un enlace
+// viejo con `?estado=verificados` o `?estado=sin_verificar` no rompe nada:
+// el parámetro se ignora.
 
 // /panel/pacientes (T3.5) — tabla + buscador por nombre/apellido/DNI. La
 // página sigue siendo Server Component (mismo criterio que /buscar); la
@@ -46,7 +39,6 @@ export default async function PacientesPage({
 }: PageProps<"/panel/pacientes">) {
   const resolved = await searchParams;
   const q = firstParam(resolved.q);
-  const tab = parseTabPacientes(firstParam(resolved.estado));
 
   const sesion = await requireOnboardingComplete();
   const token = await getSessionToken();
@@ -55,71 +47,30 @@ export default async function PacientesPage({
     sesion.roles,
   );
 
-  // Fase B de la auditoría: hasta acá esta pantalla pedía la lista
-  // COMPLETA de fichas de la clínica y resolvía en el navegador tanto el
-  // filtro de pestaña como sus tres contadores. Ahora la pestaña activa
-  // pide solo la primera tanda (PACIENTES_POR_PAGINA, el resto llega con
-  // "Cargar más") y las otras dos piden únicamente el total
-  // (apiContarPacientes: 1 fila + X-Total-Count). El filtro
-  // verificado/sin verificar baja al backend con el mismo parámetro y la
-  // misma subquery que ya usaba /turnos — filtrar una tanda parcial del
-  // lado del cliente mostraría cualquier cosa.
-  // Sin sesión no se pide nada y las pestañas muestran cero.
-  const SIN_CONTADORES_PACIENTES: ContadoresDePacientes = {
-    todos: 0,
-    verificados: 0,
-    sinVerificar: 0,
-  };
-  const filtros: ListarPacientesParams = {
-    q,
-    verificacion:
-      tab === "verificados"
-        ? "verificado"
-        : tab === "sin_verificar"
-          ? "sin_verificar"
-          : undefined,
-  };
+  // La primera tanda (PACIENTES_POR_PAGINA, el resto llega con "Cargar
+  // más"), de todas las fichas: sin filtro de verificación.
+  const filtros: ListarPacientesParams = { q };
   // TODO lo que esta pantalla necesita, de una sola vez (ronda de
-  // optimización post-Fase 3, 2026-09-22). Dos cambios en el mismo lugar:
-  //
-  // 1. Los tres contadores de pestaña son UN pedido en vez de tres. Las
-  //    tres pestañas filtran igual salvo por la verificación, así que el
-  //    backend las cuenta de una pasada (ver `apiContadoresDePacientes`).
-  // 2. Los conflictos y los tipos de consulta ENTRAN acá. Estaban como
-  //    dos `await` sueltos más abajo, uno atrás del otro y atrás de este
-  //    bloque: tres viajes en fila para tres datos que no dependen entre
-  //    sí. Lo único que los ponía en ese orden era el orden en que se
-  //    fueron escribiendo.
-  const [
-    paginaPacientes,
-    contadores,
-    conflictosResult,
-    tiposConsulta,
-  ] = token
+  // optimización post-Fase 3, 2026-09-22): la lista, los conflictos y los
+  // tipos de consulta no dependen entre sí, así que van en paralelo. Los
+  // contadores de las pestañas se fueron con ellas.
+  const [paginaPacientes, conflictosResult, tiposConsulta] = token
     ? await Promise.all([
         apiListPacientesPaginado(token, filtros, PACIENTES_POR_PAGINA, 0),
-        apiContadoresDePacientes(token, { q }),
         apiListConflictosPaciente(token),
         // El color es de QUIEN MIRA (TR-145): para recepción, su paleta
         // precargada. Ver `lib/tipos-de-la-vista.ts`.
         tiposConsultaDeLaVista(token, sesion.roles),
       ])
-    : [null, SIN_CONTADORES_PACIENTES, null, []];
+    : [null, null, []];
 
   const pacientesFiltrados = paginaPacientes?.ok
     ? paginaPacientes.data.items
     : [];
   const totalPacientes = paginaPacientes?.ok ? paginaPacientes.data.total : 0;
-  const conteoPorTab: Record<TabPacientes, number> = {
-    todos: contadores.todos,
-    verificados: contadores.verificados,
-    sin_verificar: contadores.sinVerificar,
-  };
-  const querySecundaria = q ? `&q=${encodeURIComponent(q)}` : "";
-  // hrefBaseSinQ — para BuscadorEnVivo (TR-115): mismo tab vigente, sin
-  // `q` (el componente lo agrega solo, con cada tecla).
-  const hrefBaseSinQ =
-    tab === "todos" ? "/panel/pacientes" : `/panel/pacientes?estado=${tab}`;
+  // hrefBase — para BuscadorEnVivo (TR-115): la pantalla sin `q` (el
+  // componente lo agrega solo, con cada tecla).
+  const hrefBaseSinQ = "/panel/pacientes";
 
   // Fase 2.4.1: conflictos de pacientes sin resolver (dos fichas
   // compitiendo por el mismo DNI, detectadas desde el formulario público)
@@ -140,48 +91,41 @@ export default async function PacientesPage({
     // corrección 2026-08-24 — ver TR-029 en docs/Arquitectura y base/tradeoffs.md: "hay un
     // espacio de más entre el header y donde arranca el scroll... quitá
     // el padding-top sobrante").
-    <div className="flex flex-col gap-6 p-8 max-md:px-[clamp(1rem,4vw,2rem)] max-md:pt-3 max-md:pb-[clamp(1rem,4vw,2rem)]">
-      {/* Contador total (mismo criterio de estética que "Turnos 14 en
-          total", corrección 2026-09-06, foto de referencia
-          "nuevoestilopacientes.png"). */}
-      {/* ARRIBA DEL TÍTULO, en su propia fila (QA de la 3.2.6:
-          *"el selector de carrusel debe estar por encima del título
-          principal... así queda alargado como se ve en calendario"*).
-          Al lado del título competía por el ancho con él y quedaba
-          apretado; en su propia fila respira, y es lo primero que se lee
-          — que es lo correcto: dice DE QUIÉN es todo lo que sigue. */}
-      {esRecepcion && (
-        <ZonaProfesional
-          profesionales={profesionales}
-          vista={vista}
-          etiqueta="Mostrando"
-          etiquetaConFoco="Pacientes de"
-          etiquetaGeneral="Toda la clínica"
-          detalleGeneral="Pacientes de todo el equipo"
+    <div className={CLASE_PANTALLA_CON_ENCABEZADO}>
+      {/* Encabezado de sección (correcciones generales, ítem 2). Sin el
+          contador "x registrados" al lado del título (ítem 4). El selector
+          de recepción va arriba de la tarjeta, a su mismo ancho. */}
+      {/* El aviso de conflictos va pegado al encabezado y trae su propia
+          distancia solo cuando se ve: plegado a cero, adentro del `gap`
+          de la pantalla sumaba un segundo hueco (48 px en vez de 24,
+          ítem 3). */}
+      <div className="flex flex-col">
+        <EncabezadoDeSeccion
+          seccion="pacientes"
+          titulo="Pacientes"
+          antes={
+            esRecepcion ? (
+              <ZonaProfesional
+                profesionales={profesionales}
+                vista={vista}
+                etiqueta="Mostrando"
+                etiquetaConFoco="Pacientes de"
+                etiquetaGeneral="Toda la clínica"
+                detalleGeneral="Pacientes de todo el equipo"
+              />
+            ) : undefined
+          }
         />
-      )}
-
-      <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
-        <div className="flex flex-wrap items-baseline gap-2">
-          <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito max-md:text-[clamp(1.375rem,6.5vw,1.875rem)]">
-            Pacientes
-          </h1>
-          <span className="text-sm text-grafito/50">
-            {conteoPorTab.todos} registrados
-          </span>
-        </div>
+        <ConflictosPacienteBanner
+          conflictos={conflictos}
+          tiposConsulta={tiposConsulta}
+        />
       </div>
 
-      <ConflictosPacienteBanner
-        conflictos={conflictos}
-        tiposConsulta={tiposConsulta}
-      />
-
       {/* Corrección de estética (2026-09-06, foto de referencia): buscador
-          + "+ Agregar paciente" van juntos en su fila, pestañas
-          Todos/Verificados/Sin verificar debajo — mismo orden y mismo
-          criterio que el rediseño de Turnos (buscador+Filtros arriba,
-          pestañas abajo). Tabla sin cambios (mismo pedido explícito del
+          + "+ Agregar paciente" van juntos en su fila, y al final "¿Qué
+          es verificado?" (las pestañas de verificación salieron, ítem
+          5). Tabla sin cambios (mismo pedido explícito del
           cliente que en Turnos: "las tablas dejelas como estaba, no
           toque eso"). */}
       <div className="flex flex-col gap-4">
@@ -189,7 +133,13 @@ export default async function PacientesPage({
           {/* BuscadorEnVivo (TR-115, 2026-09-06) — reemplaza el `<form
               method="get">` de antes, mismo pedido que en Turnos: "que me
               vaya apareciendo resultados sin tocar enter". */}
-          <div className="max-w-md flex-1 max-md:w-full max-md:max-w-none">
+          {/* El ancho lo trae el buscador: el mismo en Turnos, Pacientes
+              y los documentos de la ficha (ítem 6). */}
+          {/* En el celular el buscador baja al final, justo encima de la
+              tabla, y arriba quedan "+ Agregar paciente" y "¿Qué es
+              verificado?" (pedido de la persona, 2026-10-17). Desde `md`,
+              todo en una fila como siempre. */}
+          <div className="w-full max-md:order-last md:w-auto">
             <BuscadorEnVivo
               q={q}
               hrefBase={hrefBaseSinQ}
@@ -197,59 +147,19 @@ export default async function PacientesPage({
             />
           </div>
           <AgregarPacienteButton sinListaPropia={enVistaGeneral} />
+          <div className="md:ml-auto">
+            <QueEsVerificadoBoton />
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          {/* Corrección de QA (segunda ronda, 2026-09-06, fotos
-              "arreglar.png"/"referencia.png"): esta pestaña había vuelto
-              a verse como el diseño viejo (fondo tenue sin borde,
-              `bg-hueso` sin borde) — mismo criterio que Turnos
-              (turnos/page.tsx): "pastilla" blanca (`bg-marfil` +
-              `border-arena`) que envuelve las 3 pestañas, flotando sobre
-              el fondo de la página. */}
-          <nav
-            aria-label="Filtrar por verificación"
-            className="flex flex-wrap items-center gap-1 rounded-card border-[0.5px] border-arena bg-marfil p-1 text-sm md:rounded-full"
-          >
-            {[
-              { tab: "todos" as const, label: "Todos" },
-              { tab: "verificados" as const, label: "Verificados" },
-              { tab: "sin_verificar" as const, label: "Sin verificar" },
-            ].map((t) => {
-              const active = t.tab === tab;
-              const href = `/panel/pacientes?estado=${t.tab}${querySecundaria}`;
-              return (
-                <Link
-                  key={t.tab}
-                  href={href}
-                  className={`flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-center font-medium whitespace-nowrap ${active ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"}`}
-                >
-                  {t.label}
-                  <span
-                    className={active ? "text-marfil/70" : "text-grafito/40"}
-                  >
-                    {conteoPorTab[t.tab]}
-                  </span>
-                </Link>
-              );
-            })}
-          </nav>
-          <QueEsVerificadoBoton />
-        </div>
-
-        {/* Misma tabla en mobile y escritorio (rediseño local, ver
-            comentario de arriba) — columnas reducidas debajo de `md`,
-            DNI/Email pasan a un panel desplegable en mobile (ver
-            PacientesTable, pedido explícito del cliente, 2026-08-27: "el
-            DNI se sigue viendo pequeño en los datos, debe estar como
-            dato desplegable no debajo del nombre"). */}
+        {/* Misma tabla en mobile y escritorio, completa en los dos: en el
+            celular scrollea de costado (correcciones generales, ítem 9;
+            ver PacientesTable). */}
         {pacientesFiltrados.length === 0 ? (
-          <p className="rounded-card border-[0.5px] border-arena bg-marfil p-8 text-center text-sm text-grafito/60 shadow-soft">
+          <p className={`${CLASE_CAJA_VACIA} p-8 text-center text-sm text-grafito/75`}>
             {q
               ? "No encontramos pacientes para esa búsqueda."
-              : conteoPorTab.todos === 0
-                ? "Todavía no hay pacientes cargados."
-                : "No hay pacientes en esta pestaña."}
+              : "Todavía no hay pacientes cargados."}
           </p>
         ) : (
           <PacientesTable

@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import type { DocumentoResumen } from "@dental-mirage/shared-types";
-import { AccionesDePDF, rutaDelPDF, tienePDF } from "./acciones-de-pdf";
+import { AccionesDePDF, ImprimirYDescargar, rutaDelPDF, tienePDF } from "./acciones-de-pdf";
+import { sellado } from "./fixtures";
 
 // El PDF de un documento terminado (Fase 5.3): "Imprimir" (en una pestaña
 // nueva, inline) y "Descargar PDF", por la ruta del BFF.
@@ -49,8 +50,8 @@ describe("AccionesDePDF", () => {
     // Las dos mitades, juntas en la misma fila: la línea que las separa es
     // el borde de la de la izquierda.
     expect(imprimir.parentElement).toBe(descargar.parentElement);
-    expect(imprimir).toHaveClass("rounded-l-full");
-    expect(descargar).toHaveClass("rounded-r-full", "border-l-0");
+    expect(imprimir).toHaveClass("rounded-l-control");
+    expect(descargar).toHaveClass("rounded-r-control", "border-l-0");
     for (const link of [imprimir, descargar]) {
       expect(link).toHaveClass("min-h-9", "pointer-coarse:min-h-11", "whitespace-nowrap");
     }
@@ -93,7 +94,7 @@ describe("AccionesDePDF: el control segmentado", () => {
       const icono = mitad.querySelector("svg");
       expect(icono).not.toBeNull();
       expect(icono).toHaveAttribute("aria-hidden", "true");
-      expect(mitad).toHaveClass("border-salvia-oscuro", "bg-marfil", "inline-flex");
+      expect(mitad).toHaveClass("border-marca", "bg-marfil", "inline-flex");
     }
     expect(descargar).toHaveAttribute("download");
     // Cada una es media pastilla, no una entera.
@@ -168,5 +169,59 @@ describe("AccionesDePDF: el control segmentado", () => {
     const aviso = screen.getByRole("alert");
     expect(aviso).toHaveTextContent("Sin lámina");
     expect(aviso).toHaveClass("col-span-3");
+  });
+});
+
+describe("ImprimirYDescargar: la historia sola y con sus anexos", () => {
+  const historia = (anexos: DocumentoResumen["anexos"]): DocumentoResumen => ({
+    ...sellado(),
+    id: "h1",
+    tipo: "historia_clinica",
+    plantillaNombre: "Historia clínica general",
+    folio: 3,
+    folioMostrado: "3",
+    anexos,
+  });
+  const anexo = (id: string, extra: Partial<NonNullable<DocumentoResumen["anexos"]>[number]> = {}) => ({
+    id,
+    nombre: "Anexo",
+    estado: "abierto" as const,
+    fecha: "2026-10-01T10:00:00-03:00",
+    tienePDF: true,
+    ...extra,
+  });
+  const nombre = "Historia clínica general";
+
+  it("sin anexos con PDF, un solo par, sin grupos", () => {
+    render(<ImprimirYDescargar documento={historia([anexo("a1", { tienePDF: false }), anexo("a2", { estado: "borrador" })])} />);
+    expect(screen.queryByRole("group")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: `Imprimir ${nombre} (se abre en una pestaña nueva)` })).toHaveAttribute(
+      "href",
+      "/panel/documentos/h1/pdf?para=imprimir",
+    );
+    expect(screen.getByRole("link", { name: `Descargar PDF de ${nombre}` })).toHaveAttribute("href", "/panel/documentos/h1/pdf");
+    expect(screen.getAllByRole("link")).toHaveLength(2);
+  });
+
+  it("con un anexo con PDF: «Solo la historia» y «Con su anexo», con ?con=anexos en el segundo", () => {
+    render(<ImprimirYDescargar documento={historia([anexo("a1"), anexo("a2", { tienePDF: false })])} />);
+    const solo = screen.getByRole("group", { name: "Solo la historia" });
+    const con = screen.getByRole("group", { name: "Con su anexo" });
+    expect(within(solo).getByRole("link", { name: /^Imprimir/ })).toHaveAttribute("href", "/panel/documentos/h1/pdf?para=imprimir");
+    expect(within(solo).getByRole("link", { name: /^Descargar PDF/ })).toHaveAttribute("href", "/panel/documentos/h1/pdf");
+    expect(within(con).getByRole("link", { name: `Imprimir ${nombre} con su anexo (se abre en una pestaña nueva)` })).toHaveAttribute(
+      "href",
+      "/panel/documentos/h1/pdf?para=imprimir&con=anexos",
+    );
+    const descargar = within(con).getByRole("link", { name: `Descargar PDF de ${nombre} con su anexo` });
+    expect(descargar).toHaveAttribute("href", "/panel/documentos/h1/pdf?con=anexos");
+    expect(descargar).toHaveAttribute("download");
+  });
+
+  it("con varios anexos con PDF: «Con sus N anexos»", () => {
+    render(<ImprimirYDescargar documento={historia([anexo("a1"), anexo("a2", { estado: "sellado" }), anexo("a3")])} />);
+    const con = screen.getByRole("group", { name: "Con sus 3 anexos" });
+    expect(within(con).getByText("Con sus 3 anexos")).toBeInTheDocument();
+    expect(within(con).getByRole("link", { name: /^Imprimir/ })).toHaveAttribute("href", "/panel/documentos/h1/pdf?para=imprimir&con=anexos");
   });
 });

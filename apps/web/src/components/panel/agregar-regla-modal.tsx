@@ -1,5 +1,6 @@
 "use client";
 
+import { Dialogo } from "@/components/dialogo";
 import { useState } from "react";
 import type { BloqueoHorario } from "@dental-mirage/shared-types";
 import {
@@ -63,6 +64,9 @@ export function AgregarReglaModal({
   onClose,
   onGuardada,
 }: AgregarReglaModalProps) {
+  // Sobre el Dialogo de todos: foco adentro, Tab atrapado, Escape (el de
+  // arriba si hay varios), el foco vuelve a quien lo abrió y la página de
+  // atrás no scrollea (correcciones generales, 2026-10-12).
   const editando = reglaExistente !== undefined;
   const [tocado, setTocado] = useState(false);
   const [confirmandoSalida, setConfirmandoSalida] = useState(false);
@@ -177,227 +181,204 @@ export function AgregarReglaModal({
       : "Agregar horario reservado general";
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={titulo}
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-grafito/50 p-4 backdrop-blur-sm"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) pedirCerrar();
-      }}
-    >
-      <div className="flex w-full max-w-md flex-col overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
-        <div className="flex items-center justify-between border-b-[0.5px] border-arena px-6 py-4">
-          <h2 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">
-            {titulo}
-          </h2>
-          <button
-            type="button"
-            onClick={pedirCerrar}
-            aria-label="Cerrar"
-            className="text-2xl leading-none text-grafito/50 hover:text-grafito"
-          >
-            ×
-          </button>
-        </div>
+    <Dialogo titulo={titulo} onCerrar={pedirCerrar} superficie="marfil" centrado ancho="chico">
 
-        {/* noValidate: el `min` del input de fecha es solo para que el
-            selector nativo no OFREZCA un día pasado — la validación real
-            (con el mismo texto de error que todo lo demás del form, nunca
-            el globo nativo del navegador) es la de `guardar()` de arriba,
-            mismo criterio que el resto de este formulario. */}
-        {!confirmandoSalida && (
-          <form
-            onSubmit={guardarDesdeElFormulario}
-            noValidate
-            className="flex flex-col gap-4 p-6"
-          >
-            {/* Tipo de horario reservado — hoy el único valor posible,
-                mostrado como dato fijo (no hace falta un selector para
-                una sola opción). */}
-            <Campo label="Tipo de horario reservado">
-              <p className="rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-grafito">
-                Bloquear horario
-              </p>
-            </Campo>
+      {/* noValidate: el `min` del input de fecha es solo para que el
+          selector nativo no OFREZCA un día pasado — la validación real
+          (con el mismo texto de error que todo lo demás del form, nunca
+          el globo nativo del navegador) es la de `guardar()` de arriba,
+          mismo criterio que el resto de este formulario. */}
+      {!confirmandoSalida && (
+        <form
+          onSubmit={guardarDesdeElFormulario}
+          noValidate
+          className="flex flex-col gap-4 p-6"
+        >
+          {/* Tipo de horario reservado — hoy el único valor posible,
+              mostrado como dato fijo (no hace falta un selector para
+              una sola opción). */}
+          <Campo label="Tipo de horario reservado">
+            <p className="rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-grafito">
+              Bloquear horario
+            </p>
+          </Campo>
 
-            {especifico ? (
-              <Campo label="Fecha">
-                <input
-                  type="date"
-                  value={fecha}
-                  // min (pedido explícito del cliente, 2026-09-04): "no
-                  // puedo reservar un horario atrás en el tiempo" — evita
-                  // que el selector nativo ni siquiera ofrezca un día
-                  // pasado (el backend igual lo rechaza si se lo fuerza).
-                  min={fechaISOLocal()}
-                  onChange={(e) => {
-                    setFecha(e.target.value);
-                    setTocado(true);
-                  }}
-                  className={inputClass}
-                />
-              </Campo>
-            ) : (
-              <>
-                <Campo label="Alcance">
-                  <select
-                    value={alcance}
-                    onChange={(e) => {
-                      setAlcance(e.target.value as typeof alcance);
-                      setTocado(true);
-                    }}
-                    className={inputClass}
-                  >
-                    <option value="semana">Esta semana</option>
-                    <option value="proxima_semana">Próxima semana</option>
-                    <option value="mes">Este mes</option>
-                    <option value="proximo_mes">Próximo mes</option>
-                    {/* "Este año" (corrección de QA, 2026-09-08) — mismo
-                        valor "todos" de siempre, solo cambia el texto
-                        (ver ALCANCE_LABEL en configuracion-calendario-modal.tsx). */}
-                    <option value="todos">Este año</option>
-                  </select>
-                </Campo>
-                <Campo label="Día">
-                  <select
-                    value={diaSemana}
-                    onChange={(e) => {
-                      setDiaSemana(Number(e.target.value));
-                      setTocado(true);
-                    }}
-                    className={inputClass}
-                  >
-                    {DIAS_SEMANA.map((nombre, i) => (
-                      <option key={nombre} value={i}>
-                        {nombre}
-                      </option>
-                    ))}
-                  </select>
-                </Campo>
-              </>
-            )}
-
-            {/* min de las horas (corrección de QA, 2026-09-06: "puedo
-                elegir la hora pasada, y cuando doy a confirmar me sale el
-                error... quiero que te restringa a no poder seleccionar
-                horarios pasados") — solo tiene sentido cuando la fecha
-                elegida es HOY: un horario reservado específico para
-                mañana no tiene ninguna hora "pasada". `min` en un
-                <input type="time"> es una hora fija de reloj, no sabe de
-                fechas, así que se calcula acá según `fecha`. */}
-            <div className="grid grid-cols-2 gap-4">
-              <Campo label="Desde">
-                <input
-                  type="time"
-                  value={horaDesde}
-                  min={
-                    especifico && fecha === fechaISOLocal()
-                      ? horaISOLocal()
-                      : undefined
-                  }
-                  onChange={(e) => {
-                    setHoraDesde(e.target.value);
-                    setTocado(true);
-                  }}
-                  className={inputClass}
-                />
-              </Campo>
-              <Campo label="Hasta">
-                <input
-                  type="time"
-                  value={horaHasta}
-                  min={
-                    especifico && fecha === fechaISOLocal()
-                      ? horaISOLocal()
-                      : undefined
-                  }
-                  onChange={(e) => {
-                    setHoraHasta(e.target.value);
-                    setTocado(true);
-                  }}
-                  className={inputClass}
-                />
-              </Campo>
-            </div>
-
-            {/* Motivo (corrección de QA, F2.3): "poder ponerle motivo y que
-                aparezca visible en el calendario, ejemplo: una general
-                puede ser limpieza semanal, una específica puede ser
-                reposición de inventario" — opcional, texto libre. */}
-            <Campo label="Motivo (opcional)">
+          {especifico ? (
+            <Campo label="Fecha">
               <input
-                type="text"
-                value={motivo}
+                type="date"
+                value={fecha}
+                // min (pedido explícito del cliente, 2026-09-04): "no
+                // puedo reservar un horario atrás en el tiempo" — evita
+                // que el selector nativo ni siquiera ofrezca un día
+                // pasado (el backend igual lo rechaza si se lo fuerza).
+                min={fechaISOLocal()}
                 onChange={(e) => {
-                  setMotivo(e.target.value);
+                  setFecha(e.target.value);
                   setTocado(true);
                 }}
-                placeholder="Ej.: limpieza semanal"
-                maxLength={120}
                 className={inputClass}
               />
             </Campo>
+          ) : (
+            <>
+              <Campo label="Alcance">
+                <select
+                  value={alcance}
+                  onChange={(e) => {
+                    setAlcance(e.target.value as typeof alcance);
+                    setTocado(true);
+                  }}
+                  className={inputClass}
+                >
+                  <option value="semana">Esta semana</option>
+                  <option value="proxima_semana">Próxima semana</option>
+                  <option value="mes">Este mes</option>
+                  <option value="proximo_mes">Próximo mes</option>
+                  {/* "Este año" (corrección de QA, 2026-09-08) — mismo
+                      valor "todos" de siempre, solo cambia el texto
+                      (ver ALCANCE_LABEL en configuracion-calendario-modal.tsx). */}
+                  <option value="todos">Este año</option>
+                </select>
+              </Campo>
+              <Campo label="Día">
+                <select
+                  value={diaSemana}
+                  onChange={(e) => {
+                    setDiaSemana(Number(e.target.value));
+                    setTocado(true);
+                  }}
+                  className={inputClass}
+                >
+                  {DIAS_SEMANA.map((nombre, i) => (
+                    <option key={nombre} value={i}>
+                      {nombre}
+                    </option>
+                  ))}
+                </select>
+              </Campo>
+            </>
+          )}
 
-            {error && (
-              <p role="alert" className="text-sm text-terracota-oscuro">
-                {error}
-              </p>
-            )}
-
-            <button
-              type="submit"
-              disabled={pending}
-              className="self-end rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
-            >
-              {pending ? "Guardando…" : editando ? "Guardar" : "Agregar"}
-            </button>
-          </form>
-        )}
-
-        {confirmandoSalida && (
-          <div className="flex flex-col gap-4 p-6">
-            <p className="text-sm text-grafito">
-              Tenés cambios sin guardar en este horario reservado.
-            </p>
-            {error && (
-              <p role="alert" className="text-sm text-terracota-oscuro">
-                {error}
-              </p>
-            )}
-            <div className="flex flex-wrap justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setConfirmandoSalida(false)}
-                className="rounded-full border-[0.5px] border-arena px-4 py-2 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
-              >
-                Seguir editando
-              </button>
-              <button
-                type="button"
-                onClick={onClose}
-                className="rounded-full border-[0.5px] border-arena px-4 py-2 text-sm font-medium text-grafito hover:border-terracota hover:text-terracota-oscuro"
-              >
-                Salir sin guardar
-              </button>
-              <button
-                type="button"
-                onClick={guardarYSalir}
-                disabled={pending}
-                className="rounded-full bg-salvia-oscuro px-4 py-2 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
-              >
-                {pending ? "Guardando…" : "Guardar y salir"}
-              </button>
-            </div>
+          {/* min de las horas (corrección de QA, 2026-09-06: "puedo
+              elegir la hora pasada, y cuando doy a confirmar me sale el
+              error... quiero que te restringa a no poder seleccionar
+              horarios pasados") — solo tiene sentido cuando la fecha
+              elegida es HOY: un horario reservado específico para
+              mañana no tiene ninguna hora "pasada". `min` en un
+              <input type="time"> es una hora fija de reloj, no sabe de
+              fechas, así que se calcula acá según `fecha`. */}
+          <div className="grid grid-cols-2 gap-4">
+            <Campo label="Desde">
+              <input
+                type="time"
+                value={horaDesde}
+                min={
+                  especifico && fecha === fechaISOLocal()
+                    ? horaISOLocal()
+                    : undefined
+                }
+                onChange={(e) => {
+                  setHoraDesde(e.target.value);
+                  setTocado(true);
+                }}
+                className={inputClass}
+              />
+            </Campo>
+            <Campo label="Hasta">
+              <input
+                type="time"
+                value={horaHasta}
+                min={
+                  especifico && fecha === fechaISOLocal()
+                    ? horaISOLocal()
+                    : undefined
+                }
+                onChange={(e) => {
+                  setHoraHasta(e.target.value);
+                  setTocado(true);
+                }}
+                className={inputClass}
+              />
+            </Campo>
           </div>
-        )}
-      </div>
-    </div>
+
+          {/* Motivo (corrección de QA, F2.3): "poder ponerle motivo y que
+              aparezca visible en el calendario, ejemplo: una general
+              puede ser limpieza semanal, una específica puede ser
+              reposición de inventario" — opcional, texto libre. */}
+          <Campo label="Motivo (opcional)">
+            <input
+              type="text"
+              value={motivo}
+              onChange={(e) => {
+                setMotivo(e.target.value);
+                setTocado(true);
+              }}
+              placeholder="Ej.: limpieza semanal"
+              maxLength={120}
+              className={inputClass}
+            />
+          </Campo>
+
+          {error && (
+            <p role="alert" className="text-sm text-terracota-oscuro">
+              {error}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={pending}
+            className="self-end rounded-control boton-primario px-5 py-2.5 text-sm font-semibold"
+          >
+            {pending ? "Guardando…" : editando ? "Guardar" : "Agregar"}
+          </button>
+        </form>
+      )}
+
+      {confirmandoSalida && (
+        <div className="flex flex-col gap-4 p-6">
+          <p className="text-sm text-grafito">
+            Tenés cambios sin guardar en este horario reservado.
+          </p>
+          {error && (
+            <p role="alert" className="text-sm text-terracota-oscuro">
+              {error}
+            </p>
+          )}
+          <div className="flex flex-wrap justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => setConfirmandoSalida(false)}
+              className="rounded-control border-[0.5px] border-arena px-4 py-2 text-sm font-medium text-grafito hover:border-marca-medio hover:text-marca"
+            >
+              Seguir editando
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-control border-[0.5px] border-arena px-4 py-2 text-sm font-medium text-grafito hover:border-terracota hover:text-terracota-oscuro"
+            >
+              Salir sin guardar
+            </button>
+            <button
+              type="button"
+              onClick={guardarYSalir}
+              disabled={pending}
+              className="rounded-control boton-primario px-4 py-2 text-sm font-semibold"
+            >
+              {pending ? "Guardando…" : "Guardar y salir"}
+            </button>
+          </div>
+        </div>
+      )}
+    </Dialogo>
   );
 }
 
 const inputClass =
-  "rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-grafito outline-none focus:border-salvia";
+  "rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-grafito outline-none focus:border-marca-medio";
 
 function Campo({
   label,

@@ -57,7 +57,7 @@ export function NuevaPasswordForm({ token }: { token: string }) {
       </button>
 
       <p className="text-center text-sm text-grafito/60">
-        <Link href="/ingresar" className="font-medium text-salvia-oscuro hover:text-grafito">
+        <Link href="/ingresar" className="font-medium text-marca hover:text-grafito">
           Volver a ingresar
         </Link>
       </p>

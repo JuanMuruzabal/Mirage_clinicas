@@ -21,14 +21,14 @@ export const authLabelClass = "font-medium text-grafito";
 // un hueco donde escribir, y para eso necesita contrastar con la tarjeta
 // que lo contiene, no igualarla.
 export const authInputClass =
-  "rounded-[10px] border border-linea bg-hueso px-3 py-2.5 text-grafito outline-none focus:border-salvia-oscuro disabled:opacity-60";
+  "rounded-[10px] border border-linea bg-hueso px-3 py-2.5 text-grafito outline-none focus:border-marca disabled:opacity-60";
 // Mismo input, con lugar a la izquierda para el ícono del campo (ver
 // CampoConIcono).
 export const authInputConIconoClass = `${authInputClass} pl-10`;
 export const authSubmitClass =
-  "rounded-full bg-salvia-oscuro px-4 py-3 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60";
+  "rounded-control boton-primario px-4 py-3 text-sm font-semibold";
 export const authSecondaryButtonClass =
-  "rounded-full border-[0.5px] border-arena bg-marfil px-5 py-2.5 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro disabled:opacity-60";
+  "rounded-control border-[0.5px] border-arena bg-marfil px-5 py-2.5 text-sm font-medium text-grafito hover:border-marca-medio hover:text-marca disabled:opacity-60";
 export const authErrorClass = "text-sm text-terracota-oscuro";
 export const authSuccessClass = "text-sm text-salvia-oscuro";
 
@@ -48,7 +48,7 @@ export function AuthField({ label, error, hint, opcional, children }: AuthFieldP
       <span className="flex items-center gap-2">
         <span className={authLabelClass}>{label}</span>
         {opcional && (
-          <span className="rounded-full bg-hueso px-2 py-0.5 text-[11px] font-normal text-grafito/50">opcional</span>
+          <span className="rounded-pastilla bg-hueso px-2 py-0.5 text-[11px] font-normal text-grafito/50">opcional</span>
         )}
       </span>
       {children}
@@ -72,7 +72,7 @@ export function AuthCheckboxField(props: AuthCheckboxFieldProps & React.InputHTM
   return (
     <div className="flex flex-col gap-1.5">
       <label className="flex items-start gap-2.5 text-sm text-grafito">
-        <input type="checkbox" className="mt-0.5 h-4 w-4 accent-salvia-oscuro" {...inputProps} />
+        <input type="checkbox" className="mt-0.5 h-4 w-4 accent-marca" {...inputProps} />
         <span>{children}</span>
       </label>
       {error && (
@@ -144,7 +144,7 @@ export function AuthShell({
   scrollInterno = false,
 }: AuthShellProps) {
   const volverClassName =
-    "inline-flex w-fit items-center gap-1.5 self-start rounded-full bg-salvia-claro px-3.5 py-1.5 text-xs font-medium text-salvia-oscuro transition-colors hover:brightness-95";
+    "inline-flex w-fit items-center gap-1.5 self-start rounded-control bg-marca-claro px-3.5 py-1.5 text-xs font-medium text-marca transition-colors hover:brightness-95";
   const anchoClassName = ancho === "xl" ? "max-w-xl" : "max-w-md";
   const scrollClassName = scrollInterno ? "max-h-[85vh] overflow-y-auto" : "";
 
@@ -165,7 +165,7 @@ export function AuthShell({
           </Link>
         ))}
       <div className="flex flex-col gap-1.5 text-center">
-        <h1 className="font-[family-name:var(--font-display)] text-2xl font-medium text-grafito">{title}</h1>
+        <h1 className="font-[family-name:var(--font-display)] tracking-tight text-2xl font-semibold text-grafito">{title}</h1>
         {subtitle && <p className="text-sm text-grafito/60">{subtitle}</p>}
       </div>
       {children}
@@ -190,7 +190,7 @@ export function AuthDivider() {
   return (
     <div className="flex items-center gap-3">
       <span className="h-px flex-1 bg-arena" />
-      <span className="rounded-full bg-hueso px-3 py-1 text-xs text-grafito/50">También ingresá con</span>
+      <span className="rounded-pastilla bg-hueso px-3 py-1 text-xs text-grafito/50">También ingresá con</span>
       <span className="h-px flex-1 bg-arena" />
     </div>
   );

@@ -37,8 +37,9 @@ function Grupo({ titulo, children }: { titulo: string; children: ReactNode }) {
 // cerrado (paleta + tipografías + tokens por defecto) y adentro solo se elige
 // entre opciones ya resueltas: nunca un color libre, una fuente propia ni un
 // número (decisión #5 del documento de definición). "Original" es la piel
-// celeste de siempre — quien no elige un tema no ve cambiar su página, y por
-// eso sin tema no se ofrecen tokens.
+// celeste de siempre, con el acento en el petróleo de la app (desde el
+// 2026-10-18; antes, salvia): es lo que se ve sin elegir un tema, y por eso
+// sin tema no se ofrecen tokens.
 export function SelectorDeTema({ tema, temaVariante, temaTipografia, temaTokens, onCambio }: SelectorDeTemaProps) {
   const paleta = paletaPorId(tema);
   const tipografiasDelTema = paleta ? TIPOGRAFIAS_POR_TEMA[paleta.id] : [];
@@ -106,7 +107,7 @@ export function SelectorDeTema({ tema, temaVariante, temaTipografia, temaTokens,
               contenido: (
                 <>
                   <span className="block font-medium text-grafito">Original</span>
-                  <span className={CLASE_AYUDA}>El celeste de siempre.</span>
+                  <span className={CLASE_AYUDA}>Fondo celeste y acentos en petróleo.</span>
                 </>
               ),
             },

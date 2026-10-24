@@ -18,7 +18,7 @@ export function AbrirConfiguracionBoton() {
       <button
         type="button"
         onClick={() => setAbierta(true)}
-        className="text-sm font-medium whitespace-nowrap text-salvia-oscuro hover:text-grafito"
+        className="text-sm font-medium whitespace-nowrap text-marca hover:text-grafito"
       >
         Ver horarios reservados
       </button>

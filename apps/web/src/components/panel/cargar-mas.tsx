@@ -33,7 +33,7 @@ export function CargarMas({ cargados, total, cargando, onCargarMas, sustantivo }
         type="button"
         onClick={onCargarMas}
         disabled={cargando}
-        className="rounded-full border-[0.5px] border-arena bg-marfil px-5 py-2 text-sm font-medium text-grafito shadow-soft hover:border-salvia hover:text-salvia-oscuro disabled:opacity-60"
+        className="rounded-control border-[0.5px] border-arena bg-marfil px-5 py-2 text-sm font-medium text-grafito shadow-soft hover:border-marca-medio hover:text-marca disabled:opacity-60"
       >
         {cargando ? "Cargando…" : `Cargar más (${quedan})`}
       </button>

@@ -11,11 +11,6 @@
      (components/home/dibujos.tsx), con ritmos lentos y pausas largas.
    Con "reducir movimiento" no se mueve nada: todo queda en su mejor cuadro. */
 
-.home-fondo {
-  background-color: var(--color-hueso);
-  background-image: url("/textures/soft-cross.svg");
-}
-
 /* ── Revelar ─────────────────────────────────────────────────────────── */
 .revelar {
   --rv-retraso: calc(var(--revelar-orden, 0) * 120ms);

@@ -24,7 +24,7 @@ export function AvalPaginaPublica({ clinicas }: { clinicas: ClinicaConsentimient
 
   return (
     <section aria-labelledby="aval-pagina-titulo" className="w-full max-w-lg rounded-card border-[0.5px] border-arena bg-marfil p-5 shadow-soft">
-      <h2 id="aval-pagina-titulo" className="font-[family-name:var(--font-display)] text-xl font-medium text-grafito">Aparecer en la página pública</h2>
+      <h2 id="aval-pagina-titulo" className="font-[family-name:var(--font-display)] text-xl font-semibold text-grafito">Aparecer en la página pública</h2>
       <p className="mt-2 text-sm text-grafito/70">Elegís en qué clínicas pueden mostrar tu nombre, foto y descripción. Podés cambiarlo cuando quieras.</p>
       <ul className="mt-4 flex flex-col divide-y divide-arena">
         {estados.map((clinica) => (

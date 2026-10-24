@@ -155,7 +155,7 @@ export function CompartirLinkTurno() {
               ¿Para quién? (opcional)
             </span>
             {elegido ? (
-              <div className="flex items-center justify-between gap-3 rounded-field border border-salvia-oscuro bg-salvia-claro px-3 py-2.5">
+              <div className="flex items-center justify-between gap-3 rounded-field border border-marca bg-marca-claro px-3 py-2.5">
                 <span className="text-sm text-grafito">
                   {elegido.nombre} {elegido.apellido}
                   <span className="text-grafito/60"> · DNI {elegido.dni}</span>
@@ -163,7 +163,7 @@ export function CompartirLinkTurno() {
                 <button
                   type="button"
                   onClick={() => setElegido(null)}
-                  className="shrink-0 text-xs font-medium text-salvia-oscuro hover:underline"
+                  className="shrink-0 text-xs font-medium text-marca hover:underline"
                 >
                   Quitar
                 </button>
@@ -187,7 +187,7 @@ export function CompartirLinkTurno() {
           <button
             type="button"
             onClick={generar}
-            className="self-start rounded-full bg-salvia-oscuro px-6 py-2.5 text-sm font-semibold text-marfil hover:brightness-95"
+            className="self-start rounded-control boton-primario px-6 py-2.5 text-sm font-semibold"
           >
             Generar link
           </button>
@@ -206,7 +206,7 @@ export function CompartirLinkTurno() {
           <button
             type="button"
             onClick={generar}
-            className="self-start text-sm font-medium text-salvia-oscuro hover:underline"
+            className="self-start text-sm font-medium text-marca hover:underline"
           >
             Reintentar
           </button>
@@ -231,7 +231,7 @@ export function CompartirLinkTurno() {
             <button
               type="button"
               onClick={compartirNativo}
-              className="self-start rounded-full bg-salvia-oscuro px-6 py-2.5 text-sm font-semibold text-marfil hover:brightness-95"
+              className="self-start rounded-control boton-primario px-6 py-2.5 text-sm font-semibold"
             >
               Compartir
             </button>
@@ -241,20 +241,20 @@ export function CompartirLinkTurno() {
                 href={`https://wa.me/?text=${textoWhatsapp}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="rounded-full border-[0.5px] border-arena px-4 py-2 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
+                className="rounded-control border-[0.5px] border-arena px-4 py-2 text-sm font-medium text-grafito hover:border-marca-medio hover:text-marca"
               >
                 WhatsApp Web
               </a>
               <a
                 href={`mailto:?subject=${asuntoMail}&body=${cuerpoMail}`}
-                className="rounded-full border-[0.5px] border-arena px-4 py-2 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
+                className="rounded-control border-[0.5px] border-arena px-4 py-2 text-sm font-medium text-grafito hover:border-marca-medio hover:text-marca"
               >
                 Mail
               </a>
               <button
                 type="button"
                 onClick={copiar}
-                className="rounded-full border-[0.5px] border-arena px-4 py-2 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
+                className="rounded-control border-[0.5px] border-arena px-4 py-2 text-sm font-medium text-grafito hover:border-marca-medio hover:text-marca"
               >
                 {copiado ? "¡Copiado!" : "Copiar mensaje"}
               </button>

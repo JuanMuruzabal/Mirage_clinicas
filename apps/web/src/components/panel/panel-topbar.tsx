@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { usePanelSidebar } from "@/lib/panel-sidebar-context";
 import { datosDelTopbarAction, type DatosDelTopbar } from "@/app/actions/topbar-panel";
@@ -32,19 +32,37 @@ interface ValorTopbar {
 
 const ContextoTopbar = createContext<ValorTopbar>({ datos: null, refrescar: () => {} });
 
-export function PanelTopbarProvider({ children, habilitado }: { children: ReactNode; habilitado: boolean }) {
+export function PanelTopbarProvider({
+  children,
+  habilitado,
+  inicial = null,
+}: {
+  children: ReactNode;
+  habilitado: boolean;
+  /** Lo que ya resolvió el servidor (site-header.tsx), 2026-10-10: con él
+   *  el ícono de colaboradores y el selector de clínica vienen en el HTML,
+   *  en vez de aparecer cuando vuelve el pedido del cliente. */
+  inicial?: DatosDelTopbar | null;
+}) {
   const pathname = usePathname();
   // Desde 2026-09-19 también en /seleccionar-servicio: el componente de
   // colaboradores se extendió a esa pantalla, y necesita los mismos
   // datos. El selector de clínica sigue siendo solo del panel — lo
   // decide cada componente abajo, no el provider.
   const enPanel = habilitado && mostrarColaboradoresEnHeader(pathname);
-  const [cache, setCache] = useState<DatosDelTopbar | null>(null);
+  const [cache, setCache] = useState<DatosDelTopbar | null>(inicial);
   // Un contador para volver a pedir sin que cambie la ruta.
   const [pedido, setPedido] = useState(0);
+  // Con datos del servidor, el primer pedido sobra: son los mismos. Los
+  // siguientes (otra ruta, otra clínica) se piden como siempre.
+  const saltearPrimero = useRef(inicial !== null);
 
   useEffect(() => {
     if (!enPanel) return;
+    if (saltearPrimero.current) {
+      saltearPrimero.current = false;
+      return;
+    }
     let vivo = true;
     void datosDelTopbarAction().then((nuevos) => {
       if (vivo) setCache(nuevos);
@@ -84,8 +102,8 @@ function useTopbarDelPanel(alcance: (pathname: string) => boolean): DatosDelTopb
   return alcance(pathname) ? datos : null;
 }
 
-// SelectorClinicaDelPanel — el mismo control de "¿Qué necesitás hoy?",
-// en su variante compacta.
+// SelectorClinicaDelPanel — el selector de clínica del panel
+// (`SelectorClinica`).
 //
 // En MOBILE es el elemento principal del renglón, no un extra (corrección
 // del 2026-09-14, con captura): la primera versión lo escondía en pantalla
@@ -114,8 +132,6 @@ export function SelectorClinicaDelPanel() {
         <SelectorClinica
           clinicas={datos.clinicas}
           nombreActual={datos.nombreClinicaActual}
-          variante="compacto"
-          alineacion="izquierda"
           // Cambiar de clínica desde el panel deja al profesional EN el
           // panel de la otra clínica. Mandarlo a "¿Qué necesitás hoy?"
           // sería hacerle perder el lugar por una acción que no lo pidió.

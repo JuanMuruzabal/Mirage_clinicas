@@ -71,12 +71,17 @@ describe("ModuloDocumentos", () => {
     expect(screen.queryByRole("group")).not.toBeInTheDocument();
   });
 
-  it("la plantilla de entrada se puede elegir, el original del Colegio se ve tal cual, y la web del Colegio se abre aparte", () => {
+  it("la plantilla de entrada se puede elegir y el original del Colegio se ve tal cual, sin el link a la web del Colegio", () => {
     render(<ModuloDocumentos plantillas={plantillas} plantillaInicial="consentimiento-tratamiento-conducto" hoy="2026-09-27" />);
     const original = screen.getByRole("img", { name: "Tratamiento de conducto: modelo original del Colegio" });
     expect(original).toHaveAttribute("src", "/documentos-clinicos/originales/consentimiento-tratamiento-conducto/v1/pagina-1.w1600.webp");
     expect(original.getAttribute("srcset")).toContain("pagina-1.w800.webp 800w");
-    expect(screen.getByRole("link", { name: "Web del Colegio ↗" })).toHaveAttribute("href", conducto.fuente.url);
+    expect(screen.queryByRole("link", { name: /Web del Colegio/ })).not.toBeInTheDocument();
+    expect(document.querySelector(`a[href="${conducto.fuente.url}"]`)).toBeNull();
+    // "Completar" va por la prop `accion` del selector: al lado de la caja,
+    // después de su "N de M".
+    const completar = screen.getByRole("button", { name: "Completar este documento" });
+    expect(completar.parentElement?.previousElementSibling).toHaveTextContent(/^\d+ de \d+$/);
     // Sin textos de relleno: ni la bajada del módulo ni la descripción del documento.
     expect(screen.queryByText(conducto.descripcion)).not.toBeInTheDocument();
   });

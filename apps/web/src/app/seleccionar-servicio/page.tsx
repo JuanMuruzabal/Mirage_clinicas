@@ -1,9 +1,9 @@
+import type { ComponentProps } from "react";
 import type { Metadata } from "next";
-import { apiMisClinicas } from "@/lib/api";
-import { getSessionToken, requireOnboardingComplete } from "@/lib/session";
+import { requireOnboardingComplete } from "@/lib/session";
 import { NavCard } from "@/components/nav-card";
-import { ScrollReveal } from "@/components/scroll-reveal";
-import { SelectorClinica } from "./selector-clinica";
+import { Despliegue } from "@/components/panel/despliegue";
+import { FondoOndas } from "@/components/fondo-ondas";
 
 export const metadata: Metadata = { title: "¿Qué necesitás hoy? — PRISMA" };
 
@@ -17,17 +17,26 @@ export const metadata: Metadata = { title: "¿Qué necesitás hoy? — PRISMA" }
 // alta. El guard es `requireOnboardingComplete`, que manda a /clinicas si
 // falta algo.
 //
-// Rediseño del 2026-09-14, dos problemas concretos:
+// Rediseño del 2026-10-19 (pedido de la persona: "la veo algo rara en
+// escritorio"). Reemplaza al del 2026-09-14 —"Gestión de clínica" a dos
+// columnas con otra composición y las otras dos debajo, el selector a la
+// derecha del título—:
 //
-//   - **Las tres tarjetas eran del mismo tamaño**, así que la acción
-//     principal no se distinguía y la tercera quedaba sola dejando media
-//     pantalla vacía. Ahora "Gestión de clínica" ocupa las dos columnas
-//     con otra composición (horizontal, con botón sólido), y las otras
-//     dos van debajo, una en cada columna.
-//   - **"Estás en [píldora] Cambiar de clínica" eran tres tratamientos
-//     visuales para una sola idea**, apretados abajo del saludo. Pasa a
-//     ser un control único a la derecha del título, que además llena ese
-//     costado — el encabezado tenía todo el peso a la izquierda.
+//   - **Alineada a la izquierda, con un margen que crece con la pantalla**:
+//     la pregunta y las tarjetas. Antes todo flotaba en una columna centrada.
+//   - **Sin el selector de clínica**: se llega acá eligiendo la clínica en
+//     /clinicas, y para cambiarla se vuelve ahí. El selector sigue en el
+//     topbar del panel.
+//   - **Las tres tarjetas son iguales y una debajo de la otra**, de vidrio
+//     y con un dibujo de fondo cada una (`NavCard`). Se pierde la jerarquía
+//     de "Gestión de clínica" como tarjeta principal, a propósito.
+//   - **Sin el saludo**: /clinicas, la pantalla anterior, ya saluda. El h1
+//     es la pregunta, a su tamaño de siempre y en el degradé de los dibujos
+//     (`.titulo-prismatico`); en las tarjetas, el título en petróleo y la
+//     descripción en grafito.
+//   - **Entran con `Despliegue`** (TR-180), no con `ScrollReveal`: framer-
+//     motion las escondía hasta hidratar, y su `opacity` en un ancestro le
+//     cortaba el desenfoque al vidrio mientras duraba la entrada.
 //
 // Los dos destinos originales (/panel, /personalizar-pagina) son áreas
 // separadas a propósito (pedido explícito del cliente, 2026-08-23:
@@ -55,78 +64,49 @@ export default async function SeleccionarServicioPage() {
   const tiene = (rol: string) => sesion.roles.includes(rol as (typeof sesion.roles)[number]);
   const gestionaAgenda = tiene("profesional") || tiene("recepcion");
   const administraPagina = tiene("admin");
-  const token = await getSessionToken();
-  const clinicasResult = token ? await apiMisClinicas(token) : null;
-  const clinicas = clinicasResult?.ok ? clinicasResult.data.clinicas : [];
+
+  // El orden de siempre: la agenda, la página y el equipo.
+  const servicios: ComponentProps<typeof NavCard>[] = [
+    ...(gestionaAgenda
+      ? [{ href: "/panel", dibujo: "agenda" as const, titulo: "Gestión de clínica", descripcion: "La agenda de hoy, los pedidos pendientes y el resto de tu día a día." }]
+      : []),
+    ...(administraPagina
+      ? [{ href: "/personalizar-pagina", dibujo: "pagina" as const, titulo: "Personalización de página", descripcion: "Especialidades, secciones y el enlace que compartís con tus pacientes." }]
+      : []),
+    ...(tiene("owner")
+      ? [{ href: "/colaboradores", dibujo: "equipo" as const, titulo: "Colaboradores", descripcion: "Quién trabaja en la clínica, con qué rol, y a quién invitar." }]
+      : []),
+  ];
 
   return (
-    // `hueso`, el mismo fondo que /clinicas: las tres pantallas con
-    // tarjetas —dónde trabajás, qué necesitás, colaboradores— comparten
-    // fondo, así que pasar de una a otra no se siente como cambiar de
-    // aplicación. Lo que separa tarjeta de fondo es el borde de 1px en
-    // `linea`, no un fondo más oscuro.
-    <main className="flex flex-1 flex-col gap-12 bg-hueso px-6 py-16 pt-[calc(var(--header-height)+2rem)]">
-      {/* `max-w-4xl` y no 1180px: es el ancho de /clinicas, la pantalla
-          anterior. Pasar de una a la otra no tiene que sentirse como
-          cambiar de aplicación — mismo ancho, mismo título, misma
-          posición. */}
-      <div className="mx-auto flex w-full max-w-4xl flex-wrap items-end justify-between gap-6">
-        <div>
-          <p className="mb-1 font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-grafito/50">
-            Hola, {sesion.nombre}
-          </p>
-          <h1 className="font-[family-name:var(--font-display)] text-4xl font-medium text-grafito sm:text-5xl">
-            ¿Qué necesitás hoy?
-          </h1>
-        </div>
-        {/* `ml-auto` y no `self-end`: al envolverse, el selector quedaba
-            pegado a la IZQUIERDA y su popover —anclado a la derecha del
-            botón— se salía de la pantalla (reportado con captura).
-            `self-end` no servía porque en un flex ROW alinea en el eje
-            vertical; lo que empuja hacia la derecha en su propia línea es
-            el margen automático. Contra el borde derecho, el popover cae
-            hacia adentro. */}
-        <div className="ml-auto">
-          <SelectorClinica clinicas={clinicas} nombreActual={sesion.nombreClinica} />
-        </div>
-      </div>
+    <>
+      {/* FondoOndas (correcciones generales, ítem 1, 2026-10-10): el fondo
+          de ondas de toda la app, en lugar de las crucecitas y del hueso
+          plano. Va afuera de <main>, fijo y detrás del contenido. */}
+      <FondoOndas />
+      {/* Alineada a la izquierda y no en una columna centrada (se veía rara
+          en la computadora, pedido de la persona, 2026-10-19), pero tampoco
+          pegada al borde: el margen izquierdo crece con la pantalla (32 px
+          en una tablet, 102 a 1280 y 128 desde 1600). En el celular, el del
+          panel. Las tarjetas, a `max-w-5xl`: más anchas se estiraban sin
+          nada que poner en el medio. Es la base de /clinicas. */}
+      <main className="flex w-full flex-1 flex-col gap-8 px-8 pb-16 pt-[calc(var(--header-height)+2rem)] max-md:px-[clamp(1rem,4vw,2rem)] md:pl-[clamp(2rem,8vw,8rem)]">
+        {/* En el degradé de los dibujos, como los títulos del panel (pedido
+            de la persona, 2026-10-19), en un <span> en línea. */}
+        <h1 className="font-[family-name:var(--font-display)] text-3xl font-semibold tracking-tight sm:text-4xl">
+          <span className="titulo-prismatico">¿Qué necesitás hoy?</span>
+        </h1>
 
-      <div className="mx-auto grid w-full max-w-4xl gap-6 sm:grid-cols-2">
-        {gestionaAgenda && (
-          <ScrollReveal className="sm:col-span-2">
-            <NavCard
-              href="/panel"
-              variante="principal"
-              titulo="Gestión de clínica"
-              descripcion="La agenda de hoy, los pedidos pendientes y el resto de tu día a día."
-            />
-          </ScrollReveal>
-        )}
-        {administraPagina && (
-          // Sin la tarjeta principal —alguien que SOLO administra la
-          // página— esta pasa a ocupar el ancho completo: una tarjeta
-          // sola en media grilla deja el otro medio vacío.
-          <ScrollReveal delay={0.1} className={gestionaAgenda ? undefined : "sm:col-span-2"}>
-            <NavCard
-              href="/personalizar-pagina"
-              variante={gestionaAgenda ? "normal" : "principal"}
-              titulo="Personalización de página"
-              descripcion="Especialidades, secciones y el enlace que compartís con tus pacientes."
-              size="large"
-            />
-          </ScrollReveal>
-        )}
-        {tiene("owner") && (
-          <ScrollReveal delay={0.2}>
-            <NavCard
-              href="/colaboradores"
-              titulo="Colaboradores"
-              descripcion="Quién trabaja en la clínica, con qué rol, y a quién invitar."
-              size="large"
-            />
-          </ScrollReveal>
-        )}
-      </div>
-    </main>
+        {/* Una tarjeta por fila, todas del mismo alto (`auto-rows-fr`): la
+            de descripción más larga marca el de las tres. */}
+        <div className="grid max-w-5xl auto-rows-fr gap-4">
+          {servicios.map((servicio, orden) => (
+            <Despliegue key={servicio.href} orden={orden}>
+              <NavCard {...servicio} />
+            </Despliegue>
+          ))}
+        </div>
+      </main>
+    </>
   );
 }

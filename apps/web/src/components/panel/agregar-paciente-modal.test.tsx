@@ -137,17 +137,15 @@ describe("AgregarPacienteModal", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("ya existe un paciente con ese DNI");
   });
 
-  it("se cierra con Cancelar y con la X", async () => {
+  it("se cierra con la X, sin botón Cancelar", async () => {
     const onClose = vi.fn();
     const user = userEvent.setup();
     render(<AgregarPacienteModal onClose={onClose} onSuccess={vi.fn()} />);
     await irAPacienteNuevo(user);
 
-    await user.click(screen.getByRole("button", { name: "Cancelar" }));
-    expect(onClose).toHaveBeenCalledTimes(1);
-
+    expect(screen.queryByRole("button", { name: "Cancelar" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Cerrar" }));
-    expect(onClose).toHaveBeenCalledTimes(2);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   // "De la clínica" (2026-09-19, pedido del cliente): la ficha ya existe

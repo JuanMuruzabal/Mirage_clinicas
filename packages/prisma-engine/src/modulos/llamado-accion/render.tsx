@@ -40,7 +40,7 @@ function LlamadoAccion({ modulo, contexto }: { modulo: ModuloBorrador; contexto:
           href={accion.href}
           target={accion.externo ? "_blank" : undefined}
           rel={accion.externo ? "noopener noreferrer" : undefined}
-          className="inline-flex items-center justify-center rounded-[var(--pp-boton-radio,9999px)] border-[length:var(--pp-boton-borde-ancho,0px)] border-[var(--pp-boton-borde,transparent)] bg-[var(--pp-boton-fondo,var(--color-salvia-oscuro))] px-6 py-3 text-sm font-semibold text-[var(--pp-boton-texto,var(--color-marfil))] shadow-soft hover:brightness-95"
+          className="inline-flex items-center justify-center rounded-[var(--pp-boton-radio,9999px)] border-[length:var(--pp-boton-borde-ancho,0px)] border-[var(--pp-boton-borde,transparent)] bg-[var(--pp-boton-fondo,var(--color-marca-relleno))] px-6 py-3 text-sm font-semibold text-[var(--pp-boton-texto,var(--color-marfil))] shadow-soft hover:brightness-95"
         >
           {etiquetaBoton}
         </a>

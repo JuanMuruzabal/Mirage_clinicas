@@ -79,7 +79,7 @@ export function LoginForm() {
         />
 
         <div className="flex justify-end">
-          <Link href="/recuperar-password" className="text-sm font-medium text-salvia-oscuro hover:text-grafito">
+          <Link href="/recuperar-password" className="text-sm font-medium text-marca hover:text-grafito">
             ¿Olvidaste tu contraseña?
           </Link>
         </div>
@@ -111,7 +111,7 @@ export function LoginForm() {
 
       <p className="text-center text-sm text-grafito/60">
         ¿Todavía no tenés cuenta?{" "}
-        <Link href="/sumarse" className="font-medium text-salvia-oscuro hover:text-grafito">
+        <Link href="/sumarse" className="font-medium text-marca hover:text-grafito">
           Sumate
         </Link>
       </p>

@@ -14,10 +14,12 @@ import { Despliegue } from "./despliegue";
 // largo al lado ("Ver horarios reservados"), el rótulo se partía en dos
 // renglones. Ahora, si no entran juntos, el link baja entero.
 const CABECERA_BASE = "flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1";
+// `grafito/75` y no `/50` (2026-10-17): sobre el vidrio, el rótulo a la
+// mitad daba 2,9:1; a tres cuartos pasa de 5:1 en el tramo más oscuro.
 const EYEBROW_BASE =
-  "font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest whitespace-nowrap text-grafito/50";
+  "font-[family-name:var(--font-mono)] tabular-nums text-xs uppercase tracking-widest whitespace-nowrap text-grafito/75";
 const VALOR_BASE =
-  "font-[family-name:var(--font-display)] text-5xl font-medium";
+  "font-[family-name:var(--font-display)] tracking-tight text-4xl font-semibold";
 const LABEL_CABECERA_BASE = "text-sm font-medium whitespace-nowrap";
 
 interface TarjetaFila {
@@ -63,16 +65,12 @@ interface TarjetaConListaProps {
   orden?: number;
 }
 
-// Cuerpo "medio transparente, mismo efecto que las tarjetas de la página
-// principal" (pedido explícito del cliente, ejemplo-para-cuerpo-tarjeta.png
-// en docs/; corrección de QA 2026-09-06: "no se ve la transparencia... se
-// sigue viendo de color cascarón... la transparencia debe ser más opaca,
-// es decir que los objetos de fondo tengan más blur") — `.panel-card-vidrio`
-// (globals.css) pinta y desenfoca su PROPIA copia de la textura de
-// `.panel-texture` en un pseudo-elemento, en vez de depender de un
-// `backdrop-filter` que tenga que atravesar varios contenedores de la
-// página para encontrar algo real que desenfocar (eso es lo que se veía
-// plano). El fondo opaco (`bg-marfil`) queda SOLO en la cabecera.
+// La tarjeta ENTERA es de vidrio (`.vidrio` en globals.css, 2026-10-17, el
+// modelo del Centro de Control de iOS que mandó la persona): el panel
+// translúcido con el borde iluminado, y adentro la cabecera como segunda
+// capa (`.vidrio-capa`, la "carátula": un poco más clara, a la misma curva
+// que las esquinas). La lista y el pie van sobre el panel. Antes la
+// cabecera era blanca y opaca, y solo el cuerpo era de vidrio.
 export function TarjetaConLista({
   eyebrow,
   valor,
@@ -88,10 +86,18 @@ export function TarjetaConLista({
   orden,
 }: TarjetaConListaProps) {
   return (
-    <Despliegue orden={orden} className="flex flex-col overflow-hidden rounded-card border-[0.5px] border-arena shadow-soft">
-      <div className="relative flex flex-col gap-2 overflow-hidden bg-marfil p-6">
+    <Despliegue orden={orden} className="vidrio flex flex-col overflow-hidden">
+      {/* 6 px de margen + 18 de relleno: el texto queda a 24 px del borde,
+          alineado con el de las filas (`px-6`).
+          120 px de alto como mínimo, los de la carátula de "Turnos de hoy"
+          en el celular, con la cifra abajo (pedido de la persona,
+          2026-10-18: "Ver turnos" y "Ver en calendario" quedaban pegados al
+          dibujo). El dibujo va anclado abajo: con 104 px su parte de arriba
+          tocaba el link; con 120 queda a 15 px, y del mismo tamaño que en
+          las otras tarjetas. */}
+      <div className="vidrio-capa relative flex min-h-30 flex-col gap-2 overflow-hidden p-4.5">
         {icono}
-        <div className="relative z-10 flex flex-col gap-2">
+        <div className="relative z-10 flex flex-1 flex-col justify-between gap-2">
           <div className={CABECERA_BASE}>
             <p className={EYEBROW_BASE}>{eyebrow}</p>
             {/* Sin link de cabecera, la tarjeta queda solo con su
@@ -103,14 +109,14 @@ export function TarjetaConLista({
               (hrefCabecera && labelCabecera && (
                 <Link
                   href={hrefCabecera}
-                  className={`${LABEL_CABECERA_BASE} text-salvia-oscuro hover:text-grafito`}
+                  className={`${LABEL_CABECERA_BASE} text-marca hover:text-grafito`}
                 >
                   {labelCabecera}
                 </Link>
               ))}
           </div>
           <p
-            className={`despliegue-cifra ${VALOR_BASE} ${acento ? "text-salvia-oscuro" : "text-grafito"}`}
+            className={`despliegue-cifra ${VALOR_BASE} ${acento ? "text-marca" : "text-grafito"}`}
           >
             {valor}
           </p>
@@ -132,19 +138,16 @@ export function TarjetaConLista({
           textura cruda de la página asomando por debajo. `flex-1` fuerza
           a este cuerpo a ocupar siempre el resto del alto disponible —
           el efecto vidrio pasa a cubrir la tarjeta completa, tenga
-          contenido o no. */}
-      {/* DOS CAJAS Y NO UNA (QA de la 3.2.6). El scroll HORIZONTAL —
-          pedido "por las dudas de que sea muy grande el nombre del
-          profesional"— no se puede poner en la misma caja que
-          `.panel-card-vidrio`: esa clase fuerza `overflow-x: hidden` para
-          recortar el `inset` negativo de su pseudo-elemento, y le gana a
-          la utility de Tailwind. Es exactamente el mismo desdoblamiento
-          que ya había hecho falta en la tarjeta "Turnos de hoy".
-          `overflow-y-hidden` en la de afuera no es decorativo: con la X
-          en `hidden` y la Y sin declarar, la Y computa `auto` y esta caja
-          se convierte en un segundo contenedor de scroll — una barra
-          extra, y encima la del navegador en vez de la beige. */}
-      <div className="despliegue-cuerpo panel-card-vidrio max-h-52 flex-1 overflow-y-hidden">
+          contenido o no. Desde que el vidrio es la tarjeta entera
+          (2026-10-17) eso ya no se nota, pero el `flex-1` sigue dejando el
+          pie siempre abajo. */}
+      {/* DOS CAJAS Y NO UNA (QA de la 3.2.6): la de afuera recorta el
+          despliegue (`despliegue-cuerpo`, que se abre con un `clip-path`)
+          y la de adentro scrollea en los dos ejes (el horizontal, "por las
+          dudas de que sea muy grande el nombre del profesional"). La de
+          afuera cierra los dos ejes: con uno solo en `hidden`, el otro
+          computa `auto` y sería un segundo contenedor de scroll. */}
+      <div className="despliegue-cuerpo max-h-52 flex-1 overflow-hidden">
         <div className="panel-card-scroll h-full overflow-auto">
           {filas.length === 0 ? (
             // Misma tipografía de display que las filas con contenido
@@ -152,7 +155,7 @@ export function TarjetaConLista({
             // quede coherente con el font de las tarjetas con contenido",
             // ver cambiar2.png en docs/) — antes quedaba en la fuente
             // sans-serif por default, discordante con el resto del cuerpo.
-            <p className="p-4 font-[family-name:var(--font-display)] text-base font-medium text-grafito/50">
+            <p className="px-6 py-4 font-[family-name:var(--font-display)] text-base font-semibold text-grafito/75">
               {vacioMensaje}
             </p>
           ) : (
@@ -160,12 +163,12 @@ export function TarjetaConLista({
               {filas.map((f) => (
                 <li
                   key={f.key}
-                  className="border-b-[0.5px] border-arena/60 last:border-b-0"
+                  className="border-b border-grafito/10 last:border-b-0"
                 >
                   <LinkConVista
                     href={f.href}
                     userId={f.userId}
-                    className="block px-4 py-3 hover:bg-arena/40"
+                    className="block px-6 py-3 hover:bg-velo"
                   >
                     {f.contenido}
                   </LinkConVista>
@@ -180,10 +183,10 @@ export function TarjetaConLista({
           completa, separada del link de la cabecera que lleva al
           recorte que la tarjeta está mostrando. */}
       {hrefPie && labelPie && (
-        <div className="flex items-center justify-end border-t-[0.5px] border-arena bg-marfil px-6 py-3">
+        <div className="flex items-center justify-end border-t border-grafito/10 px-6 py-3">
           <Link
             href={hrefPie}
-            className="text-sm font-medium text-salvia-oscuro hover:text-grafito"
+            className="text-sm font-medium text-marca hover:text-grafito"
           >
             {labelPie}
           </Link>
@@ -245,12 +248,12 @@ export function FilaResumen({
         // negrita así se ven bien") — antes era font-normal por default,
         // se perdía un poco al lado de la hora/contenido en negrita justo
         // debajo.
-        <span className="font-[family-name:var(--font-mono)] text-[10px] font-bold uppercase tracking-widest text-grafito/50">
+        <span className="font-[family-name:var(--font-mono)] tabular-nums text-[10px] font-bold uppercase tracking-widest text-grafito/75">
           {etiqueta}
         </span>
       )}
       <div className="flex items-baseline gap-x-3">
-        <span className="w-[8.5rem] shrink-0 font-[family-name:var(--font-display)] text-lg leading-tight font-bold tabular-nums whitespace-nowrap text-salvia-oscuro">
+        <span className="w-[8.5rem] shrink-0 font-[family-name:var(--font-display)] text-lg leading-tight font-bold tabular-nums whitespace-nowrap text-marca">
           {hora}
         </span>
         {/* `min-w-[9rem]` y no `min-w-0`: el nombre del paciente sigue
@@ -274,7 +277,7 @@ export function FilaResumen({
             Sin `truncate` ni ancho máximo: el nombre se lee entero y, si
             no entra, la tarjeta scrollea de costado (ver TarjetaConLista). */}
         {profesional && (
-          <span className="shrink-0 font-[family-name:var(--font-display)] text-base leading-tight font-medium whitespace-nowrap text-grafito/60">
+          <span className="shrink-0 font-[family-name:var(--font-display)] text-base leading-tight font-semibold whitespace-nowrap text-grafito/75">
             {profesional}
           </span>
         )}
@@ -308,17 +311,17 @@ export function TarjetaSimple({
     <Despliegue orden={orden} className="flex">
     <Link
       href={href}
-      className="group relative flex flex-1 flex-col gap-2 overflow-hidden rounded-card border-[0.5px] border-arena bg-marfil p-8 shadow-soft transition-colors duration-300 hover:bg-arena"
+      className="vidrio vidrio-enlace group flex flex-1 flex-col gap-2 overflow-hidden p-8 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-marca"
     >
       {icono}
       <div className="relative z-10 flex flex-col gap-2">
         <p className={EYEBROW_BASE}>{eyebrow}</p>
         <p
-          className={`despliegue-cifra ${VALOR_BASE} text-6xl ${acento ? "text-salvia-oscuro" : "text-grafito"}`}
+          className={`despliegue-cifra ${VALOR_BASE} text-6xl ${acento ? "text-marca" : "text-grafito"}`}
         >
           {valor}
         </p>
-        <p className="text-sm font-medium text-salvia-oscuro group-hover:text-grafito">
+        <p className="text-sm font-medium text-marca group-hover:text-grafito">
           {titulo}
         </p>
       </div>
@@ -351,7 +354,7 @@ export function TarjetaEstadistica({
   return (
     <Despliegue
       orden={orden}
-      className="relative flex flex-1 flex-col gap-4 overflow-hidden rounded-card border-[0.5px] border-arena bg-marfil p-8 shadow-soft"
+      className="vidrio flex flex-1 flex-col gap-4 overflow-hidden p-8"
     >
       {icono}
       <div className="relative z-10 flex flex-col gap-4">
@@ -361,13 +364,13 @@ export function TarjetaEstadistica({
             <p className={`despliegue-cifra ${VALOR_BASE} text-5xl text-salvia-oscuro`}>
               {asistieron}
             </p>
-            <p className="text-sm font-medium text-grafito/60">Asistieron</p>
+            <p className="text-sm font-medium text-grafito/75">Asistieron</p>
           </div>
           <div className="flex flex-col gap-1">
             <p className={`despliegue-cifra ${VALOR_BASE} text-5xl text-terracota-oscuro`}>
               {ausentes}
             </p>
-            <p className="text-sm font-medium text-grafito/60">Ausentes</p>
+            <p className="text-sm font-medium text-grafito/75">Ausentes</p>
           </div>
         </div>
       </div>

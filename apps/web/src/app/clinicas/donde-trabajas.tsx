@@ -12,8 +12,15 @@ import { entrarEnClinicaAction, generarCodigoInvitacionAction } from "@/app/acti
 import { aceptarInvitacionAction, rechazarInvitacionAction } from "@/app/actions/equipo";
 import { OnboardingClinicaForm } from "@/app/sumarse/onboarding-clinica-form";
 import { OnboardingPerfilForm } from "@/app/sumarse/onboarding-perfil-form";
-import { QuadrantMark } from "@/components/quadrant-mark";
-import { ScrollReveal } from "@/components/scroll-reveal";
+import { Despliegue } from "@/components/panel/despliegue";
+import {
+  CLASE_ANTETITULO_DE_TARJETA,
+  CLASE_BOTON_DE_TARJETA,
+  CLASE_BOTON_DE_TARJETA_ENLAZADA,
+  CLASE_DESCRIPCION_DE_TARJETA,
+  CLASE_TITULO_DE_TARJETA,
+  TarjetaConDibujo,
+} from "@/components/tarjeta-con-dibujo";
 
 interface DondeTrabajasProps {
   clinicas: ClinicaDelUsuario[];
@@ -134,18 +141,15 @@ export function DondeTrabajas({
   return (
     <>
       <section className="flex flex-col gap-4">
-        <h2 className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-grafito/50">Mi clínica</h2>
-        {/* Las tarjetas entran con el mismo fade + desplazamiento que
-            las de "¿Qué necesitás hoy?" (corrección del 2026-09-14).
-            /clinicas es la pantalla ANTERIOR a esa en el recorrido de
-            toda sesión, y era la única de las dos que aparecía de golpe:
-            el cambio de una a otra se notaba como un salto de estilo.
-            `ScrollReveal` respeta `prefers-reduced-motion` solo. */}
-        <ScrollReveal>
+        <h2 className="font-[family-name:var(--font-mono)] tabular-nums text-xs uppercase tracking-widest text-marca">Mi clínica</h2>
+        {/* Las tarjetas entran con `Despliegue` (TR-180), como las de
+            "¿Qué necesitás hoy?", la pantalla siguiente: no con
+            `ScrollReveal`, cuya `opacity` en un ancestro le cortaba el
+            desenfoque al vidrio mientras duraba la entrada. */}
+        <Despliegue orden={0}>
           {propia ? (
             <TarjetaClinica
               clinica={propia}
-              ancha
               onEntrar={() => pedirEntrar(propia)}
               pendiente={entrando === propia.id}
               error={errorEntrar?.clinicaId === propia.id ? errorEntrar.mensaje : undefined}
@@ -153,57 +157,55 @@ export function DondeTrabajas({
           ) : (
             <TarjetaCrearClinica onClick={pedirCrearClinica} />
           )}
-        </ScrollReveal>
+        </Despliegue>
       </section>
 
       <section className="flex flex-col gap-4">
-        <div className="flex items-baseline justify-between gap-4">
-          <h2 className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-grafito/50">Otras clínicas</h2>
-          <span className="text-sm text-grafito/50">
-            {otras.length + sinResponder.length === 0
-              ? "Ninguna todavía"
-              : `${otras.length + sinResponder.length} ${otras.length + sinResponder.length === 1 ? "clínica" : "clínicas"}`}
-          </span>
-        </div>
+        {/* Sin el contador de al lado ("Ninguna todavía", "3 clínicas"):
+            ítem 15, pedido de la persona (2026-10-19). */}
+        <h2 className="font-[family-name:var(--font-mono)] tabular-nums text-xs uppercase tracking-widest text-marca">Otras clínicas</h2>
 
-        <div className="grid gap-6 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2">
           {/* Las invitaciones sin confirmar van PRIMERO: son lo único de
               esta pantalla que espera una decisión (Fase 3.2.4). */}
           {sinResponder.map((invitacion, i) => (
-            <ScrollReveal key={invitacion.id} delay={i * 0.06} className="h-full">
+            <Despliegue key={invitacion.id} orden={1 + i} className="h-full">
               <TarjetaInvitacion
                 invitacion={invitacion}
                 onAceptar={() => pedirAceptar(invitacion)}
                 onRechazar={() => setRespondidas((previas) => [...previas, invitacion.id])}
                 error={errorEntrar?.clinicaId === invitacion.id ? errorEntrar.mensaje : undefined}
               />
-            </ScrollReveal>
+            </Despliegue>
           ))}
           {otras.length === 0 && sinResponder.length === 0 ? (
-            <ScrollReveal className="flex flex-col gap-2 rounded-card border border-dashed border-linea bg-transparent p-8">
-              <h3 className="font-[family-name:var(--font-display)] text-xl font-medium text-grafito">
-                Todavía no trabajás en otras clínicas
-              </h3>
-              <p className="text-sm text-grafito/60">
-                Cuando un colega te invite, o cuando uses un código de invitación, la clínica va a aparecer acá y vas a poder
-                cambiar de una a otra sin cerrar sesión.
-              </p>
-            </ScrollReveal>
+            <Despliegue orden={1} className="h-full">
+              <div className="vidrio encabezado-seccion flex h-full flex-col gap-2 px-5 py-4.5 sm:px-6 sm:py-5">
+                <h3 className="font-[family-name:var(--font-display)] text-xl leading-tight font-semibold tracking-tight text-marca">
+                  Todavía no trabajás en otras clínicas
+                </h3>
+                <p className="text-[15px] text-grafito">
+                  Cuando un colega te invite, o cuando uses un código de invitación, la clínica va a aparecer acá y vas a poder
+                  cambiar de una a otra sin cerrar sesión.
+                </p>
+              </div>
+            </Despliegue>
           ) : (
             otras.map((clinica, i) => (
-              <ScrollReveal key={clinica.id} delay={(sinResponder.length + i) * 0.06} className="h-full">
+              <Despliegue key={clinica.id} orden={1 + sinResponder.length + i} className="h-full">
                 <TarjetaClinica
                   clinica={clinica}
+                  otra
                   onEntrar={() => pedirEntrar(clinica)}
                   pendiente={entrando === clinica.id}
                   error={errorEntrar?.clinicaId === clinica.id ? errorEntrar.mensaje : undefined}
                 />
-              </ScrollReveal>
+              </Despliegue>
             ))
           )}
-          <ScrollReveal delay={(sinResponder.length + otras.length) * 0.06} className="h-full">
+          <Despliegue orden={1 + sinResponder.length + Math.max(otras.length, 1)} className="h-full">
             <Unirme codigoInicial={codigoInicial} />
-          </ScrollReveal>
+          </Despliegue>
         </div>
       </section>
 
@@ -250,85 +252,73 @@ export function DondeTrabajas({
   );
 }
 
+// LAS TARJETAS DE ESTA PANTALLA (ítems 14 y 15, 2026-10-19) son
+// `TarjetaConDibujo`, el mismo armado de las de "¿Qué necesitás hoy?": el
+// vidrio con la carátula, el título en petróleo, la descripción en grafito,
+// el botón delineado de 44 px y una escena de la paleta común que cambia de
+// color. "Mi clínica" va a lo ancho, como las de servicio; las de "Otras
+// clínicas" van en columna (la grilla es de dos), y las clínicas de ahí son
+// BLANCAS y sin la descripción (ítem 15). La invitación sigue de vidrio a
+// propósito: es la única tarjeta que espera una decisión.
+
 // TarjetaClinica no decide si se puede entrar: avisa al padre, que es
 // quien sabe si antes hay que pedir los datos profesionales que faltan.
 function TarjetaClinica({
   clinica,
-  ancha = false,
+  otra = false,
   onEntrar,
   pendiente = false,
   error,
 }: {
   clinica: ClinicaDelUsuario;
-  ancha?: boolean;
+  /** Una de "Otras clínicas": blanca, en columna y sin la descripción. */
+  otra?: boolean;
   onEntrar: () => void;
   pendiente?: boolean;
   error?: string;
 }) {
-  const ubicacion = [clinica.direccion, clinica.ciudad].filter(Boolean).join(", ");
-  const cuantos = `${clinica.profesionales} ${clinica.profesionales === 1 ? "profesional" : "profesionales"}`;
-
+  // Sin el rol de arriba ni la línea de dirección y profesionales (ítem 15,
+  // pedido de la persona, 2026-10-19): la tarjeta dice qué clínica es y
+  // ofrece entrar, nada más.
   return (
-    <article
-      className={`group relative flex h-full flex-col gap-3 rounded-card border border-linea bg-marfil p-8 shadow-soft transition-all duration-300 ease-out hover:border-salvia hover:shadow-lg ${
-        ancha ? "sm:col-span-2" : ""
-      }`}
-    >
-      <div className="flex items-start justify-between gap-4">
-        <QuadrantMark className="text-salvia transition-transform duration-300 group-hover:scale-110 group-hover:text-salvia-oscuro" />
-        <span className="rounded-full bg-salvia-claro px-3 py-1 text-xs font-medium text-salvia-oscuro">
-          {ETIQUETA_ROL[clinica.rolPrincipal] ?? clinica.rolPrincipal}
-        </span>
-      </div>
-      <h3 className="font-[family-name:var(--font-display)] text-2xl font-medium text-grafito">{clinica.nombre}</h3>
-      <p className="text-sm text-grafito/60">
-        {clinica.esPropia
-          ? "Tu clínica. Desde acá manejás la agenda, los pacientes y tu página pública."
-          : "Tu agenda y tus pacientes en esta clínica, separados del resto del equipo."}
-      </p>
-      <p className="font-[family-name:var(--font-mono)] text-xs text-grafito/45">
-        {ubicacion ? `${ubicacion} · ${cuantos}` : cuantos}
-      </p>
+    <TarjetaConDibujo dibujo={otra ? "otra-clinica" : "clinica"} disposicion={otra ? "columna" : "fila"} blanca={otra}>
+      <h3 className={CLASE_TITULO_DE_TARJETA}>{clinica.nombre}</h3>
+      {!otra && (
+        <p className={CLASE_DESCRIPCION_DE_TARJETA}>
+          Tu clínica. Desde acá manejás la agenda, los pacientes y tu página pública.
+        </p>
+      )}
       {error && (
         <p role="alert" className="text-sm text-terracota-oscuro">
           {error}
         </p>
       )}
-      <button
-        type="button"
-        disabled={pendiente}
-        onClick={onEntrar}
-        className="mt-2 self-start text-sm font-medium text-salvia-oscuro transition-transform duration-300 hover:translate-x-1 hover:text-grafito disabled:opacity-60"
-      >
-        {pendiente ? "Entrando…" : "Entrar"}
-      </button>
-    </article>
+      <div className="mt-auto pt-3">
+        <button type="button" disabled={pendiente} onClick={onEntrar} className={CLASE_BOTON_DE_TARJETA}>
+          {pendiente ? "Entrando…" : "Entrar"}
+        </button>
+      </div>
+    </TarjetaConDibujo>
   );
 }
 
 function TarjetaCrearClinica({ onClick }: { onClick: () => void }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="group flex flex-col gap-3 rounded-card border border-linea bg-marfil p-8 text-left shadow-soft transition-all duration-300 ease-out hover:border-salvia hover:bg-hueso hover:shadow-lg sm:p-10"
-    >
-      <QuadrantMark className="text-salvia transition-transform duration-300 group-hover:scale-110 group-hover:text-salvia-oscuro" />
-      <h3 className="font-[family-name:var(--font-display)] text-2xl font-medium text-grafito sm:text-3xl">Crear mi clínica</h3>
-      <p className="text-sm text-grafito/60">
+    <TarjetaConDibujo onClick={onClick} dibujo="crear-clinica">
+      <h3 className={CLASE_TITULO_DE_TARJETA}>Crear mi clínica</h3>
+      <p className={`mb-3 ${CLASE_DESCRIPCION_DE_TARJETA}`}>
         Tu propio consultorio, con su agenda, sus pacientes y su página pública. Podés crearla ahora o esperar a que un colega te
         sume al equipo del suyo.
       </p>
-      <span className="mt-2 text-sm font-medium text-salvia-oscuro transition-transform duration-300 group-hover:translate-x-1 group-hover:text-grafito">
-        Empezar
-      </span>
-    </button>
+      <span className={`mt-auto self-start ${CLASE_BOTON_DE_TARJETA_ENLAZADA}`}>Empezar</span>
+    </TarjetaConDibujo>
   );
 }
 
 // Unirme — el código con el que la persona se ofrece para que una clínica
 // la sume. La dirección del pedido es al revés que la de una invitación:
-// acá el profesional se ofrece y la clínica lo carga (Fase 3.2.4).
+// acá el profesional se ofrece y la clínica lo carga (Fase 3.2.4). De vidrio
+// (pedido de la persona, 2026-10-19), como el aviso de "todavía no trabajás".
 function Unirme({ codigoInicial }: { codigoInicial?: CodigoInvitacion }) {
   const [codigo, setCodigo] = useState<CodigoInvitacion | undefined>(codigoInicial);
   const [copiado, setCopiado] = useState(false);
@@ -336,16 +326,16 @@ function Unirme({ codigoInicial }: { codigoInicial?: CodigoInvitacion }) {
   const [pendiente, iniciar] = useTransition();
 
   return (
-    <article className="flex h-full flex-col gap-3 rounded-card border border-dashed border-salvia bg-salvia-claro/40 p-8">
-      <h3 className="font-[family-name:var(--font-display)] text-xl font-medium text-grafito">Unirme a otra clínica</h3>
-      <p className="text-sm text-grafito/60">
+    <article className="vidrio encabezado-seccion flex h-full flex-col gap-1.5 px-5 py-4.5 sm:px-6 sm:py-5">
+      <h3 className={CLASE_TITULO_DE_TARJETA}>Unirme a otra clínica</h3>
+      <p className={CLASE_DESCRIPCION_DE_TARJETA}>
         Generá tu código y pasáselo a la clínica para que te sumen al equipo. También podés darles el mail de tu cuenta y que te
         manden la invitación desde ahí.
       </p>
 
       {codigo && (
-        <div className="flex flex-wrap items-center gap-3 rounded-field border border-salvia bg-marfil px-4 py-3">
-          <code className="font-[family-name:var(--font-mono)] text-lg tracking-widest text-grafito">{codigo.codigo}</code>
+        <div className="mt-2 flex flex-wrap items-center gap-3 rounded-field border border-marca-medio bg-marfil py-1 pr-1 pl-4">
+          <code className="font-[family-name:var(--font-codigo)] text-lg tracking-widest text-grafito">{codigo.codigo}</code>
           <button
             type="button"
             onClick={async () => {
@@ -358,14 +348,14 @@ function Unirme({ codigoInicial }: { codigoInicial?: CodigoInvitacion }) {
                 // vista para copiarlo a mano: no hay nada que avisar.
               }
             }}
-            className="ml-auto text-sm font-medium text-salvia-oscuro hover:text-grafito"
+            className="ml-auto inline-flex min-h-11 items-center rounded-control px-4 text-sm font-semibold text-marca hover:bg-velo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-marca"
           >
             {copiado ? "Copiado" : "Copiar"}
           </button>
         </div>
       )}
 
-      {codigo && <p className="text-xs text-grafito/45">Vence en 24 horas. La clínica lo carga desde Colaboradores.</p>}
+      {codigo && <p className="text-xs text-grafito/75">Vence en 24 horas. La clínica lo carga desde Colaboradores.</p>}
 
       {error && (
         <p role="alert" className="text-sm text-terracota-oscuro">
@@ -373,24 +363,26 @@ function Unirme({ codigoInicial }: { codigoInicial?: CodigoInvitacion }) {
         </p>
       )}
 
-      <button
-        type="button"
-        disabled={pendiente}
-        onClick={() =>
-          iniciar(async () => {
-            setError(null);
-            const resultado = await generarCodigoInvitacionAction();
-            if ("error" in resultado) {
-              setError(resultado.error);
-              return;
-            }
-            setCodigo(resultado);
-          })
-        }
-        className="mt-auto self-start rounded-full border border-salvia bg-marfil px-5 py-2.5 text-sm font-medium text-salvia-oscuro hover:bg-hueso hover:text-grafito disabled:opacity-60"
-      >
-        {pendiente ? "Generando…" : codigo ? "Generar otro" : "Generar mi código"}
-      </button>
+      <div className="mt-auto pt-3">
+        <button
+          type="button"
+          disabled={pendiente}
+          onClick={() =>
+            iniciar(async () => {
+              setError(null);
+              const resultado = await generarCodigoInvitacionAction();
+              if ("error" in resultado) {
+                setError(resultado.error);
+                return;
+              }
+              setCodigo(resultado);
+            })
+          }
+          className={CLASE_BOTON_DE_TARJETA}
+        >
+          {pendiente ? "Generando…" : codigo ? "Generar otro" : "Generar mi código"}
+        </button>
+      </div>
     </article>
   );
 }
@@ -398,9 +390,9 @@ function Unirme({ codigoInicial }: { codigoInicial?: CodigoInvitacion }) {
 // TarjetaInvitacion — una clínica que me invitó y todavía no confirmé.
 //
 // Va en "Otras clínicas" junto a las que ya son mías, con su estado
-// (pedido del cliente, 2026-09-13). Se ve distinta a propósito: es la
-// única tarjeta de la pantalla que no lleva a ningún lado hasta que se
-// tome una decisión.
+// (pedido del cliente, 2026-09-13). Se ve distinta a propósito —de vidrio,
+// entre las blancas—: es la única tarjeta de la pantalla que no lleva a
+// ningún lado hasta que se tome una decisión.
 function TarjetaInvitacion({
   invitacion,
   onAceptar,
@@ -416,17 +408,10 @@ function TarjetaInvitacion({
   const [errorLocal, setErrorLocal] = useState<string | null>(null);
 
   return (
-    <article className="flex h-full flex-col gap-3 rounded-card border border-dashed border-salvia bg-salvia-claro/40 p-8">
-      <div className="flex items-start justify-between gap-4">
-        <QuadrantMark className="text-salvia" />
-        <span className="rounded-full bg-marfil px-3 py-1 text-xs font-medium text-salvia-oscuro">
-          Pendiente a confirmar
-        </span>
-      </div>
-      <h3 className="font-[family-name:var(--font-display)] text-2xl font-medium text-grafito">
-        {invitacion.nombreClinica}
-      </h3>
-      <p className="text-sm text-grafito/60">
+    <TarjetaConDibujo dibujo="invitacion" disposicion="columna">
+      <p className={CLASE_ANTETITULO_DE_TARJETA}>Pendiente a confirmar</p>
+      <h3 className={CLASE_TITULO_DE_TARJETA}>{invitacion.nombreClinica}</h3>
+      <p className={CLASE_DESCRIPCION_DE_TARJETA}>
         Te invitaron como {ETIQUETA_ROL[invitacion.rol] ?? invitacion.rol}. Hasta que confirmes, no ves nada de esa
         clínica ni ellos de lo tuyo.
       </p>
@@ -437,12 +422,14 @@ function TarjetaInvitacion({
         </p>
       )}
 
-      <div className="mt-auto flex flex-wrap items-center gap-4 pt-2">
+      {/* Confirmar y Rechazar, del mismo alto y con el mismo radio: el
+          primario es la acción que la tarjeta espera. */}
+      <div className="mt-auto flex flex-wrap items-center gap-3 pt-3">
         <button
           type="button"
           disabled={pendiente}
           onClick={onAceptar}
-          className="rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
+          className="inline-flex min-h-11 items-center justify-center rounded-control boton-primario px-5 text-sm font-semibold"
         >
           Confirmar
         </button>
@@ -460,11 +447,11 @@ function TarjetaInvitacion({
               onRechazar();
             })
           }
-          className="text-sm font-medium text-grafito/60 hover:text-terracota-oscuro disabled:opacity-60"
+          className={CLASE_BOTON_DE_TARJETA}
         >
           Rechazar
         </button>
       </div>
-    </article>
+    </TarjetaConDibujo>
   );
 }

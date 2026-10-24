@@ -7,7 +7,7 @@ import type { ModeloDeMuestra } from "@/lib/documentos-de-muestra";
 // o de chica. Una sola aclaración de verdad: que es de muestra.
 
 const TONOS: Record<ModeloDeMuestra["tono"], string> = {
-  salvia: "bg-salvia",
+  salvia: "bg-marca-medio",
   terracota: "bg-terracota",
   acero: "bg-acero",
 };

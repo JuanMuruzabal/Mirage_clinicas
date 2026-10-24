@@ -44,8 +44,12 @@ import { TurnoDetalle } from "./turno-detalle";
 import { ConfiguracionCalendarioModal } from "./configuracion-calendario-modal";
 import { BloqueoDetalleModal } from "./bloqueo-detalle-modal";
 import { ReservarHorarioModal } from "./reservar-horario-modal";
-import { IconSettings } from "@/components/icons";
+import { IconChevronLeft, IconChevronRight, IconSettings } from "@/components/icons";
 import { ZonaProfesional, type OpcionProfesional } from "./zona-profesional";
+import { CLASE_PANTALLA_CON_ENCABEZADO, EncabezadoDeSeccion } from "./encabezado-de-seccion";
+import { useAhora } from "@/lib/reloj";
+import { estadoDeTurno } from "@/lib/turno-format";
+import { CLASE_TACTIL } from "@/components/editor-pagina/estilos";
 import { elegirVistaAction } from "@/app/actions/topbar-panel";
 import { panelNotificacionesAction } from "@/app/actions/panel";
 import type { VistaActual } from "@dental-mirage/shared-types";
@@ -139,6 +143,13 @@ const VISTA_LABEL: Record<VistaCalendario, string> = {
 // error controlado de solapamiento ya vienen resueltos por las Server
 // Actions (app/actions/turnos.ts) — este componente solo muestra el error
 // que le devuelvan.
+// Los botones de la fila de acciones: mismo alto y misma forma. En el
+// celular, cada uno mide (ancho de la tarjeta − dos separaciones) / 2,5:
+// entran dos y medio. La tarjeta es la pantalla menos 1rem por lado (el
+// relleno de la página a 390 px).
+const CLASE_ACCION =
+  "inline-flex h-11 flex-none items-center justify-center rounded-control px-5 text-sm font-semibold whitespace-nowrap shadow-soft max-md:w-[calc((100vw-3.5rem)/2.5)] max-md:px-1.5";
+
 export function CalendarView({
   tiposConsulta,
   turnosIniciales,
@@ -252,13 +263,10 @@ export function CalendarView({
         ? (turnosIniciales.find((t) => t.id === turnoAFocalizarId) ?? null)
         : null,
   );
-  // Botón de tuerca junto al título (F2.3, pedido explícito del cliente):
-  // se despliega un menú de un solo ítem ("Configuración de calendario")
-  // antes de abrir el modal — mismo patrón que HeaderConfigMenu
-  // (click-outside cierra el menú, ver el efecto de más abajo).
-  const [menuAjustesAbierto, setMenuAjustesAbierto] = useState(false);
+  // "Configuración" abre el modal de un toque, desde la fila de acciones
+  // de abajo de la tarjeta (correcciones generales, ítem 2: dejó de ser la
+  // tuerca desplegable al lado del título).
   const [configAbierta, setConfigAbierta] = useState(false);
-  const menuAjustesRef = useRef<HTMLDivElement>(null);
 
   // F2.3.8: reglas de bloqueo, para que el grid (CalendarGrid) pinte los
   // tramos bloqueados. NO incluye el horario de atención en sí —
@@ -702,6 +710,8 @@ export function CalendarView({
         };
       })
     : columnasDeDias(dias);
+  // La hora del cliente, para el resumen del encabezado (cada minuto).
+  const ahoraDelReloj = useAhora(60_000);
   const titulo =
     vista === "mes"
       ? formatMesAnio(fecha)
@@ -723,12 +733,36 @@ export function CalendarView({
   // Al mergear TR-115 (`dev`) acá, ese filtro volvió a colarse en un
   // auto-merge silencioso (ninguna de las dos ramas tocaba la MISMA
   // línea, así que Git no marcó conflicto) — se saca de nuevo a mano.
-  const turnosEnRangoVisible =
+  const turnosDelRango =
     vista === "dia"
       ? turnos.filter(
           (t) => t.horaInicio && isSameDay(new Date(t.horaInicio), fecha),
-        ).length
-      : turnos.length;
+        )
+      : turnos;
+  const turnosEnRangoVisible = turnosDelRango.length;
+  // El resumen del encabezado (ítem 2): "4 turnos · 1 pendiente". Los
+  // pendientes salen del reloj (`estadoDeTurno`, TR-158), así que solo se
+  // cuentan con la hora del cliente: el HTML del servidor dice "4 turnos".
+  // Los turnos de esta pantalla son solo los `agendado` (los cancelados no
+  // se piden), así que el total ya es "los que hay".
+  const pendientesEnRango =
+    ahoraDelReloj === null
+      ? null
+      : turnosDelRango.filter((t) => estadoDeTurno(t, ahoraDelReloj) === "pendiente").length;
+  const resumenDeTurnos =
+    turnosEnRangoVisible === 0
+      ? vista === "dia"
+        ? "Sin turnos este día"
+        : vista === "semana"
+          ? "Sin turnos esta semana"
+          : "Sin turnos este mes"
+      : `${turnosEnRangoVisible} ${turnosEnRangoVisible === 1 ? "turno" : "turnos"}${
+          // Solo si una parte ya pasó: en un día que todavía no empezó
+          // "4 turnos · 4 pendientes" repite lo mismo dos veces.
+          pendientesEnRango && pendientesEnRango < turnosEnRangoVisible
+            ? ` · ${pendientesEnRango} ${pendientesEnRango === 1 ? "pendiente" : "pendientes"}`
+            : ""
+        }`;
 
   // Banner de conflicto (F2.3 extra ítem 2, docs/Arquitectura y base/implementation-plan.md
   // §11.5) — mismo cálculo de clusters que usa el click real sobre el
@@ -989,19 +1023,6 @@ export function CalendarView({
     }
   }, [vistaInicial, dias, turnos, turnoAFocalizarId, turnoAPosicionar]);
 
-  useEffect(() => {
-    if (!menuAjustesAbierto) return;
-    function onClickOutside(event: MouseEvent) {
-      if (
-        menuAjustesRef.current &&
-        !menuAjustesRef.current.contains(event.target as Node)
-      ) {
-        setMenuAjustesAbierto(false);
-      }
-    }
-    document.addEventListener("mousedown", onClickOutside);
-    return () => document.removeEventListener("mousedown", onClickOutside);
-  }, [menuAjustesAbierto]);
 
   return (
     // px/pb con clamp() + pt fijo y chico (rama fix/mobile, sexta
@@ -1013,7 +1034,7 @@ export function CalendarView({
     // altura del header ya lo da `pt-[var(--header-height)]` en
     // app/panel/layout.tsx (ese no se toca), este de acá era una
     // segunda capa de aire encima de esa, redundante en mobile.
-    <div className="flex flex-col gap-4 p-8 max-md:px-[clamp(1rem,4vw,2rem)] max-md:pt-3 max-md:pb-[clamp(1rem,4vw,2rem)]">
+    <div className={CLASE_PANTALLA_CON_ENCABEZADO}>
       {/* Rediseño 2026-08-27 (pedido explícito del cliente: "encontrar
           una forma ingeniosa de manejar el calendario para las opciones
           de semana y mes sin necesidad de moverse horizontalmente por la
@@ -1032,208 +1053,152 @@ export function CalendarView({
           `overflow-x-auto` unas líneas más abajo) — nunca la página. Mes
           no necesita nada de esto (7 columnas fluidas, sin overflow) y
           Día tampoco (una sola columna). */}
-      {/* El selector de vista de recepción, arriba de todo. Ofrece la
-          vista general SOLO en Día: en Semana/Mes no hay columnas por
-          profesional donde dibujarla, y por eso desde ahí tampoco se
-          puede volver a ella (QA de la 3.2.6: *"una vez dentro de semana
-          o mes no poder volver a poner vista general"*). */}
-      {zonaProfesional && (
-        <ZonaProfesional
-          profesionales={zonaProfesional.profesionales}
-          vista={zonaProfesional.vista}
-          etiqueta="Viendo"
-          etiquetaConFoco="Viendo la agenda de"
-          conVistaGeneral={vista === "dia"}
-          etiquetaGeneral="Vista general"
-          detalleGeneral="Todos los profesionales del día"
-        />
-      )}
+      {/* ENCABEZADO DE SECCIÓN (correcciones generales, ítem 2, pedido de
+          la persona): una tarjeta de vidrio con el contenido a la izquierda, en
+          este orden de arriba abajo: "Calendario"; ‹ Hoy ›; el día que se
+          está viendo, destacado; el resumen de los turnos de ese rango; y el
+          segmentado Día/Semana/Mes. La escena de la mano y las notitas ocupa
+          el resto, a la derecha (en el celular, arriba). La configuración
+          salió de la tarjeta: es un botón más de la fila de acciones.
+          El selector de recepción va arriba de la tarjeta, afuera y a su
+          mismo ancho (dice DE QUIÉN es la agenda, como en las otras
+          secciones), y
+          ofrece la vista general SOLO en Día: en Semana/Mes no hay columnas
+          por profesional donde dibujarla (QA de la 3.2.6). */}
+      <EncabezadoDeSeccion
+        seccion="calendario"
+        titulo="Calendario"
+        antes={
+          zonaProfesional ? (
+            <ZonaProfesional
+              profesionales={zonaProfesional.profesionales}
+              vista={zonaProfesional.vista}
+              etiqueta="Viendo"
+              etiquetaConFoco="Viendo la agenda de"
+              conVistaGeneral={vista === "dia"}
+              etiquetaGeneral="Vista general"
+              detalleGeneral="Todos los profesionales del día"
+            />
+          ) : undefined
+        }
+        debajo={
+          // ‹ Hoy ›: las flechas a los costados y "Hoy" estirado en el medio,
+          // con el MISMO ancho que el segmentado Día/Semana/Mes de abajo (a
+          // todo el ancho en el celular, 19rem en la computadora). Borde y
+          // texto en el verde de marca: el borde gris se perdía (el de marca
+          // da 7:1 contra el blanco; el gris daba 1,5:1). Con `relieve`
+          // (rediseño del 18/10): sobre el vidrio de la tarjeta, un botón
+          // blanco plano se confundía con ella. 44 px en cualquier pantalla.
+          <div
+            role="group"
+            aria-label="Moverse en el calendario"
+            className="grid w-full grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] gap-2 @3xl:w-[19rem]"
+          >
+            <button
+              type="button"
+              aria-label="Anterior"
+              onClick={() => irA(navegar(fecha, vista, -1))}
+              className="flex h-11 w-11 items-center justify-center relieve rounded-control border border-marca bg-marfil text-marca transition-colors hover:bg-velo"
+            >
+              <IconChevronLeft className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              onClick={irAHoy}
+              className="relieve h-11 rounded-control border border-marca bg-marfil text-sm font-semibold text-marca transition-colors hover:bg-velo"
+            >
+              Hoy
+            </button>
+            <button
+              type="button"
+              aria-label="Siguiente"
+              onClick={() => irA(navegar(fecha, vista, 1))}
+              className="flex h-11 w-11 items-center justify-center relieve rounded-control border border-marca bg-marfil text-marca transition-colors hover:bg-velo"
+            >
+              <IconChevronRight className="h-5 w-5" />
+            </button>
+          </div>
+        }
+      >
+        {/* El día (o el rango) que se está viendo, y debajo su resumen:
+            cuántos turnos hay y cuántos todavía no empezaron. "Pendiente"
+            es el rótulo de `estadoDeTurno` (TR-158): sale del reloj, así
+            que recién se suma al hidratar (en el servidor no hay hora,
+            `useAhora`). */}
+        <div className="flex flex-col gap-1">
+          <p className="font-[family-name:var(--font-display)] tracking-tight text-2xl leading-tight font-semibold text-grafito max-md:text-xl">
+            {titulo}
+          </p>
+          <p className="text-sm text-grafito/75">{resumenDeTurnos}</p>
+        </div>
+        {/* Segmentado Día/Semana/Mes: la pastilla activa flota adentro de
+            la barra (mismo criterio que las pestañas de Turnos y
+            Pacientes, 2026-09-06). Sobre el vidrio, la barra es blanca y
+            con `relieve`, y la pastilla elegida también lo lleva (rediseño
+            del 18/10). */}
+        <div
+          role="group"
+          aria-label="Vista del calendario"
+          className="relieve grid w-full grid-cols-3 rounded-control bg-marfil p-1 text-sm @3xl:w-[19rem]"
+        >
+          {(["dia", "semana", "mes"] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              aria-pressed={vista === v}
+              // Mientras el cambio de foco está en vuelo, el toggle no
+              // acepta otro: salir de la vista general dispara una
+              // escritura en el servidor, y encadenar dos dejaría el
+              // calendario mostrando una agenda y el selector diciendo
+              // otra.
+              disabled={cambiandoDeFoco}
+              onClick={() => cambiarVista(v)}
+              className={`min-h-[34px] rounded-pastilla px-4 py-1.5 font-medium transition-colors disabled:opacity-60 max-md:px-2 ${CLASE_TACTIL} ${vista === v ? "relieve bg-marca-relleno text-marfil" : "text-grafito hover:bg-velo"}`}
+            >
+              {VISTA_LABEL[v]}
+            </button>
+          ))}
+        </div>
+      </EncabezadoDeSeccion>
+
+      {/* LAS ACCIONES DE LA PANTALLA, debajo de la tarjeta (ítem 2), a la
+          izquierda: "Reservar horario", "+ Agregar turno" (la principal) y
+          "Configuración", del mismo alto (44 px). En el celular la fila
+          scrollea de costado sin envolver, con el ancho exacto de la tarjeta
+          (los mismos dos bordes), y cada botón mide lo justo para que entren
+          dos y medio: el último queda cortado a la mitad en el borde de la
+          tarjeta y se nota que hay uno más. La barra de scroll va oculta (no
+          tapa nada); `min-w-0` para que el scroll quede en la fila y no corra
+          la página (CLAUDE.md). `p-1` con `-m-1`: la caja que scrollea
+          recorta lo que sale de ella, y la línea del foco va 4 px afuera
+          del botón; así entra sin que nada se mueva. */}
+      <div className="flex min-w-0 flex-wrap justify-start gap-3 max-md:-m-1 max-md:flex-nowrap max-md:overflow-x-auto max-md:p-1 max-md:[scrollbar-width:none] max-md:[&::-webkit-scrollbar]:hidden">
+        <button
+          type="button"
+          onClick={() => setReservarHorarioAbierto(true)}
+          className={`${CLASE_ACCION} border-[0.5px] border-arena bg-marfil text-grafito hover:border-marca-medio hover:text-marca`}
+        >
+          Reservar horario
+        </button>
+        <button
+          type="button"
+          onClick={() => setModalAbierto(true)}
+          className={`${CLASE_ACCION} contorno-prisma boton-primario`}
+        >
+          + Agregar turno
+        </button>
+        <button
+          type="button"
+          aria-label="Configuración de calendario"
+          onClick={() => setConfigAbierta(true)}
+          className={`${CLASE_ACCION} gap-1.5 border-[0.5px] border-arena bg-marfil text-marca hover:border-marca-medio hover:bg-velo`}
+        >
+          <IconSettings className="h-5 w-5 flex-shrink-0" />
+          Configuración
+        </button>
+      </div>
 
       <div className="flex flex-col gap-4">
-        {/* flex-col en mobile, flex-row desde md (corrección de QA:
-            "en mobile el botón de agregar turno debe estar por debajo
-            del título 'calendario' así el botón de configuración se
-            despliega bien") — con las dos filas conviviendo en una sola
-            fila angosta, el botón de tuerca no tenía margen propio para
-            deslizarse sin chocar contra "+ Agregar turno"; apilar les da
-            a los dos su propia fila completa. Sin cambios en escritorio
-            (`md:flex-row`), donde sí entran cómodos lado a lado. */}
-        <div className="flex flex-col items-start gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-2">
-            <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito max-md:text-[clamp(1.375rem,6.5vw,1.875rem)]">
-              Calendario
-            </h1>
-            {/* Botón de tuerca (F2.3, pedido explícito del cliente,
-                corregido tras QA: "al tocarlo se debe deslizar hacia la
-                derecha, y ahí mostrar configuración" — no un menú
-                desplegable hacia abajo). Un solo botón con dos toques:
-                el primero lo desliza para revelar el texto (`max-width`
-                de 0 a un valor amplio, con `overflow-hidden` — mismo
-                truco de "ícono que se expande en pastilla" de siempre,
-                anima suave porque `max-width` sí es animable a
-                diferencia de `width: auto`); el segundo toque (ya con el
-                texto visible) abre el modal y el botón vuelve solo a su
-                estado colapsado. */}
-            <div ref={menuAjustesRef}>
-              {/* Corrección de estética (2026-09-06, foto de referencia
-                  "nueva estetica calendario.png"): en reposo, la tuerca es
-                  un ícono suelto sobre el fondo de la página, sin pastilla
-                  verde detrás — el fondo sólido aparece recién al
-                  desplegarse (necesario ahí para que el texto blanco se
-                  lea). Mismo mecanismo de dos toques de siempre, sin
-                  cambios. */}
-              <button
-                type="button"
-                aria-expanded={menuAjustesAbierto}
-                aria-label={
-                  menuAjustesAbierto
-                    ? "Abrir configuración de calendario"
-                    : "Ajustes del calendario"
-                }
-                onClick={() => {
-                  if (menuAjustesAbierto) {
-                    setMenuAjustesAbierto(false);
-                    setConfigAbierta(true);
-                  } else {
-                    setMenuAjustesAbierto(true);
-                  }
-                }}
-                className={`flex h-9 items-center overflow-hidden rounded-full transition-colors ${
-                  menuAjustesAbierto
-                    ? "bg-salvia-oscuro text-marfil shadow-soft hover:brightness-95"
-                    : "text-salvia-oscuro hover:bg-arena"
-                }`}
-              >
-                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center">
-                  <IconSettings className="h-5 w-5" />
-                </span>
-                <span
-                  className={`overflow-hidden whitespace-nowrap text-sm font-medium transition-all duration-300 ease-in-out ${
-                    menuAjustesAbierto
-                      ? "max-w-[16rem] pr-4 opacity-100"
-                      : "max-w-0 opacity-0"
-                  }`}
-                >
-                  Configuración de calendario
-                </span>
-              </button>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            {/* Corrección de estética (2026-09-06, foto de referencia):
-                "Reservar horario" vuelve a un estilo claro (fondo marfil,
-                borde arena) — la foto lo muestra así, distinto de "+
-                Agregar turno" (verde sólido, la acción principal).
-                Reemplaza la corrección de QA anterior (2026-09-04) que
-                lo había igualado en verde — pedido explícito del cliente
-                esta vez: "ese diseño quiero aplicar, tal cual está en la
-                foto". */}
-            <button
-              type="button"
-              onClick={() => setReservarHorarioAbierto(true)}
-              className="rounded-full border-[0.5px] border-arena bg-marfil px-5 py-2.5 text-sm font-semibold text-grafito hover:border-salvia hover:text-salvia-oscuro whitespace-nowrap"
-            >
-              Reservar horario
-            </button>
-            <button
-              type="button"
-              onClick={() => setModalAbierto(true)}
-              className="rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil shadow-soft hover:brightness-95 whitespace-nowrap"
-            >
-              + Agregar turno
-            </button>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center justify-between gap-4 rounded-card border-[0.5px] border-arena bg-marfil px-4 py-3 shadow-soft">
-          {/* En mobile, en COLUMNA (2026-09-19): con `flex-wrap`, la
-              fecha entraba en la misma fila que "< Hoy >" o saltaba a la
-              siguiente según su largo —"Hoy" contra "Sábado, 19 de
-              septiembre de 2026"— y la caja cambiaba de alto al navegar
-              entre días. Abajo siempre, el alto no se mueve. En
-              escritorio entran las dos cosas en una fila y queda igual
-              que antes. */}
-          <div className="flex flex-wrap items-center gap-3 max-md:w-full max-md:flex-col max-md:items-start max-md:gap-2">
-            {/* Grupo "< | Hoy | >" — corrección de estética (2026-09-06,
-                foto de referencia): pasa de 3 botones con borde propio
-                (separados por `gap`) a UN solo grupo con borde, separado
-                por líneas finas internas (`divide-x`) — así se ve en la
-                foto, sin fondo propio por botón, solo texto/ícono. */}
-            <div className="flex items-center divide-x divide-arena rounded-full border-[0.5px] border-arena text-sm text-grafito">
-              <button
-                type="button"
-                aria-label="Anterior"
-                onClick={() => irA(navegar(fecha, vista, -1))}
-                className="rounded-l-full px-3 py-1.5 hover:bg-arena"
-              >
-                ←
-              </button>
-              <button
-                type="button"
-                onClick={irAHoy}
-                className="px-3 py-1.5 font-medium hover:bg-arena"
-              >
-                Hoy
-              </button>
-              <button
-                type="button"
-                aria-label="Siguiente"
-                onClick={() => irA(navegar(fecha, vista, 1))}
-                className="rounded-r-full px-3 py-1.5 hover:bg-arena"
-              >
-                →
-              </button>
-            </div>
-            {/* Corrección de estética (2026-09-06): se saca la fuente
-                monoespaciada — la foto de referencia muestra la fecha en
-                la misma tipografía que el resto de la interfaz, no una
-                fuente de "reloj". */}
-            {/* La fecha y la pastilla viajan juntas: son una sola cosa
-                ("qué día estoy mirando, y cuántos turnos tiene"), así que
-                al pasar a columna no se separan en dos renglones. */}
-            <div className="flex items-center gap-2 md:ml-2">
-              <span className="text-sm font-medium text-grafito">{titulo}</span>
-              {/* Pastilla de cantidad (corrección de estética, 2026-09-06,
-                  foto de referencia "nueva estetica calendario.png": "2
-                  turnos" al lado de la fecha) — mismo tono que los chips
-                  de filtro de Turnos (`bg-salvia-claro`/`text-salvia-oscuro`). */}
-              <span className="rounded-full bg-salvia-claro px-2.5 py-1 text-xs font-medium text-salvia-oscuro whitespace-nowrap">
-                {turnosEnRangoVisible}{" "}
-                {turnosEnRangoVisible === 1 ? "turno" : "turnos"}
-              </span>
-            </div>
-          </div>
-
-          {/* Selector Día/Semana/Mes — corrección de estética (2026-09-06):
-              mismo criterio que las pestañas de Turnos/Pacientes (barra
-              con `p-1` + pastilla activa flotando adentro, redondeada de
-              punta a punta) en vez del segmentado de bordes duros de
-              antes (cada opción solo redondeaba la punta exterior del
-              grupo). */}
-          <div className="flex rounded-full border-[0.5px] border-arena bg-marfil p-1 text-sm">
-            {/* VISTA_LABEL — corrección de estética (2026-09-06): antes el
-                texto salía de `capitalize` sobre el valor crudo de
-                `vista` ("dia" → "Dia", sin tilde) — la foto de referencia
-                muestra "Día" bien escrito. */}
-            {(["dia", "semana", "mes"] as const).map((v) => (
-              <button
-                key={v}
-                type="button"
-                // Mientras el cambio de foco está en vuelo, el toggle
-                // no acepta otro: salir de la vista general dispara una
-                // escritura en el servidor, y encadenar dos dejaría el
-                // calendario mostrando una agenda y el selector diciendo
-                // otra.
-                disabled={cambiandoDeFoco}
-                onClick={() => cambiarVista(v)}
-                className={`rounded-full px-4 py-1.5 disabled:opacity-60 ${vista === v ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"}`}
-              >
-                {VISTA_LABEL[v]}
-              </button>
-            ))}
-          </div>
-        </div>
-
         {/* Banner de conflicto (F2.3 extra ítem 2) — pedido textual: "este
             mensaje se ubicará en el espacio entre el componente donde se
             elige día, semana, mes y el calendario... aparecerá lentamente

@@ -2,7 +2,7 @@
 
 import type { Notificacion } from "@dental-mirage/shared-types";
 import { IconArrowRight, IconChevronDown } from "@/components/icons";
-import { QuadrantMark } from "@/components/quadrant-mark";
+import { PrismaMark } from "@/components/prisma-mark";
 import { fechaLarga, haceCuanto, hora, principalDe, rangoHorario, resumenDe, selloDeFecha, tituloDe } from "@/lib/notificaciones";
 
 interface TarjetaNotificacionProps {
@@ -42,7 +42,7 @@ export function TarjetaNotificacion({
   return (
     <article
       className={`overflow-hidden rounded-card border-[0.5px] transition-shadow ${
-        nueva ? "border-linea bg-marfil shadow-soft" : "border-arena bg-marfil/70"
+        nueva ? "border-linea bg-marfil shadow-soft" : "border-arena bg-hueso"
       }`}
     >
       <button
@@ -50,7 +50,7 @@ export function TarjetaNotificacion({
         onClick={onAlternar}
         aria-expanded={expandida}
         aria-controls={idDetalle}
-        className="flex w-full items-stretch gap-4 p-4 text-left focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-salvia"
+        className="flex w-full items-stretch gap-4 p-4 text-left focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-marca"
       >
         {esTurno ? <SelloDelTurno iso={n.datos.horaInicio} nueva={nueva} /> : <SelloDeMarca />}
 
@@ -58,7 +58,7 @@ export function TarjetaNotificacion({
           <span className="flex items-center gap-2">
             <span
               className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${
-                esTurno ? "text-salvia-oscuro" : "text-acero-oscuro"
+                esTurno ? "text-marca" : "text-acero-oscuro"
               }`}
             >
               {tituloDe(n)}
@@ -72,7 +72,7 @@ export function TarjetaNotificacion({
           <span className="mt-1 truncate font-semibold text-grafito">{principalDe(n)}</span>
           {esTurno ? (
             <span className="truncate text-sm text-grafito/70">
-              <span className="font-[family-name:var(--font-mono)]">{hora(n.datos.horaInicio)}</span>
+              <span className="font-[family-name:var(--font-mono)] tabular-nums">{hora(n.datos.horaInicio)}</span>
               {n.datos.clinicaNombre && <> · {n.datos.clinicaNombre}</>}
             </span>
           ) : (
@@ -113,11 +113,11 @@ function SelloDelTurno({ iso, nueva }: { iso: string | undefined; nueva: boolean
     <span
       aria-hidden="true"
       className={`flex w-14 flex-shrink-0 flex-col items-center justify-center rounded-field py-2 ${
-        nueva ? "bg-salvia-claro text-salvia-oscuro" : "bg-arena/60 text-grafito/60"
+        nueva ? "bg-marca-claro text-marca" : "bg-arena text-grafito/75"
       }`}
     >
       <span className="text-[10px] font-semibold tracking-[0.14em]">{sello?.diaSemana}</span>
-      <span className="font-[family-name:var(--font-display)] text-[1.9rem] font-black leading-none">{sello?.dia}</span>
+      <span className="font-[family-name:var(--font-display)] tracking-tight text-[1.9rem] font-black leading-none">{sello?.dia}</span>
       <span className="text-[10px] font-semibold tracking-[0.14em]">{sello?.mes}</span>
     </span>
   );
@@ -127,9 +127,10 @@ function SelloDeMarca() {
   return (
     <span
       aria-hidden="true"
-      className="flex w-14 flex-shrink-0 items-center justify-center rounded-field bg-acero-oscuro py-3 text-marfil"
+      className="flex w-14 flex-shrink-0 items-center justify-center rounded-field bg-marca-relleno py-3 text-marfil"
     >
-      <QuadrantMark className="text-[1.6rem]" estado="agendado" />
+      {/* El sello de la marca es el logo de la app: el prisma (2026-10-10). */}
+      <PrismaMark className="text-[1.6rem]" />
     </span>
   );
 }
@@ -162,7 +163,7 @@ function DetalleDelTurno({
           <span className="first-letter:uppercase">{fechaLarga(d.horaInicio)}</span>
         </Dato>
         <Dato etiqueta="Horario">
-          <span className="font-[family-name:var(--font-mono)]">{rangoHorario(d.horaInicio, d.horaFin)}</span>
+          <span className="font-[family-name:var(--font-mono)] tabular-nums">{rangoHorario(d.horaInicio, d.horaFin)}</span>
         </Dato>
         <Dato etiqueta="Paciente">{d.pacienteNombre}</Dato>
         {d.tipoConsulta && <Dato etiqueta="Consulta">{d.tipoConsulta}</Dato>}
@@ -185,7 +186,7 @@ function DetalleDelTurno({
         type="button"
         onClick={onVerTurno}
         disabled={abriendo}
-        className="inline-flex items-center justify-center gap-2 self-start rounded-full bg-salvia-oscuro px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-marfil transition hover:brightness-95 disabled:opacity-60"
+        className="inline-flex items-center justify-center gap-2 self-start rounded-control boton-primario px-5 py-2.5 text-xs font-bold uppercase tracking-wider transition"
       >
         {abriendo ? "Abriendo…" : "Ver turno"}
         <IconArrowRight className="h-4 w-4" />

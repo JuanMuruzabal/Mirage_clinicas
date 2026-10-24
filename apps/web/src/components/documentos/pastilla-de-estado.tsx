@@ -17,7 +17,7 @@ export function PastillaDeEstado({
 }) {
   const medida = grande ? "px-3 py-1 text-sm" : "px-2 py-0.5 text-xs";
   return (
-    <span className={`inline-flex items-center rounded-full border font-semibold whitespace-nowrap ${medida} ${CHIP_DE_ESTADO[estado]}`}>
+    <span className={`inline-flex items-center rounded-pastilla border font-semibold whitespace-nowrap ${medida} ${CHIP_DE_ESTADO[estado]}`}>
       {children}
     </span>
   );

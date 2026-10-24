@@ -95,7 +95,7 @@ export function CampoPassword({
             type="button"
             onClick={() => setVisible((v) => !v)}
             aria-label={visible ? "Ocultar contraseña" : "Mostrar contraseña"}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-grafito/50 transition-colors hover:bg-hueso hover:text-grafito"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-grafito/50 transition-colors hover:bg-velo hover:text-grafito"
           >
             {visible ? <IconEyeOff className="h-[18px] w-[18px]" /> : <IconEye className="h-[18px] w-[18px]" />}
           </button>

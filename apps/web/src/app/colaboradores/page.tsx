@@ -3,6 +3,7 @@ import Link from "next/link";
 import { apiEquipo } from "@/lib/api";
 import { getSessionToken, requireOnboardingComplete } from "@/lib/session";
 import { EncabezadoEquipo, EquipoDeLaClinica } from "./equipo-de-la-clinica";
+import { FondoOndas } from "@/components/fondo-ondas";
 
 export const metadata: Metadata = { title: "Colaboradores — PRISMA" };
 
@@ -29,50 +30,56 @@ export default async function ColaboradoresPage() {
     // que separa tarjeta de fondo es el borde de 1px en `linea`, no un
     // fondo más oscuro. 880px de ancho porque estirado al viewport las
     // tarjetas quedaban perdidas a la izquierda.
-    <main className="flex flex-1 flex-col gap-8 bg-hueso px-6 py-10 pt-[calc(var(--header-height)+2.5rem)]">
-      <div className="mx-auto w-full max-w-[880px]">
-        <p className="mb-1 flex flex-wrap items-center gap-2 font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-grafito/50">
-          <Link href="/clinicas" className="hover:text-salvia-oscuro">
-            Clínicas
+    <>
+      {/* FondoOndas (correcciones generales, ítem 1, 2026-10-10): el fondo
+          de ondas de toda la app con sesión. Va afuera de <main>, fijo y
+          detrás del contenido. */}
+      <FondoOndas />
+      <main className="flex flex-1 flex-col gap-8 px-6 py-10 pt-[calc(var(--header-height)+2.5rem)]"  >
+        <div className="mx-auto w-full max-w-[880px]">
+          <p className="mb-1 flex flex-wrap items-center gap-2 font-[family-name:var(--font-mono)] tabular-nums text-xs uppercase tracking-widest text-grafito/80">
+            <Link href="/clinicas" className="hover:text-marca">
+              Clínicas
+            </Link>
+            <span aria-hidden="true">/</span>
+            <span>{sesion.nombreClinica}</span>
+          </p>
+          {/* El botón se alinea con el TÍTULO, no con el bloque entero: con
+              el encabezado como una sola columna (breadcrumb + h1 +
+              descripción) quedaba a la altura del breadcrumb, que es lo más
+              chico de los tres. */}
+          <EncabezadoEquipo puedeInvitar={equipo.puedeInvitar}>
+            <h1 className="font-[family-name:var(--font-display)] tracking-tight text-3xl font-semibold text-grafito">Colaboradores</h1>
+            <p className="text-sm text-grafito/80">Quién trabaja en la clínica y qué puede ver cada uno.</p>
+          </EncabezadoEquipo>
+        </div>
+
+        <div className="mx-auto w-full max-w-[880px]">
+          <EquipoDeLaClinica equipo={equipo} />
+        </div>
+
+        {/* La salida hacia el trabajo del día (2026-09-14). Crear una
+            clínica de tipo "organización" ahora TERMINA acá, así que esta
+            pantalla pasó a ser un punto de llegada y no solo un desvío
+            desde "¿Qué necesitás hoy?" — sin esto, quien acaba de crear su
+            clínica queda mirando un equipo vacío sin nada que lo lleve
+            adelante.
+
+            Va a "¿Qué necesitás hoy?" y no directo a /panel, así que NO
+            lleva candado por rol: esa pantalla ya decide por su cuenta qué
+            tarjetas mostrarle a cada uno, y es la única que sirve para
+            todos los roles por igual. Mismo verde que el resto de los
+            botones de acción de la app. */}
+        <div className="mx-auto flex w-full max-w-[880px] justify-center">
+          <Link
+            href="/seleccionar-servicio"
+            className="inline-flex items-center gap-2 rounded-control boton-primario px-6 py-3 text-sm font-semibold"
+          >
+            Ir al panel de gestión
+            <span aria-hidden="true">&rarr;</span>
           </Link>
-          <span aria-hidden="true">/</span>
-          <span>{sesion.nombreClinica}</span>
-        </p>
-        {/* El botón se alinea con el TÍTULO, no con el bloque entero: con
-            el encabezado como una sola columna (breadcrumb + h1 +
-            descripción) quedaba a la altura del breadcrumb, que es lo más
-            chico de los tres. */}
-        <EncabezadoEquipo puedeInvitar={equipo.puedeInvitar}>
-          <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito">Colaboradores</h1>
-          <p className="text-sm text-grafito/60">Quién trabaja en la clínica y qué puede ver cada uno.</p>
-        </EncabezadoEquipo>
-      </div>
-
-      <div className="mx-auto w-full max-w-[880px]">
-        <EquipoDeLaClinica equipo={equipo} />
-      </div>
-
-      {/* La salida hacia el trabajo del día (2026-09-14). Crear una
-          clínica de tipo "organización" ahora TERMINA acá, así que esta
-          pantalla pasó a ser un punto de llegada y no solo un desvío
-          desde "¿Qué necesitás hoy?" — sin esto, quien acaba de crear su
-          clínica queda mirando un equipo vacío sin nada que lo lleve
-          adelante.
-
-          Va a "¿Qué necesitás hoy?" y no directo a /panel, así que NO
-          lleva candado por rol: esa pantalla ya decide por su cuenta qué
-          tarjetas mostrarle a cada uno, y es la única que sirve para
-          todos los roles por igual. Mismo verde que el resto de los
-          botones de acción de la app. */}
-      <div className="mx-auto flex w-full max-w-[880px] justify-center">
-        <Link
-          href="/seleccionar-servicio"
-          className="inline-flex items-center gap-2 rounded-full bg-salvia-oscuro px-6 py-3 text-sm font-semibold text-marfil hover:brightness-95"
-        >
-          Ir al panel de gestión
-          <span aria-hidden="true">&rarr;</span>
-        </Link>
-      </div>
-    </main>
+        </div>
+      </main>
+    </>
   );
 }

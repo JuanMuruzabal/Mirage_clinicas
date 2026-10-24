@@ -31,8 +31,8 @@ export function EstadoHorarioActual({ horarios }: { horarios: HorariosClinicaVis
   const ahora = useAhora(30_000);
   const abierto = ahora === null ? horarios.abiertoAhora : estaAbierto(horarios, ahora);
   return (
-    <p className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium ${abierto ? "bg-[var(--pp-acento-suave,var(--color-salvia-claro))] text-[var(--pp-acento-texto,var(--color-grafito))]" : "border border-(--pp-borde) text-(--pp-texto)"}`}>
-      <span aria-hidden="true" className={`h-2 w-2 rounded-full ${abierto ? "bg-[var(--pp-acento,var(--color-salvia))]" : "bg-(--pp-borde)"}`} />
+    <p className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium ${abierto ? "bg-[var(--pp-acento-suave,var(--color-marca-claro))] text-[var(--pp-acento-texto,var(--color-grafito))]" : "border border-(--pp-borde) text-(--pp-texto)"}`}>
+      <span aria-hidden="true" className={`h-2 w-2 rounded-full ${abierto ? "bg-[var(--pp-acento,var(--color-marca-relleno))]" : "bg-(--pp-borde)"}`} />
       {abierto ? "Abierto ahora" : "Cerrado ahora"}
     </p>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ETIQUETA_DE_TIPO, type TipoDePlantilla } from "@dental-mirage/documentos-clinicos";
 import { IconChevronDown, IconChevronLeft, IconChevronRight } from "@/components/icons";
 import { esMuestra } from "@/lib/documentos-de-muestra";
@@ -35,14 +35,24 @@ export function agruparPlantillas<T extends ModeloDelCarrusel>(plantillas: T[]):
 // historias clínicas y el resto (pedido del cliente, 2026-09-28: reemplaza
 // al buscador que había arriba). Las flechas recorren la misma lista, en el
 // mismo orden, como una rueda.
+//
+// `accion`: lo que va AL LADO de la caja, a su mismo alto (el botón de
+// completar, correcciones generales del 2026-10-19). Va en una grilla con la
+// caja y no con el rótulo de arriba, así se alinea con ella; si la columna es
+// angosta (container query, no el ancho de la ventana: depende también del
+// sidebar), baja debajo del "1 de N", a todo el ancho. La caja lleva el
+// radio de los controles, como el botón: el aro de `contorno-prisma` se
+// calcula con `--radius-control`.
 export function SelectorDePlantillas<T extends ModeloDelCarrusel>({
   plantillas,
   elegida,
   onElegir,
+  accion,
 }: {
   plantillas: T[];
   elegida: T;
   onElegir: (plantilla: T) => void;
+  accion?: ReactNode;
 }) {
   const [abierto, setAbierto] = useState(false);
   const contenedor = useRef<HTMLDivElement>(null);
@@ -76,18 +86,21 @@ export function SelectorDePlantillas<T extends ModeloDelCarrusel>({
   }
 
   return (
-    <div ref={contenedor} className="flex w-full flex-col">
-      <p className="mb-2 font-[family-name:var(--font-mono)] text-xs font-semibold tracking-[0.16em] text-salvia-oscuro uppercase">
+    <div className="@container flex w-full flex-col">
+      <p className="mb-2 font-[family-name:var(--font-mono)] tabular-nums text-xs font-semibold tracking-[0.16em] text-marca uppercase">
         Documento
       </p>
-      <div className="relative">
-        <div className="flex items-stretch overflow-hidden rounded-card border border-linea bg-marfil shadow-soft">
+      <div className="grid grid-cols-1 gap-x-3 @md:grid-cols-[minmax(0,1fr)_auto]">
+      {/* El clic afuera que cierra la lista se mide contra la caja y su
+          lista: tocar la acción de al lado también la cierra. */}
+      <div ref={contenedor} className="relative min-w-0">
+        <div className="flex h-full min-h-17 items-stretch overflow-hidden rounded-control border border-linea bg-marfil shadow-soft">
           <button
             type="button"
             aria-label="Documento anterior"
             disabled={enOrden.length < 2}
             onClick={() => mover(-1)}
-            className="flex items-center px-3 text-grafito/70 transition-colors hover:bg-hueso hover:text-grafito disabled:opacity-40"
+            className="flex items-center px-3 text-grafito/70 transition-colors hover:bg-velo hover:text-grafito disabled:opacity-40"
           >
             <IconChevronLeft className="h-5 w-5" />
           </button>
@@ -98,11 +111,16 @@ export function SelectorDePlantillas<T extends ModeloDelCarrusel>({
             aria-label={`Elegir documento: ${elegida.nombre}`}
             onClick={() => setAbierto((a) => !a)}
             className={`flex min-w-0 flex-1 items-center justify-between gap-3 border-x border-linea px-4 py-2.5 text-left transition-colors ${
-              abierto ? "bg-salvia-claro" : "hover:bg-hueso"
+              abierto ? "bg-marca-claro" : "hover:bg-velo"
             }`}
           >
             <span className="min-w-0">
-              <span className="block truncate font-[family-name:var(--font-display)] text-[19px] leading-tight font-semibold tracking-wide text-grafito">
+              {/* Con la acción al lado, la caja es más angosta y un nombre
+                  largo se corta: entero en la lista y al pasar el mouse. */}
+              <span
+                title={elegida.nombre}
+                className="block truncate font-[family-name:var(--font-display)] text-[19px] leading-tight font-semibold tracking-wide text-grafito"
+              >
                 {elegida.nombre}
               </span>
               <span className="mt-0.5 block truncate text-[12.5px] text-grafito/75">
@@ -116,7 +134,7 @@ export function SelectorDePlantillas<T extends ModeloDelCarrusel>({
             aria-label="Documento siguiente"
             disabled={enOrden.length < 2}
             onClick={() => mover(1)}
-            className="flex items-center px-3 text-grafito/70 transition-colors hover:bg-hueso hover:text-grafito disabled:opacity-40"
+            className="flex items-center px-3 text-grafito/70 transition-colors hover:bg-velo hover:text-grafito disabled:opacity-40"
           >
             <IconChevronRight className="h-5 w-5" />
           </button>
@@ -127,7 +145,7 @@ export function SelectorDePlantillas<T extends ModeloDelCarrusel>({
           <div className="absolute top-[calc(100%+0.5rem)] right-0 left-0 z-20 flex max-h-[26rem] flex-col overflow-y-auto rounded-card border border-linea bg-marfil p-2 shadow-soft">
             {grupos.map((grupo, i) => (
               <div key={grupo.titulo} role="group" aria-label={grupo.titulo} className={i > 0 ? "mt-2 border-t border-linea pt-2" : ""}>
-                <p className="px-3 py-2 font-[family-name:var(--font-mono)] text-[11.5px] tracking-[0.16em] text-grafito/70 uppercase">
+                <p className="px-3 py-2 font-[family-name:var(--font-mono)] tabular-nums text-[11.5px] tracking-[0.16em] text-grafito/70 uppercase">
                   {grupo.titulo}
                 </p>
                 {grupo.plantillas.map((p) => {
@@ -139,7 +157,7 @@ export function SelectorDePlantillas<T extends ModeloDelCarrusel>({
                       onClick={() => elegir(p)}
                       aria-current={esLaElegida ? "true" : undefined}
                       className={`flex w-full items-center rounded-field px-3 py-2.5 text-left text-[15px] text-grafito transition-colors ${
-                        esLaElegida ? "bg-salvia-claro font-medium" : "hover:bg-hueso"
+                        esLaElegida ? "bg-marca-claro font-medium" : "hover:bg-velo"
                       }`}
                     >
                       {p.nombre}
@@ -151,9 +169,11 @@ export function SelectorDePlantillas<T extends ModeloDelCarrusel>({
           </div>
         )}
       </div>
-      <p className="mt-2 text-[13px] font-medium text-salvia-oscuro">
+      <p className="mt-2 text-[13px] font-medium text-marca @md:row-start-2">
         {indice + 1} de {enOrden.length}
       </p>
+      {accion && <div className="mt-3 flex @md:col-start-2 @md:row-start-1 @md:mt-0">{accion}</div>}
+      </div>
     </div>
   );
 }

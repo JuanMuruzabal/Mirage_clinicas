@@ -31,7 +31,7 @@ describe("PanelShell", () => {
         <p>contenido</p>
       </PanelShell>,
     );
-    const raiz = container.querySelector(".panel-texture");
+    const raiz = container.querySelector(".panel-shell-h");
     expect(raiz).toBeInTheDocument();
     expect((raiz as HTMLElement).style.display).not.toBe("none");
   });
@@ -53,7 +53,7 @@ describe("PanelShell", () => {
     );
 
     expect(screen.getByText("Ficha de paciente")).toBeInTheDocument();
-    const raiz = container.querySelector(".panel-texture");
+    const raiz = container.querySelector(".panel-shell-h");
     expect((raiz as HTMLElement).style.display).not.toBe("none");
   });
 });

@@ -33,6 +33,16 @@ func TestNombreDeArchivoDelPDF_Paridad(t *testing.T) {
 			FolioHistoria   *int   `json:"folioHistoria"`
 			Esperado        string `json:"esperado"`
 		} `json:"casos"`
+		// CasosConAnexos — el PDF de una historia con sus anexos
+		// (`?con=anexos`): el nombre de la historia más "-con-anexos". El
+		// mismo que arma nombreDeArchivoDelPDF(d, true) en TypeScript.
+		CasosConAnexos []struct {
+			Caso            string `json:"caso"`
+			Tipo            string `json:"tipo"`
+			PlantillaNombre string `json:"plantillaNombre"`
+			Folio           *int   `json:"folio"`
+			Esperado        string `json:"esperado"`
+		} `json:"casosConAnexos"`
 	}
 	if err := json.Unmarshal(crudo, &tabla); err != nil {
 		t.Fatalf("parsear la tabla: %v", err)
@@ -49,6 +59,19 @@ func TestNombreDeArchivoDelPDF_Paridad(t *testing.T) {
 				doc.AnexoDe = &historia
 			}
 			got := nombreDeArchivoDelPDF(doc, p, documentos.FolioDe(doc, c.FolioHistoria))
+			if got != c.Esperado {
+				t.Fatalf("nombre = %q, esperado %q", got, c.Esperado)
+			}
+		})
+	}
+	if len(tabla.CasosConAnexos) == 0 {
+		t.Fatal("la tabla no tiene casos con anexos")
+	}
+	for _, c := range tabla.CasosConAnexos {
+		t.Run("con anexos/"+c.Caso, func(t *testing.T) {
+			p := &documentos.Plantilla{Tipo: c.Tipo, Nombre: c.PlantillaNombre}
+			doc := db.DocumentoClinico{PlantillaID: "no-se-usa", Folio: c.Folio}
+			got := conSusAnexos(nombreDeArchivoDelPDF(doc, p, documentos.FolioDe(doc, nil)))
 			if got != c.Esperado {
 				t.Fatalf("nombre = %q, esperado %q", got, c.Esperado)
 			}

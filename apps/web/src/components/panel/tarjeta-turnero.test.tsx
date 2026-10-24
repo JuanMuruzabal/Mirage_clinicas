@@ -63,7 +63,7 @@ describe("TarjetaConLista", () => {
     expect(screen.getByText("5").className).toContain("text-grafito");
 
     rerender(<TarjetaConLista eyebrow="X" valor={5} vacioMensaje="Vacío" filas={[]} acento />);
-    expect(screen.getByText("5").className).toContain("text-salvia-oscuro");
+    expect(screen.getByText("5").className).toContain("text-marca");
   });
 
   // Corrección de QA (2026-09-06: "añadir diseños a los encabezados de
@@ -140,9 +140,9 @@ describe("FilaResumen", () => {
     expect(screen.getByText("Bruno Iglesias")).toBeInTheDocument();
   });
 
-  it("la hora usa el color verde de la app (salvia-oscuro)", () => {
+  it("la hora usa el color de marca de la app (marca)", () => {
     render(<FilaResumen hora="10:00 a 10:30">Bruno Iglesias</FilaResumen>);
-    expect(screen.getByText("10:00 a 10:30").className).toContain("text-salvia-oscuro");
+    expect(screen.getByText("10:00 a 10:30").className).toContain("text-marca");
   });
 
   it("con etiqueta (día), la muestra arriba de la hora", () => {

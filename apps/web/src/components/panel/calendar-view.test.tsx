@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import {
   fireEvent,
   render,
@@ -127,7 +127,8 @@ describe("CalendarView", () => {
   it("arranca en vista día (Hoy) — pedido explícito del cliente", () => {
     render(<CalendarView tiposConsulta={tiposConsulta} turnosIniciales={[]} />);
     expect(screen.getByRole("button", { name: "Día" })).toHaveClass(
-      "bg-salvia-oscuro",
+      "relieve",
+      "bg-marca-relleno",
     );
   });
 
@@ -176,7 +177,7 @@ describe("CalendarView", () => {
     // El grid también pinta un bloque con el nombre del turno — el
     // nombre aparece dos veces en la página (grid + modal), por eso la
     // aserción se scopea al modal en vez de screen.getByText a secas.
-    const dialogo = screen.getByRole("dialog", { name: "Detalle del turno" });
+    const dialogo = screen.getByRole("dialog", { name: "Turno" });
     expect(within(dialogo).getByText("María Games")).toBeInTheDocument();
   });
 
@@ -189,7 +190,7 @@ describe("CalendarView", () => {
       />,
     );
     expect(
-      screen.queryByRole("dialog", { name: "Detalle del turno" }),
+      screen.queryByRole("dialog", { name: "Turno" }),
     ).not.toBeInTheDocument();
   });
 
@@ -228,7 +229,7 @@ describe("CalendarView", () => {
       );
 
       expect(
-        screen.queryByRole("dialog", { name: "Detalle del turno" }),
+        screen.queryByRole("dialog", { name: "Turno" }),
       ).not.toBeInTheDocument();
       // Vertical: (15:00 en minutos/60 - HORA_INICIO=6) * PX_POR_HORA=64,
       // menos una hora de aire (ver scrollAHora) = (9 - 1) * 64 = 512.
@@ -253,7 +254,7 @@ describe("CalendarView", () => {
         />,
       );
       expect(
-        screen.queryByRole("dialog", { name: "Detalle del turno" }),
+        screen.queryByRole("dialog", { name: "Turno" }),
       ).not.toBeInTheDocument();
       expect(scrollToSpy).not.toHaveBeenCalled();
     } finally {
@@ -511,6 +512,15 @@ describe("CalendarView", () => {
     // que tuviera nada que ver con `turnoResuelto`). Mediodía deja 12hs
     // de margen para cualquier offset chico de este test en cualquiera
     // de las dos direcciones.
+    //
+    // Y con el reloj fijo a las 12:30: el turno "activo" (13 a 14) todavía
+    // no pasó y el "resuelto" (9 a 10) ya pasó, a cualquier hora que corra
+    // el test (antes el resultado dependía de la hora real del día).
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date(2030, 8, 2, 12, 30, 0));
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
     const mediodiaDeHoy = new Date();
     mediodiaDeHoy.setHours(12, 0, 0, 0);
     const ahora = mediodiaDeHoy.getTime();
@@ -552,7 +562,10 @@ describe("CalendarView", () => {
       />,
     );
 
-    expect(await screen.findByText("2 turnos")).toBeInTheDocument();
+    // Cuenta los dos; el que ya pasó no figura como pendiente (el resumen
+    // dice "2 turnos · 1 pendiente": antes el test esperaba "2 turnos" a
+    // secas y solo pasaba fuera del rango horario en que uno ya pasó).
+    expect(await screen.findByText("2 turnos · 1 pendiente")).toBeInTheDocument();
   });
 
   it("el toolbar ofrece las vistas en orden día → semana → mes", () => {
@@ -572,7 +585,8 @@ describe("CalendarView", () => {
 
     await waitFor(() => expect(listTurnosActionMock).toHaveBeenCalled());
     expect(screen.getByRole("button", { name: "Mes" })).toHaveClass(
-      "bg-salvia-oscuro",
+      "relieve",
+      "bg-marca-relleno",
     );
   });
 
@@ -629,42 +643,26 @@ describe("CalendarView", () => {
 
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Día" })).toHaveClass(
-        "bg-salvia-oscuro",
+        "relieve",
+        "bg-marca-relleno",
       ),
     );
   });
 
-  // F2.3 (docs/Arquitectura y base/implementation-plan.md §11.3, corregido tras QA: "al
-  // tocarlo se debe deslizar hacia la derecha, y ahí mostrar
-  // configuración" — no un menú desplegable hacia abajo). Dos toques
-  // sobre el MISMO botón: el primero solo despliega el texto, el
-  // segundo abre el modal.
-  it("el botón de tuerca se despliega al primer toque y abre la configuración al segundo", async () => {
+  // La configuración salió de la tarjeta del encabezado (correcciones
+  // generales, ítem 2, pedido de la persona): dejó de ser la tuerca que se
+  // desplegaba al primer toque y es un botón de la fila de acciones, junto a
+  // "Reservar horario" y "+ Agregar turno", que abre el modal de un toque.
+  it("el botón 'Configuración' de la fila de acciones abre la configuración", async () => {
     const user = userEvent.setup();
     render(<CalendarView tiposConsulta={tiposConsulta} turnosIniciales={[]} />);
 
-    const boton = screen.getByRole("button", {
-      name: "Ajustes del calendario",
-    });
-    // El texto vive siempre en el DOM (se desliza por CSS, `max-width`
-    // de 0 a un valor amplio) — colapsado, no se ve, pero sigue estando.
-    expect(screen.getByText("Configuración de calendario")).toHaveClass(
-      "max-w-0",
-    );
-    expect(
-      screen.queryByRole("dialog", { name: "Configuración de calendario" }),
-    ).not.toBeInTheDocument();
-
-    await user.click(boton);
-    expect(screen.getByText("Configuración de calendario")).toHaveClass(
-      "max-w-[16rem]",
-    );
     expect(
       screen.queryByRole("dialog", { name: "Configuración de calendario" }),
     ).not.toBeInTheDocument();
 
     await user.click(
-      screen.getByRole("button", { name: "Abrir configuración de calendario" }),
+      screen.getByRole("button", { name: "Configuración de calendario" }),
     );
     expect(
       await screen.findByRole("dialog", {
@@ -691,7 +689,8 @@ describe("CalendarView", () => {
       });
       expect(reservar.className).toContain("bg-marfil");
       expect(reservar.className).toContain("border-arena");
-      expect(agregarTurno.className).toContain("bg-salvia-oscuro");
+      expect(agregarTurno).toHaveClass("boton-primario", "contorno-prisma");
+      expect(reservar).not.toHaveClass("boton-primario");
       expect(reservar.className).not.toBe(agregarTurno.className);
     });
 

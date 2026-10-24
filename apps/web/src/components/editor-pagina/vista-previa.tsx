@@ -108,7 +108,7 @@ export function VistaPrevia({ slug, nombreClinica, telefono, especialidades, con
       <div className="flex flex-wrap items-center justify-between gap-2 border-b-[0.5px] border-arena bg-marfil px-4 py-2">
         <p className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-grafito/75">Previsualización en vivo</p>
         <div className="flex flex-wrap items-center gap-2">
-        <button type="button" onClick={() => setReproduccion((r) => r + 1)} className="rounded-full border-[0.5px] border-arena px-3 py-1 text-xs font-medium text-grafito hover:border-salvia">
+        <button type="button" onClick={() => setReproduccion((r) => r + 1)} className="rounded-control border-[0.5px] border-arena px-3 py-1 text-xs font-medium text-grafito hover:border-marca-medio">
           Reproducir efectos
         </button>
         {/* El selector de ancho solo desde lg (PP-5, H17): en un celular
@@ -124,8 +124,8 @@ export function VistaPrevia({ slug, nombreClinica, telefono, especialidades, con
           opciones={DISPOSITIVOS.map((d) => ({ valor: d.id, contenido: d.etiqueta }))}
           className="flex gap-1"
           claseOpcion={(elegida) =>
-            `rounded-full border-[0.5px] px-3 py-1 text-xs font-medium ${CLASE_TACTIL} ${
-              elegida ? "border-salvia-oscuro bg-salvia-claro text-salvia-oscuro" : "border-arena bg-marfil text-grafito hover:border-salvia"
+            `rounded-control border-[0.5px] px-3 py-1 text-xs font-medium ${CLASE_TACTIL} ${
+              elegida ? "border-marca bg-marca-claro text-marca" : "border-arena bg-marfil text-grafito hover:border-marca-medio"
             }`
           }
         />

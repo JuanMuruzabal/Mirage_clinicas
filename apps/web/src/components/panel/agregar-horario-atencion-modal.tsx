@@ -1,5 +1,6 @@
 "use client";
 
+import { Dialogo } from "@/components/dialogo";
 import { useState } from "react";
 import type { HorarioAtencion } from "@dental-mirage/shared-types";
 import { crearHorarioAtencionAction, editarHorarioAtencionAction } from "@/app/actions/calendario-config";
@@ -28,6 +29,9 @@ const ALCANCE_LABEL_EXCEPCION: Record<string, string> = {
 // el form simple de siempre, sin alcance para elegir). Mismo patrón
 // visual y de "guarda de cambios sin guardar" que AgregarReglaModal.
 export function AgregarHorarioAtencionModal({ horarioExistente, onClose, onGuardado }: AgregarHorarioAtencionModalProps) {
+  // Sobre el Dialogo de todos: foco adentro, Tab atrapado, Escape (el de
+  // arriba si hay varios), el foco vuelve a quien lo abrió y la página de
+  // atrás no scrollea (correcciones generales, 2026-10-12).
   const editando = horarioExistente !== undefined;
   const [tocado, setTocado] = useState(false);
   const [confirmandoSalida, setConfirmandoSalida] = useState(false);
@@ -112,193 +116,173 @@ export function AgregarHorarioAtencionModal({ horarioExistente, onClose, onGuard
   const titulo = editando ? "Editar excepción de horario de atención" : "Agregar excepción de horario de atención";
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={titulo}
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-grafito/50 p-4 backdrop-blur-sm"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) pedirCerrar();
-      }}
-    >
-      {/* max-h-[90vh] (corrección de QA, mismo bug de "se ve muy grande"
-          encontrado en TipoConsultaFormModal — mismo patrón ya usado en
-          agregar-turno-modal.tsx/editar-turno-modal.tsx/
-          configuracion-calendario-modal.tsx). */}
-      <div className="flex max-h-[90vh] w-full max-w-md max-md:max-w-[90vw] flex-col overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
-        <div className="flex items-center justify-between border-b-[0.5px] border-arena px-6 py-4">
-          <h2 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">{titulo}</h2>
-          <button type="button" onClick={pedirCerrar} aria-label="Cerrar" className="text-2xl leading-none text-grafito/50 hover:text-grafito">
-            ×
-          </button>
-        </div>
+    <Dialogo titulo={titulo} onCerrar={pedirCerrar} superficie="marfil" centrado ancho="chico">
 
-        {/* noValidate: el `min` de las fechas de abajo es solo para que el
-            selector nativo (calendario del celular) no OFREZCA un día
-            pasado — la validación real, con el mismo texto de error que el
-            resto del form, es la de `guardar()` de arriba. */}
-        {!confirmandoSalida && (
-          <form onSubmit={guardarDesdeElFormulario} noValidate className="flex flex-col gap-4 p-6">
-            <Campo label="Alcance">
-              <select
-                value={alcance}
-                onChange={(e) => {
-                  setAlcance(e.target.value as typeof alcance);
-                  setTocado(true);
-                }}
-                className={inputClass}
-              >
-                <option value="semana">Esta semana</option>
-                <option value="mes">Este mes</option>
-                <option value="rango">Rango personalizado</option>
-              </select>
-            </Campo>
-
-            {alcance === "rango" && (
-              <div className="grid grid-cols-2 gap-4">
-                {/* "Fecha desde/hasta" (no "Desde"/"Hasta" a secas): esos
-                    nombres ya los usan las horas más abajo — dos campos
-                    con la misma etiqueta accesible sería ambiguo. */}
-                <Campo label="Fecha desde">
-                  <input
-                    type="date"
-                    value={fechaDesde}
-                    min={fechaISOLocal()}
-                    onChange={(e) => {
-                      setFechaDesde(e.target.value);
-                      setTocado(true);
-                    }}
-                    className={inputClass}
-                  />
-                </Campo>
-                <Campo label="Fecha hasta">
-                  <input
-                    type="date"
-                    value={fechaHasta}
-                    min={fechaDesde || fechaISOLocal()}
-                    onChange={(e) => {
-                      setFechaHasta(e.target.value);
-                      setTocado(true);
-                    }}
-                    className={inputClass}
-                  />
-                </Campo>
-              </div>
-            )}
-
-            <label className="flex items-center gap-2 text-sm text-grafito">
-              {/* accent-salvia-oscuro (corrección de QA, mismo bug visual
-                  encontrado en TipoConsultaFormModal — checkbox nativo
-                  sin estilizar, azul del navegador en vez de la paleta
-                  de la app): mismo criterio, cualquier checkbox nuevo
-                  debería llevarlo desde el vamos. */}
-              <input
-                type="checkbox"
-                checked={noTrabaja}
-                onChange={(e) => {
-                  setNoTrabaja(e.target.checked);
-                  setTocado(true);
-                }}
-                className="accent-salvia-oscuro"
-              />
-              No trabajo este período
-            </label>
-
-            {!noTrabaja && (
-              <div className="flex flex-col gap-2">
-                {/* Aclaración (corrección de QA, 2026-09-08): un
-                    profesional interpretó "Desde/Hasta" como el horario
-                    QUE NO trabaja (como un horario reservado) — es al
-                    revés, son las horas en las que SÍ atiende ese
-                    período (bloqueado afuera de ese rango). Este texto
-                    deja explícito qué representan los dos campos de
-                    abajo antes de que los complete. */}
-                <p className="text-sm text-grafito/70">O trabajo desde / hasta este horario:</p>
-                <div className="grid grid-cols-2 gap-4">
-                  <Campo label="Desde">
-                    <input
-                      type="time"
-                      value={horaDesde}
-                      onChange={(e) => {
-                        setHoraDesde(e.target.value);
-                        setTocado(true);
-                      }}
-                      className={inputClass}
-                    />
-                  </Campo>
-                  <Campo label="Hasta">
-                    <input
-                      type="time"
-                      value={horaHasta}
-                      onChange={(e) => {
-                        setHoraHasta(e.target.value);
-                        setTocado(true);
-                      }}
-                      className={inputClass}
-                    />
-                  </Campo>
-                </div>
-              </div>
-            )}
-
-            {error && (
-              <p role="alert" className="text-sm text-terracota-oscuro">
-                {error}
-              </p>
-            )}
-
-            <button
-              type="submit"
-              disabled={pending}
-              className="self-end rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
+      {/* noValidate: el `min` de las fechas de abajo es solo para que el
+          selector nativo (calendario del celular) no OFREZCA un día
+          pasado — la validación real, con el mismo texto de error que el
+          resto del form, es la de `guardar()` de arriba. */}
+      {!confirmandoSalida && (
+        <form onSubmit={guardarDesdeElFormulario} noValidate className="flex flex-col gap-4 p-6">
+          <Campo label="Alcance">
+            <select
+              value={alcance}
+              onChange={(e) => {
+                setAlcance(e.target.value as typeof alcance);
+                setTocado(true);
+              }}
+              className={inputClass}
             >
-              {pending ? "Guardando…" : editando ? "Guardar" : "Agregar"}
-            </button>
-          </form>
-        )}
+              <option value="semana">Esta semana</option>
+              <option value="mes">Este mes</option>
+              <option value="rango">Rango personalizado</option>
+            </select>
+          </Campo>
 
-        {confirmandoSalida && (
-          <div className="flex flex-col gap-4 p-6">
-            <p className="text-sm text-grafito">Tenés cambios sin guardar en esta excepción de horario.</p>
-            {error && (
-              <p role="alert" className="text-sm text-terracota-oscuro">
-                {error}
-              </p>
-            )}
-            <div className="flex flex-wrap justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setConfirmandoSalida(false)}
-                className="rounded-full border-[0.5px] border-arena px-4 py-2 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
-              >
-                Seguir editando
-              </button>
-              <button
-                type="button"
-                onClick={onClose}
-                className="rounded-full border-[0.5px] border-arena px-4 py-2 text-sm font-medium text-grafito hover:border-terracota hover:text-terracota-oscuro"
-              >
-                Salir sin guardar
-              </button>
-              <button
-                type="button"
-                onClick={guardarYSalir}
-                disabled={pending}
-                className="rounded-full bg-salvia-oscuro px-4 py-2 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
-              >
-                {pending ? "Guardando…" : "Guardar y salir"}
-              </button>
+          {alcance === "rango" && (
+            <div className="grid grid-cols-2 gap-4">
+              {/* "Fecha desde/hasta" (no "Desde"/"Hasta" a secas): esos
+                  nombres ya los usan las horas más abajo — dos campos
+                  con la misma etiqueta accesible sería ambiguo. */}
+              <Campo label="Fecha desde">
+                <input
+                  type="date"
+                  value={fechaDesde}
+                  min={fechaISOLocal()}
+                  onChange={(e) => {
+                    setFechaDesde(e.target.value);
+                    setTocado(true);
+                  }}
+                  className={inputClass}
+                />
+              </Campo>
+              <Campo label="Fecha hasta">
+                <input
+                  type="date"
+                  value={fechaHasta}
+                  min={fechaDesde || fechaISOLocal()}
+                  onChange={(e) => {
+                    setFechaHasta(e.target.value);
+                    setTocado(true);
+                  }}
+                  className={inputClass}
+                />
+              </Campo>
             </div>
+          )}
+
+          <label className="flex items-center gap-2 text-sm text-grafito">
+            {/* accent-marca (corrección de QA, mismo bug visual
+                encontrado en TipoConsultaFormModal — checkbox nativo
+                sin estilizar, azul del navegador en vez de la paleta
+                de la app): mismo criterio, cualquier checkbox nuevo
+                debería llevarlo desde el vamos. */}
+            <input
+              type="checkbox"
+              checked={noTrabaja}
+              onChange={(e) => {
+                setNoTrabaja(e.target.checked);
+                setTocado(true);
+              }}
+              className="accent-marca"
+            />
+            No trabajo este período
+          </label>
+
+          {!noTrabaja && (
+            <div className="flex flex-col gap-2">
+              {/* Aclaración (corrección de QA, 2026-09-08): un
+                  profesional interpretó "Desde/Hasta" como el horario
+                  QUE NO trabaja (como un horario reservado) — es al
+                  revés, son las horas en las que SÍ atiende ese
+                  período (bloqueado afuera de ese rango). Este texto
+                  deja explícito qué representan los dos campos de
+                  abajo antes de que los complete. */}
+              <p className="text-sm text-grafito/70">O trabajo desde / hasta este horario:</p>
+              <div className="grid grid-cols-2 gap-4">
+                <Campo label="Desde">
+                  <input
+                    type="time"
+                    value={horaDesde}
+                    onChange={(e) => {
+                      setHoraDesde(e.target.value);
+                      setTocado(true);
+                    }}
+                    className={inputClass}
+                  />
+                </Campo>
+                <Campo label="Hasta">
+                  <input
+                    type="time"
+                    value={horaHasta}
+                    onChange={(e) => {
+                      setHoraHasta(e.target.value);
+                      setTocado(true);
+                    }}
+                    className={inputClass}
+                  />
+                </Campo>
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <p role="alert" className="text-sm text-terracota-oscuro">
+              {error}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={pending}
+            className="self-end rounded-control boton-primario px-5 py-2.5 text-sm font-semibold"
+          >
+            {pending ? "Guardando…" : editando ? "Guardar" : "Agregar"}
+          </button>
+        </form>
+      )}
+
+      {confirmandoSalida && (
+        <div className="flex flex-col gap-4 p-6">
+          <p className="text-sm text-grafito">Tenés cambios sin guardar en esta excepción de horario.</p>
+          {error && (
+            <p role="alert" className="text-sm text-terracota-oscuro">
+              {error}
+            </p>
+          )}
+          <div className="flex flex-wrap justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => setConfirmandoSalida(false)}
+              className="rounded-control border-[0.5px] border-arena px-4 py-2 text-sm font-medium text-grafito hover:border-marca-medio hover:text-marca"
+            >
+              Seguir editando
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-control border-[0.5px] border-arena px-4 py-2 text-sm font-medium text-grafito hover:border-terracota hover:text-terracota-oscuro"
+            >
+              Salir sin guardar
+            </button>
+            <button
+              type="button"
+              onClick={guardarYSalir}
+              disabled={pending}
+              className="rounded-control boton-primario px-4 py-2 text-sm font-semibold"
+            >
+              {pending ? "Guardando…" : "Guardar y salir"}
+            </button>
           </div>
-        )}
-      </div>
-    </div>
+        </div>
+      )}
+    </Dialogo>
   );
 }
 
 export { ALCANCE_LABEL_EXCEPCION };
 
-const inputClass = "rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-grafito outline-none focus:border-salvia";
+const inputClass = "rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-grafito outline-none focus:border-marca-medio";
 
 function Campo({ label, children }: { label: string; children: React.ReactNode }) {
   return (

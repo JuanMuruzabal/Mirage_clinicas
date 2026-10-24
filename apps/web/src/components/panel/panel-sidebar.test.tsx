@@ -46,7 +46,7 @@ describe("PanelSidebar", () => {
   it("marca la sección activa según la ruta actual", () => {
     renderSidebar();
     const activo = screen.getByRole("link", { name: "Calendario" });
-    expect(activo).toHaveClass("bg-salvia-claro");
+    expect(activo).toHaveClass("bg-marca-claro");
     expect(activo).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "General" })).not.toHaveAttribute("aria-current");
   });
@@ -148,10 +148,12 @@ describe("PanelSidebar", () => {
     expect(linkPagina.querySelector("svg")).toBeInTheDocument();
 
     // 6 desde que "Tu perfil" salió del sidebar (2026-09-19); eran 7.
-    // "Panel" usa QuadrantMark, que es un <span>, no suma acá. Se cuentan
-    // los de los links: el botón de retraer también tiene un svg (el
-    // chevron, desde 2026-09-26) y no es una sección.
-    const iconos = container.querySelectorAll("a svg");
+    // "Panel" (solo en el celular) usa la marca de prisma, que desde el
+    // 2026-10-10 también es un <svg>: se la descuenta. Se cuentan los de
+    // los links: el botón de retraer también tiene un svg (el chevron,
+    // desde 2026-09-26) y no es una sección.
+    const linkPanel = screen.getByRole("link", { name: "Panel" });
+    const iconos = [...container.querySelectorAll("a svg")].filter((svg) => !linkPanel.contains(svg));
     expect(iconos).toHaveLength(6);
   });
 

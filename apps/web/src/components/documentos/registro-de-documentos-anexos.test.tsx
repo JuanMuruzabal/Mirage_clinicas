@@ -100,7 +100,8 @@ describe("RegistroDeDocumentos en dos tablas (5.6b)", () => {
     fireEvent.change(within(hoja).getByRole("combobox", { name: "Documento" }), { target: { value: "anexo-de-prueba" } });
     fireEvent.click(within(hoja).getByRole("button", { name: "Ver 1 documento" }));
     expect(tabla("Consentimientos informados")).toBeNull();
-    expect(nombres("Historias clínicas")).toEqual(["Anexo de prueba"]);
+    // Bajo el rótulo de los anexos sin su historia en la lista (ítem 8).
+    expect(nombres("Historias clínicas")).toEqual(["Anexos sin su historia en esta lista", "Anexo de prueba"]);
     expect(screen.getByText("De: Historia clínica general · folio 3")).toBeInTheDocument();
   });
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { Dialogo } from "@/components/dialogo";
 import Link from "next/link";
 import type { TipoConsulta, Turno } from "@dental-mirage/shared-types";
 import { formatDiaLargo, formatHora } from "@/lib/calendar-utils";
@@ -9,7 +10,6 @@ import {
   estadoDeTurno,
   temaTipoConsulta,
 } from "@/lib/turno-format";
-import { ModalPortal } from "./modal-portal";
 
 interface TurnoDetalleProps {
   turno: Turno;
@@ -50,6 +50,9 @@ interface TurnoDetalleProps {
 // que el cartel ya la marcó (irreversible, no hay forma de modificarla
 // desde ningún lado).
 export function TurnoDetalle({ turno, tiposConsulta, onClose, enConflicto = false }: TurnoDetalleProps) {
+  // Sobre el Dialogo de todos: foco adentro, Tab atrapado, Escape (el de
+  // arriba si hay varios), el foco vuelve a quien lo abrió y la página de
+  // atrás no scrollea (correcciones generales, 2026-10-12).
   const tipo = tiposConsulta.find((t) => t.id === turno.tipoConsultaId);
   const inicio = turno.horaInicio ? new Date(turno.horaInicio) : null;
   const fin = turno.horaFin ? new Date(turno.horaFin) : null;
@@ -65,117 +68,99 @@ export function TurnoDetalle({ turno, tiposConsulta, onClose, enConflicto = fals
   const hrefVerTurno = `/panel/turnos?estado=${resuelto ? "resuelto" : turno.estado}&q=${encodeURIComponent(turno.dniContacto)}&turno=${turno.id}`;
 
   return (
-    <ModalPortal>
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Detalle del turno"
-        className="fixed inset-0 z-50 flex items-center justify-center bg-grafito/50 p-4 backdrop-blur-sm"
-        onClick={(e) => {
-          if (e.target === e.currentTarget) onClose();
-        }}
-      >
-        <div className="w-full max-w-sm max-md:max-w-[90vw] max-md:max-h-[90vh] max-md:overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
-          <div className="flex items-center justify-between border-b-[0.5px] border-arena px-6 py-4">
-            <h2 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">Turno</h2>
-            <button type="button" onClick={onClose} aria-label="Cerrar" className="text-2xl leading-none text-grafito/50 hover:text-grafito">
-              ×
-            </button>
+    <Dialogo titulo="Turno" onCerrar={onClose} superficie="marfil" centrado ancho="angosto">
+      <div className="flex flex-col gap-4 p-6 text-sm">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            {inicio && <p className="text-xs uppercase tracking-widest text-grafito/50">{formatDiaLargo(inicio)}</p>}
+            <p className="mt-1 font-[family-name:var(--font-mono)] tabular-nums text-3xl font-semibold text-grafito">
+              {inicio && fin ? `${formatHora(inicio)}–${formatHora(fin)}` : "—"}
+            </p>
           </div>
-          <div className="flex flex-col gap-4 p-6 text-sm">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                {inicio && <p className="text-xs uppercase tracking-widest text-grafito/50">{formatDiaLargo(inicio)}</p>}
-                <p className="mt-1 font-[family-name:var(--font-mono)] text-3xl font-semibold text-grafito">
-                  {inicio && fin ? `${formatHora(inicio)}–${formatHora(fin)}` : "—"}
-                </p>
-              </div>
-              {/* La pastilla aparece siempre, no solo al resolverse
-                  (2026-09-19): "En proceso" es justo el estado que hay
-                  que ver de un vistazo al abrir un turno, y mostrarla
-                  solo para uno de los cuatro dejaba al resto sin
-                  estado en esta pantalla. */}
-              <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${ESTADO_DERIVADO_PILL[estadoVisible]}`}>
-                {ESTADO_DERIVADO_LABEL[estadoVisible]}
-              </span>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-widest text-grafito/50">Paciente</p>
-              <p className="mt-1 text-grafito">
-                {turno.nombreContacto} {turno.apellidoContacto}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-widest text-grafito/50">Tipo de consulta</p>
-              <p className="mt-1 flex items-center gap-2 text-grafito">
-                {tipo && (
-                  <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full" style={{ background: temaTipoConsulta(tipo).acento }} />
-                )}
-                {tipo?.nombre ?? "—"}
-              </p>
-            </div>
-            {turno.motivo && (
-              <div>
-                <p className="text-xs uppercase tracking-widest text-grafito/50">Motivo</p>
-                <p className="mt-1 text-grafito">{turno.motivo}</p>
-              </div>
+          {/* La pastilla aparece siempre, no solo al resolverse
+              (2026-09-19): "En proceso" es justo el estado que hay
+              que ver de un vistazo al abrir un turno, y mostrarla
+              solo para uno de los cuatro dejaba al resto sin
+              estado en esta pantalla. */}
+          <span className={`shrink-0 rounded-pastilla px-2.5 py-1 text-xs font-medium ${ESTADO_DERIVADO_PILL[estadoVisible]}`}>
+            {ESTADO_DERIVADO_LABEL[estadoVisible]}
+          </span>
+        </div>
+        <div>
+          <p className="text-xs uppercase tracking-widest text-grafito/50">Paciente</p>
+          <p className="mt-1 text-grafito">
+            {turno.nombreContacto} {turno.apellidoContacto}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs uppercase tracking-widest text-grafito/50">Tipo de consulta</p>
+          <p className="mt-1 flex items-center gap-2 text-grafito">
+            {tipo && (
+              <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full" style={{ background: temaTipoConsulta(tipo).acento }} />
             )}
-            {resuelto && (
-              <div>
-                <p className="text-xs uppercase tracking-widest text-grafito/50">Asistencia</p>
-                {turno.asistencia ? (
-                  <p className="mt-1">
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                        turno.asistencia === "asistio" ? "bg-salvia-oscuro text-marfil" : "bg-terracota-oscuro text-marfil"
-                      }`}
-                    >
-                      {turno.asistencia === "asistio" ? "Asistió" : "Ausente"}
-                    </span>
-                  </p>
-                ) : (
-                  // Sin marcar todavía — el cartel de confirmación
-                  // (AsistenciaCartelGlobal) es la única forma de
-                  // marcarlo, no hay botones acá.
-                  <p className="mt-1 text-xs text-grafito/50">Pendiente de confirmar en el cartel de asistencia.</p>
-                )}
-              </div>
-            )}
-            {enConflicto && !resuelto && (
-              <p role="alert" className="rounded-field border-[0.5px] border-terracota bg-terracota-claro px-3 py-2 text-xs text-terracota-oscuro">
-                Turno en conflicto con un horario reservado. Hablar con el paciente para acordar otro horario.
-              </p>
-            )}
-            {/* Autoreservado (nueva función, pedido textual del cliente,
-                2026-09-08): "cuando tocas la tarjeta informar que es
-                autoreservado" — se pinta con rayas en el calendario (ver
-                calendar-grid.tsx) y este es el aviso al tocarla. Tono
-                informativo (salvia), no de advertencia (terracota) — el
-                movimiento ya se hizo, no hay nada pendiente de resolver. */}
-            {turno.autoreservado && (
-              <p className="rounded-field border-[0.5px] border-salvia bg-salvia-claro px-3 py-2 text-xs text-salvia-oscuro">
-                Este turno fue reprogramado automáticamente con &ldquo;Autoreservar turnos&rdquo;.
-              </p>
-            )}
-            <div className="mt-2 flex flex-wrap gap-2 border-t-[0.5px] border-arena pt-4">
-              <Link
-                href={hrefVerTurno}
-                className="rounded-full border-[0.5px] border-arena bg-marfil px-3 py-1.5 text-xs font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
-              >
-                Ver turno
-              </Link>
-              {turno.pacienteId && (
-                <Link
-                  href={`/panel/pacientes/${turno.pacienteId}`}
-                  className="rounded-full border-[0.5px] border-arena bg-marfil px-3 py-1.5 text-xs font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
+            {tipo?.nombre ?? "—"}
+          </p>
+        </div>
+        {turno.motivo && (
+          <div>
+            <p className="text-xs uppercase tracking-widest text-grafito/50">Motivo</p>
+            <p className="mt-1 text-grafito">{turno.motivo}</p>
+          </div>
+        )}
+        {resuelto && (
+          <div>
+            <p className="text-xs uppercase tracking-widest text-grafito/50">Asistencia</p>
+            {turno.asistencia ? (
+              <p className="mt-1">
+                <span
+                  className={`rounded-control px-3 py-1 text-xs font-semibold ${
+                    turno.asistencia === "asistio" ? "bg-salvia-oscuro text-marfil" : "bg-terracota-oscuro text-marfil"
+                  }`}
                 >
-                  Ver paciente
-                </Link>
-              )}
-            </div>
+                  {turno.asistencia === "asistio" ? "Asistió" : "Ausente"}
+                </span>
+              </p>
+            ) : (
+              // Sin marcar todavía — el cartel de confirmación
+              // (AsistenciaCartelGlobal) es la única forma de
+              // marcarlo, no hay botones acá.
+              <p className="mt-1 text-xs text-grafito/50">Pendiente de confirmar en el cartel de asistencia.</p>
+            )}
           </div>
+        )}
+        {enConflicto && !resuelto && (
+          <p role="alert" className="rounded-field border-[0.5px] border-terracota bg-terracota-claro px-3 py-2 text-xs text-terracota-oscuro">
+            Turno en conflicto con un horario reservado. Hablar con el paciente para acordar otro horario.
+          </p>
+        )}
+        {/* Autoreservado (nueva función, pedido textual del cliente,
+            2026-09-08): "cuando tocas la tarjeta informar que es
+            autoreservado" — se pinta con rayas en el calendario (ver
+            calendar-grid.tsx) y este es el aviso al tocarla. Tono
+            informativo (salvia), no de advertencia (terracota) — el
+            movimiento ya se hizo, no hay nada pendiente de resolver. */}
+        {turno.autoreservado && (
+          <p className="rounded-field border-[0.5px] border-marca-medio bg-marca-claro px-3 py-2 text-xs text-marca">
+            Este turno fue reprogramado automáticamente con &ldquo;Autoreservar turnos&rdquo;.
+          </p>
+        )}
+        <div className="mt-2 flex flex-wrap gap-2 border-t-[0.5px] border-arena pt-4">
+          <Link
+            href={hrefVerTurno}
+            className="rounded-control border-[0.5px] border-arena bg-marfil px-3 py-1.5 text-xs font-medium text-grafito hover:border-marca-medio hover:text-marca"
+          >
+            Ver turno
+          </Link>
+          {turno.pacienteId && (
+            <Link
+              href={`/panel/pacientes/${turno.pacienteId}`}
+              className="rounded-control border-[0.5px] border-arena bg-marfil px-3 py-1.5 text-xs font-medium text-grafito hover:border-marca-medio hover:text-marca"
+            >
+              Ver paciente
+            </Link>
+          )}
         </div>
       </div>
-    </ModalPortal>
+    </Dialogo>
   );
 }

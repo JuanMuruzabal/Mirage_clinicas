@@ -4,6 +4,8 @@ import { useState } from "react";
 import { ModalPortal } from "@/components/panel/modal-portal";
 import { misTurnoPublicoAction } from "@/app/actions/turno-publico";
 import type { MisTurnoPublico } from "@/lib/api";
+import { BotonCerrar } from "@/components/boton-cerrar";
+import { useDialogoAbierto } from "@/lib/dialogo-abierto";
 
 interface MisTurnosButtonProps {
   slug: string;
@@ -17,6 +19,9 @@ interface MisTurnosButtonProps {
 // (ModalPortal + backdrop-blur) que el resto de la página pública.
 export function MisTurnosButton({ slug }: MisTurnosButtonProps) {
   const [abierto, setAbierto] = useState(false);
+  // Escape cierra igual que la cruz, y la página de atrás no scrollea
+  // (correcciones generales, ítems 3 y 4).
+  useDialogoAbierto(() => cerrar(), abierto);
   const [dni, setDni] = useState("");
   const [email, setEmail] = useState("");
   const [pending, setPending] = useState(false);
@@ -53,7 +58,7 @@ export function MisTurnosButton({ slug }: MisTurnosButtonProps) {
         // El color de texto del tema (PE-2): vive dentro de la plantilla
         // pública, y en un tema oscuro el grafito de siempre no se leería.
         className="inline-flex min-h-6 items-center text-sm font-medium text-[color-mix
-(in_oklab,var(--pp-texto,var(--color-grafito))_70%,transparent)] underline decoration-[var(--pp-borde,var(--color-arena))] underline-offset-4 hover:text-[var(--pp-acento-texto,var(--color-salvia-oscuro))]"
+(in_oklab,var(--pp-texto,var(--color-grafito))_70%,transparent)] underline decoration-[var(--pp-borde,var(--color-arena))] underline-offset-4 hover:text-[var(--pp-acento-texto,var(--color-marca))]"
       >
         Mis turnos
       </button>
@@ -72,9 +77,7 @@ export function MisTurnosButton({ slug }: MisTurnosButtonProps) {
             <div className="w-full max-w-sm rounded-card border-[0.5px] border-arena bg-marfil p-6 shadow-soft">
               <div className="flex items-center justify-between pb-4">
                 <h2 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">Mis turnos</h2>
-                <button type="button" onClick={cerrar} aria-label="Cerrar" className="text-2xl leading-none text-grafito/50 hover:text-grafito">
-                  ×
-                </button>
+                <BotonCerrar onClick={cerrar} />
               </div>
 
               {turno ? (
@@ -87,13 +90,6 @@ export function MisTurnosButton({ slug }: MisTurnosButtonProps) {
                   <p className="text-grafito/70">
                     {turno.nombreContacto} {turno.apellidoContacto}
                   </p>
-                  <button
-                    type="button"
-                    onClick={cerrar}
-                    className="mt-2 self-start rounded-full border-[0.5px] border-arena px-4 py-2 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
-                  >
-                    Cerrar
-                  </button>
                 </div>
               ) : (
                 <form onSubmit={buscar} className="flex flex-col gap-3">
@@ -105,7 +101,7 @@ export function MisTurnosButton({ slug }: MisTurnosButtonProps) {
                       onChange={(e) => setDni(e.target.value)}
                       inputMode="numeric"
                       required
-                      className="rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-sm text-grafito outline-none focus:border-salvia"
+                      className="rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-sm text-grafito outline-none focus:border-marca"
                     />
                   </label>
                   <label className="flex flex-col gap-1 text-xs font-medium text-grafito/70">
@@ -115,7 +111,7 @@ export function MisTurnosButton({ slug }: MisTurnosButtonProps) {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
-                      className="rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-sm text-grafito outline-none focus:border-salvia"
+                      className="rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-sm text-grafito outline-none focus:border-marca"
                     />
                   </label>
                   {error && (
@@ -126,7 +122,7 @@ export function MisTurnosButton({ slug }: MisTurnosButtonProps) {
                   <button
                     type="submit"
                     disabled={pending}
-                    className="rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
+                    className="boton-primario rounded-full px-5 py-2.5 text-sm font-semibold"
                   >
                     {pending ? "Buscando…" : "Buscar mi turno"}
                   </button>

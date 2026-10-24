@@ -50,7 +50,8 @@ describe("TurnoDetalle", () => {
     const user = userEvent.setup();
     render(<TurnoDetalle turno={turno} tiposConsulta={tiposConsulta} onClose={onClose} />);
 
-    await user.click(screen.getByRole("dialog"));
+    // El fondo es la capa que envuelve al diálogo (Dialogo).
+    await user.click(screen.getByRole("dialog").parentElement!);
     expect(onClose).toHaveBeenCalled();
   });
 

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { CLASE_TACTIL } from "@/components/editor-pagina/estilos";
+import { BotonCerrar } from "@/components/boton-cerrar";
 
 const sinSuscripcion = () => () => {};
 
@@ -22,7 +23,7 @@ const sinSuscripcion = () => () => {};
 // pila de modelos (pedido del cliente, 2026-10-02: en el celular, los dos
 // en la misma barra) — su mismo alto, radio y tamaño de letra.
 const ASPECTO = {
-  suelto: "min-h-11 rounded-full px-4 text-sm",
+  suelto: "min-h-11 rounded-control px-4 text-sm",
   "en-barra": `min-h-10 rounded-card px-3 text-[13px] ${CLASE_TACTIL}`,
 } as const;
 
@@ -47,7 +48,7 @@ export function PantallaCompleta({
       <button
         type="button"
         onClick={() => setAbierta(true)}
-        className={`inline-flex items-center gap-2 whitespace-nowrap border border-linea bg-marfil font-medium text-grafito shadow-soft hover:border-salvia ${ASPECTO[variante]} ${className}`}
+        className={`inline-flex items-center gap-2 whitespace-nowrap border border-linea bg-marfil font-medium text-grafito shadow-soft hover:border-marca-medio ${ASPECTO[variante]} ${className}`}
       >
         <svg aria-hidden="true" viewBox="0 0 20 20" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round">
           <path d="M3 8V3h5M17 8V3h-5M3 12v5h5M17 12v5h-5" />
@@ -67,6 +68,7 @@ function Capa({ titulo, onCerrar, children }: { titulo: string; onCerrar: () => 
   const montado = useSyncExternalStore(sinSuscripcion, () => true, () => false);
   const [cerca, setCerca] = useState(false);
   const caja = useRef<HTMLDivElement>(null);
+  const cruz = useRef<HTMLButtonElement>(null);
   const cerrar = useRef(onCerrar);
   useEffect(() => {
     cerrar.current = onCerrar;
@@ -76,7 +78,7 @@ function Capa({ titulo, onCerrar, children }: { titulo: string; onCerrar: () => 
     if (!montado) return;
     const anterior = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const nodo = caja.current;
-    nodo?.querySelector<HTMLElement>("[data-cerrar]")?.focus();
+    cruz.current?.focus();
     // Sin esto, en el celular el scroll se le escapa a la página de atrás.
     const desbordeAnterior = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -117,18 +119,11 @@ function Capa({ titulo, onCerrar, children }: { titulo: string; onCerrar: () => 
             type="button"
             aria-pressed={cerca}
             onClick={() => setCerca(!cerca)}
-            className="min-h-11 rounded-full border border-marfil/40 px-4 text-sm font-medium hover:bg-marfil/10"
+            className="min-h-11 rounded-control border border-marfil/40 px-4 text-sm font-medium hover:bg-marfil/10"
           >
             {cerca ? "Alejar" : "Acercar"}
           </button>
-          <button
-            type="button"
-            data-cerrar
-            onClick={onCerrar}
-            className="min-h-11 rounded-full bg-marfil px-4 text-sm font-semibold text-grafito hover:brightness-95"
-          >
-            Cerrar
-          </button>
+          <BotonCerrar ref={cruz} onClick={onCerrar} sobreOscuro />
         </div>
       </div>
       <div className="min-h-0 flex-1 overflow-auto overscroll-contain px-2 pb-6 sm:px-4">

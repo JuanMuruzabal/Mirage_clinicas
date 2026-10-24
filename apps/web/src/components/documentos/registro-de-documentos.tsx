@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import type { DocumentoResumen } from "@dental-mirage/shared-types";
 import { normalizar } from "@dental-mirage/documentos-clinicos";
-import { IconSearch } from "@/components/icons";
+import { CampoDeBusqueda } from "@/components/panel/campo-de-busqueda";
 import { FiltrosAplicados, type FiltroAplicado } from "@/components/panel/filtros-aplicados";
 import { FiltrosSheet } from "@/components/panel/filtros-sheet";
 import { rangoRapidoFechas } from "@/lib/calendar-utils";
@@ -22,7 +22,7 @@ import { TablaDeDocumentos } from "./tablas-de-documentos";
 // La lista de un paciente es corta y ya vino entera del servidor: filtra
 // en la pantalla, sin volver a pedir nada.
 
-const CAMPO = "rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-grafito outline-none focus:border-salvia";
+const CAMPO = "rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-grafito outline-none focus:border-marca-medio";
 
 interface Filtros {
   plantilla: string;
@@ -94,19 +94,21 @@ export function RegistroDeDocumentos({ documentos }: { documentos: DocumentoResu
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative min-w-[12rem] flex-1">
-          <IconSearch className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-grafito/40" />
-          <input
-            type="search"
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar por documento, profesional, folio o huella"
-            aria-label="Buscar por documento, profesional, folio o huella"
-            className="w-full rounded-field border-[0.5px] border-arena bg-marfil py-2 pr-3 pl-9 text-sm text-grafito outline-none focus:border-salvia"
-          />
-        </div>
+      {/* En el celular el buscador y "Filtros" van en una línea, con
+          "Filtros" en su ícono como en Turnos (pedido de la persona,
+          2026-10-17); el buscador toma el resto del ancho. */}
+      <div className="flex items-center gap-3 md:flex-wrap">
+        {/* El mismo buscador que Turnos y Pacientes (ítem 6): el
+            placeholder dice qué se busca, con el mismo estilo; el nombre
+            accesible sigue diciendo la acción entera. */}
+        <CampoDeBusqueda
+          valor={busqueda}
+          onCambio={setBusqueda}
+          placeholder="Documento, profesional, folio o huella…"
+          etiqueta="Buscar por documento, profesional, folio o huella"
+        />
         <FiltrosSheet
+          soloIconoEnCelular
           activo={activeCount > 0}
           activeCount={activeCount}
           aplicarLabel={`Ver ${cuantosConElBorrador} documento${cuantosConElBorrador === 1 ? "" : "s"}`}
@@ -134,7 +136,7 @@ export function RegistroDeDocumentos({ documentos }: { documentos: DocumentoResu
                   key={r.rango}
                   type="button"
                   onClick={() => setBorrador({ ...borrador, desde: calculado.desde, hasta: calculado.hasta })}
-                  className={`rounded-full bg-salvia-oscuro px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-marfil hover:brightness-95 ${activo ? "ring-2 ring-salvia-oscuro ring-offset-1" : ""}`}
+                  className={`rounded-control boton-primario px-3 py-1.5 text-xs font-semibold whitespace-nowrap ${activo ? "ring-2 ring-marca ring-offset-1" : ""}`}
                 >
                   {r.label}
                 </button>
@@ -218,7 +220,7 @@ function SeccionDelRegistro({
 }) {
   return (
     <section className="flex flex-col gap-3" aria-label={titulo}>
-      <h2 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">{titulo}</h2>
+      <h2 className="font-[family-name:var(--font-display)] text-lg font-semibold text-grafito">{titulo}</h2>
       <TablaDeDocumentos
         documentos={documentos}
         anidada={anidada}

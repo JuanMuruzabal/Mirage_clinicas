@@ -47,7 +47,7 @@ export function MenuAcciones({ nombre, acciones }: { nombre: string; acciones: A
         aria-expanded={abierto}
         aria-label={`Acciones de ${nombre}`}
         onClick={() => setAbierto((a) => !a)}
-        className="flex h-8 w-8 items-center justify-center rounded-full text-grafito/40 transition-colors hover:bg-hueso hover:text-grafito"
+        className="flex h-8 w-8 items-center justify-center rounded-full text-grafito/40 transition-colors hover:bg-velo hover:text-grafito"
       >
         <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-5 w-5">
           <circle cx="10" cy="4" r="1.5" />
@@ -66,7 +66,7 @@ export function MenuAcciones({ nombre, acciones }: { nombre: string; acciones: A
                 setAbierto(false);
                 accion.onClick();
               }}
-              className={`rounded-field px-3 py-2 text-left text-sm font-medium transition-colors hover:bg-hueso ${
+              className={`rounded-field px-3 py-2 text-left text-sm font-medium transition-colors hover:bg-velo ${
                 accion.peligrosa ? "text-terracota-oscuro" : "text-grafito"
               }`}
             >

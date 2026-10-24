@@ -6,7 +6,7 @@ import { logoutAction } from "@/app/actions/auth";
 import { IconLogout, IconSettings, IconUser, IconUsers } from "./icons";
 
 const itemClass =
-  "flex items-center gap-3 rounded-field px-3 py-2.5 text-sm font-medium transition-colors hover:bg-salvia-claro hover:text-salvia-oscuro";
+  "flex items-center gap-3 rounded-field px-3 py-2.5 text-sm font-medium transition-colors hover:bg-velo hover:text-marca";
 
 // HeaderConfigMenu — TR-060 en docs/Arquitectura y base/tradeoffs.md (versión original: Tu
 // perfil/Gestionar tu clínica/Personalizar tu página). Reducido a Tu
@@ -44,8 +44,8 @@ export function HeaderConfigMenu({ icono = "tuerca" }: { icono?: "tuerca" | "col
         onClick={() => setOpen((o) => !o)}
         className={
           icono === "colaboradores"
-            ? "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full"
-            : "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-current transition-colors hover:bg-current/10"
+            ? "flex h-10 w-10 flex-shrink-0 pointer-coarse:h-11 pointer-coarse:w-11 items-center justify-center rounded-full"
+            : "flex h-10 w-10 flex-shrink-0 pointer-coarse:h-11 pointer-coarse:w-11 items-center justify-center rounded-full text-current transition-colors hover:bg-current/10"
         }
       >
         {/* En /clinicas, el MISMO botón que el de colaboradores del
@@ -57,7 +57,7 @@ export function HeaderConfigMenu({ icono = "tuerca" }: { icono?: "tuerca" | "col
         {icono === "colaboradores" ? (
           <span
             aria-hidden="true"
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-marfil bg-salvia-oscuro text-marfil"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-marfil bg-marca-relleno text-marfil"
           >
             <IconUsers className="h-[18px] w-[18px]" />
           </span>

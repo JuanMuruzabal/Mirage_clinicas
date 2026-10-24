@@ -9,7 +9,7 @@ const v = (vars: Record<string, string | number>) => vars as CSSProperties;
 // (#buscar). Una frase y un botón.
 export function ParaPacientes() {
   return (
-    <section id="buscar" aria-labelledby="pacientes-titulo" className="home-fondo px-6 py-16 sm:px-10">
+    <section id="buscar" aria-labelledby="pacientes-titulo" className="px-6 py-16 sm:px-10">
       <Revelar className="mx-auto flex max-w-5xl flex-col items-center justify-between gap-6 text-center sm:flex-row sm:text-left">
         <div className="rv flex flex-col gap-1">
           <p className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-[0.2em] text-acero-oscuro">

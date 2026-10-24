@@ -14,7 +14,7 @@ describe("PantallaCompleta", () => {
       </PantallaCompleta>,
     );
     const boton = screen.getByRole("button", { name: "Ver en pantalla completa" });
-    expect(boton).toHaveClass("min-h-11", "rounded-full", "px-4", "text-sm", "bg-marfil", "border-linea", "shadow-soft", "whitespace-nowrap");
+    expect(boton).toHaveClass("min-h-11", "rounded-control", "px-4", "text-sm", "bg-marfil", "border-linea", "shadow-soft", "whitespace-nowrap");
     expect(boton.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
     expect(screen.queryByText("contenido")).not.toBeInTheDocument();
   });
@@ -39,7 +39,7 @@ describe("PantallaCompleta", () => {
       "shadow-soft",
       "extra",
     );
-    expect(boton).not.toHaveClass("rounded-full");
+    expect(boton).not.toHaveClass("rounded-control");
     expect(boton).not.toHaveClass("min-h-11");
   });
 

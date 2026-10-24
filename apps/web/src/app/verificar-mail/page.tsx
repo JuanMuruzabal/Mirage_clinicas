@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { ConfirmarCodigoForm } from "@/components/auth/confirmar-codigo-form";
+import { FondoOndas } from "@/components/fondo-ondas";
 
 export const metadata: Metadata = { title: "Confirmá tu cuenta — PRISMA" };
 
@@ -18,10 +19,17 @@ export default async function VerificarMailPage({ searchParams }: VerificarMailP
   const { email } = await searchParams;
 
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-8 bg-hueso px-6 py-16">
-      <AuthShell title="Confirmá tu cuenta" subtitle="Ingresá el código de 6 dígitos que te mandamos por mail.">
-        <ConfirmarCodigoForm email={email ?? ""} emailFijo={false} />
-      </AuthShell>
-    </main>
+    <>
+      {/* FondoOndas (correcciones generales, 2026-10-18): el fondo de ondas
+          de /ingresar y /sumarse, en lugar del hueso plano. Va afuera de
+          <main>, fijo y detrás del contenido; todo el texto va en la tarjeta
+          de AuthShell, en marfil. */}
+      <FondoOndas />
+      <main className="flex flex-1 flex-col items-center justify-center gap-8 px-6 py-16">
+        <AuthShell title="Confirmá tu cuenta" subtitle="Ingresá el código de 6 dígitos que te mandamos por mail.">
+          <ConfirmarCodigoForm email={email ?? ""} emailFijo={false} />
+        </AuthShell>
+      </main>
+    </>
   );
 }

@@ -101,7 +101,7 @@ export function GoogleSignInButton({ onError }: { onError: (message: string) => 
       type="button"
       onClick={iniciar}
       disabled={!scriptListo || pending}
-      className="flex items-center justify-center gap-2.5 rounded-full border-[0.5px] border-arena bg-marfil px-4 py-2.5 text-sm font-medium text-grafito hover:border-salvia disabled:opacity-60"
+      className="flex items-center justify-center gap-2.5 rounded-control border-[0.5px] border-arena bg-marfil px-4 py-2.5 text-sm font-medium text-grafito hover:border-marca-medio disabled:opacity-60"
     >
       <GoogleIcon />
       {pending ? "Conectando…" : "Continuar con Google"}

@@ -50,19 +50,29 @@ const (
 
 // GenerarPDFDeContinuacion — el PDF de un anexo de continuación abierto.
 func GenerarPDFDeContinuacion(f FuenteDeContinuacion) ([]byte, error) {
+	parte, err := f.preparar()
+	if err != nil {
+		return nil, err
+	}
+	return parte.bytes()
+}
+
+// preparar — la parte del PDF de un anexo de continuación: sus hojas A4, con
+// el encabezado, el título con los datos del paciente y los asientos.
+func (f FuenteDeContinuacion) preparar() (parteDelPDF, error) {
 	d := f.Documento
 	if d.Estado != db.DocumentoAbierto || d.AnexoSeccion == nil || d.AnexoNumero == nil || d.AnexoDe == nil {
-		return nil, ErrNoEsContinuacion
+		return parteDelPDF{}, ErrNoEsContinuacion
 	}
 	if d.ContenidoCanonico == nil || d.HashContenido == nil || d.TerminadoEn == nil {
-		return nil, incompleto("al anexo de continuación le falta su contenido congelado")
+		return parteDelPDF{}, incompleto("al anexo de continuación le falta su contenido congelado")
 	}
 	var contenido ContenidoCongelado
 	if err := json.Unmarshal([]byte(*d.ContenidoCanonico), &contenido); err != nil {
-		return nil, &DocumentoIncompletoError{Falta: "el contenido congelado del anexo no se puede leer", Causa: err}
+		return parteDelPDF{}, &DocumentoIncompletoError{Falta: "el contenido congelado del anexo no se puede leer", Causa: err}
 	}
 	if contenido.Continuacion == nil {
-		return nil, incompleto("el contenido congelado del anexo no dice de qué historia es")
+		return parteDelPDF{}, incompleto("el contenido congelado del anexo no dice de qué historia es")
 	}
 
 	creado, huella := *d.TerminadoEn, *d.HashContenido
@@ -71,7 +81,7 @@ func GenerarPDFDeContinuacion(f FuenteDeContinuacion) ([]byte, error) {
 	}
 	semilla, err := hex.DecodeString(strings.TrimSpace(huella))
 	if err != nil {
-		return nil, incompleto("la huella del anexo no es hexadecimal")
+		return parteDelPDF{}, incompleto("la huella del anexo no es hexadecimal")
 	}
 
 	numero, folio := *d.AnexoNumero, FolioDe(d, f.FolioDeLaHistoria)
@@ -79,20 +89,23 @@ func GenerarPDFDeContinuacion(f FuenteDeContinuacion) ([]byte, error) {
 	if !folio.AnexoSinFolio() {
 		tituloDelPDF += " · folio " + folio.Valor
 	}
-	doc := pdf.Nuevo(pdf.Info{
-		Titulo:  tituloDelPDF,
-		Creado:  clock.In(creado),
-		Semilla: semilla,
-	})
 	encabezado := encabezadoDeContinuacion(*contenido.Continuacion, numero, f.FolioDeLaHistoria)
 	hojas := repartirEnHojas(gruposDeLaContinuacion(numero, folio, contenido.Paciente, f.Asientos))
-	for i, hoja := range hojas {
-		pag := doc.Pagina(anchoA4, altoA4)
-		dibujarEncabezado(pag, encabezado)
-		dibujarRenglones(pag, hoja)
-		dibujarPie(pag, fmt.Sprintf("%s · Hoja %d de %d", folio, i+1, len(hojas)))
-	}
-	return doc.Bytes()
+	return parteDelPDF{
+		info: pdf.Info{
+			Titulo:  tituloDelPDF,
+			Creado:  clock.In(creado),
+			Semilla: semilla,
+		},
+		dibujar: func(doc *pdf.Documento) {
+			for i, hoja := range hojas {
+				pag := doc.Pagina(anchoA4, altoA4)
+				dibujarEncabezado(pag, encabezado)
+				dibujarRenglones(pag, hoja)
+				dibujarPie(pag, fmt.Sprintf("%s · Hoja %d de %d", folio, i+1, len(hojas)))
+			}
+		},
+	}, nil
 }
 
 // encabezadoDeContinuacion — "Anexo Nº 2 · Continuación de plan de

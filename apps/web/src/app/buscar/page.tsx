@@ -32,7 +32,7 @@ export default async function BuscarPage({ searchParams }: PageProps<"/buscar">)
   return (
     <main className="flex flex-1 flex-col gap-10 bg-hueso px-6 py-16 pt-[calc(var(--header-height)+2rem)]">
       <div className="mx-auto w-full max-w-3xl text-center">
-        <h1 className="font-[family-name:var(--font-display)] text-4xl font-medium text-grafito sm:text-5xl">Buscar clínicas</h1>
+        <h1 className="font-[family-name:var(--font-display)] tracking-tight text-3xl font-semibold text-grafito sm:text-4xl">Buscar clínicas</h1>
       </div>
 
       <div className="mx-auto w-full max-w-3xl">
@@ -53,12 +53,12 @@ export default async function BuscarPage({ searchParams }: PageProps<"/buscar">)
           <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
             {resultados.map((clinica, i) => (
               <ScrollReveal key={clinica.slug} delay={Math.min(i * 0.05, 0.3)}>
-                <li className="flex aspect-square flex-col items-center justify-center gap-1.5 rounded-card border-[0.5px] border-arena bg-marfil p-4 text-center shadow-soft transition-colors duration-300 hover:border-salvia hover:bg-hueso">
-                  <p className="font-[family-name:var(--font-display)] text-base font-medium text-grafito">{clinica.nombreClinica}</p>
+                <li className="flex aspect-square flex-col items-center justify-center gap-1.5 rounded-card border-[0.5px] border-arena bg-marfil p-4 text-center shadow-soft transition-colors duration-300 hover:border-marca-medio hover:bg-velo">
+                  <p className="font-[family-name:var(--font-display)] text-base font-semibold text-grafito">{clinica.nombreClinica}</p>
                   <p className="text-xs text-grafito/60">{clinica.profesionalNombre}</p>
                   <Link
                     href={`/${clinica.slug}`}
-                    className="mt-2 text-xs font-medium text-salvia-oscuro hover:text-grafito"
+                    className="mt-2 text-xs font-medium text-marca hover:text-grafito"
                   >
                     Ver clínica
                   </Link>

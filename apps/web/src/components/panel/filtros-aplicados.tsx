@@ -23,7 +23,7 @@ export function FiltrosAplicados({ filtros }: { filtros: FiltroAplicado[] }) {
           type="button"
           onClick={f.quitar}
           aria-label={`Quitar filtro: ${f.etiqueta}`}
-          className="inline-flex items-center gap-1.5 rounded-full bg-salvia-claro px-3 py-1.5 text-xs font-medium text-salvia-oscuro hover:brightness-95"
+          className="inline-flex items-center gap-1.5 rounded-control bg-marca-claro px-3 py-1.5 text-xs font-medium text-marca hover:brightness-95"
         >
           {f.etiqueta}
           <span aria-hidden="true">✕</span>

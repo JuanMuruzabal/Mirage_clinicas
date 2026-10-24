@@ -1,15 +1,26 @@
 "use client";
 
-import { useState } from "react";
-import { ModalPortal } from "./panel/modal-portal";
+import { Dialogo } from "@/components/dialogo";
+import { useState, type ReactNode } from "react";
 
 interface VerTextoBotonProps {
   // Título del modal (ej. "Motivo de consulta", "Email") — también es el
   // texto accesible del botón, junto con `variante`.
   titulo: string;
-  texto: string;
-  // "boton" (default): pastilla con borde, para usar dentro de una fila
-  // de tabla. "link": texto simple subrayado al hover, para el cuerpo
+  // texto — lo que muestra el modal. Opcional solo si viene `contenido`.
+  texto?: string;
+  // contenido — un cuerpo armado para el modal en vez del texto plano
+  // ("Ver tutores" en Pacientes: nombre, relación y contacto de cada
+  // tutor, 2026-10-17). Va adentro del mismo `Dialogo`, sin padding: lo
+  // pone quien lo arma.
+  contenido?: ReactNode;
+  // "boton" (default): blanco con el borde y el rótulo en el verde de
+  // marca (como los botones con contorno de /clinicas), para usar dentro
+  // de una fila de tabla. Hasta el 2026-10-17 era un borde de medio píxel
+  // sin relleno, casi invisible sobre el vidrio de las tablas. Mide 26 px
+  // de alto para no agrandar la fila, y su área táctil se estira a 44 px
+  // con un `::after` invisible (cabe en el padding de la celda).
+  // "link": texto simple subrayado al hover, para el cuerpo
   // semi-transparente de las tarjetas del dashboard (F2.3 extra ítem 1).
   variante?: "boton" | "link";
   className?: string;
@@ -34,7 +45,7 @@ interface VerTextoBotonProps {
 // `flecha` que existía acá se eliminó del todo: SIEMPRE es un `<button>`
 // que abre un modal, nunca navega, así que la flecha no correspondía en
 // ninguno de sus usos.
-export function VerTextoBoton({ titulo, texto, variante = "boton", className = "", principal }: VerTextoBotonProps) {
+export function VerTextoBoton({ titulo, texto = "", contenido, variante = "boton", className = "", principal }: VerTextoBotonProps) {
   const [abierto, setAbierto] = useState(false);
   const items = principal ? texto.split("\n") : null;
   // Solo la PRIMERA coincidencia: si el dato estuviera repetido, una sola
@@ -51,53 +62,32 @@ export function VerTextoBoton({ titulo, texto, variante = "boton", className = "
         }}
         className={
           variante === "link"
-            ? `text-left text-sm font-medium text-salvia-oscuro underline-offset-2 hover:underline ${className}`
-            : `rounded-full border-[0.5px] border-arena px-3 py-1 text-xs font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro ${className}`
+            ? `text-left text-sm font-medium text-marca underline-offset-2 hover:underline ${className}`
+            : `relative inline-flex items-center rounded-control border border-marca-medio bg-marfil px-3 py-1 text-xs font-medium whitespace-nowrap text-marca hover:border-marca hover:bg-marca-claro focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-marca after:absolute after:-inset-x-1 after:-inset-y-[9px] after:content-[''] ${className}`
         }
       >
         Ver {titulo.toLowerCase()}
       </button>
 
       {abierto && (
-        <ModalPortal>
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label={titulo}
-            className="fixed inset-0 z-[70] flex items-center justify-center bg-grafito/50 p-4 backdrop-blur-sm"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) setAbierto(false);
-            }}
-          >
-            <div className="flex w-full max-w-md flex-col overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
-              <div className="flex items-center justify-between border-b-[0.5px] border-arena px-6 py-4">
-                <h2 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">{titulo}</h2>
-                <button
-                  type="button"
-                  onClick={() => setAbierto(false)}
-                  aria-label="Cerrar"
-                  className="text-2xl leading-none text-grafito/50 hover:text-grafito"
-                >
-                  ×
-                </button>
-              </div>
-              {items ? (
-                <ul className="flex flex-col gap-2 p-6 text-sm text-grafito">
-                  {items.map((item, i) => (
-                    <li key={i} className="flex flex-wrap items-center gap-2 break-all">
-                      <span className="font-[family-name:var(--font-mono)]">{item}</span>
-                      {i === indicePrincipal && (
-                        <span className="rounded-full bg-salvia-claro px-2.5 py-0.5 text-xs font-medium text-salvia-oscuro">Principal</span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="whitespace-pre-wrap p-6 text-sm text-grafito">{texto}</p>
-              )}
-            </div>
-          </div>
-        </ModalPortal>
+        <Dialogo titulo={titulo} onCerrar={() => setAbierto(false)} superficie="marfil" centrado ancho="chico">
+          {contenido ? (
+            contenido
+          ) : items ? (
+            <ul className="flex flex-col gap-2 p-6 text-sm text-grafito">
+              {items.map((item, i) => (
+                <li key={i} className="flex flex-wrap items-center gap-2 break-all">
+                  <span className="font-[family-name:var(--font-mono)] tabular-nums">{item}</span>
+                  {i === indicePrincipal && (
+                    <span className="rounded-pastilla bg-marca-claro px-2.5 py-0.5 text-xs font-medium text-marca">Principal</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="whitespace-pre-wrap p-6 text-sm text-grafito">{texto}</p>
+          )}
+        </Dialogo>
       )}
     </>
   );

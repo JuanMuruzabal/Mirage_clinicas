@@ -131,10 +131,10 @@ export function PerfilForm({ sesion, catalogo }: { sesion: SesionCompleta; catal
                     type="button"
                     onClick={() => toggleEspecialidad(esp.id)}
                     aria-pressed={activa}
-                    className={`rounded-full border-[0.5px] px-3 py-1.5 text-sm ${
+                    className={`rounded-control border-[0.5px] px-3 py-1.5 text-sm ${
                       activa
-                        ? "border-salvia bg-salvia-claro text-salvia-oscuro"
-                        : "border-arena text-grafito hover:border-salvia hover:text-salvia-oscuro"
+                        ? "border-marca-medio bg-marca-claro text-marca"
+                        : "border-arena text-grafito hover:border-marca-medio hover:text-marca"
                     }`}
                   >
                     {esp.nombre}

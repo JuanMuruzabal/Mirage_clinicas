@@ -91,7 +91,7 @@ export function HistorialVersiones({ sinGuardar, onRestaurar, onCerrar }: Histor
                   <p className="font-medium">
                     Versión {v.numero}
                     {i === 0 && (
-                      <span className="ml-2 rounded-full border-[0.5px] border-salvia bg-salvia-claro px-2 py-0.5 text-xs font-medium text-salvia-oscuro">
+                      <span className="ml-2 rounded-pastilla border-[0.5px] border-marca-medio bg-marca-claro px-2 py-0.5 text-xs font-medium text-marca">
                         Publicada ahora
                       </span>
                     )}
@@ -110,7 +110,7 @@ export function HistorialVersiones({ sinGuardar, onRestaurar, onCerrar }: Histor
                     type="button"
                     onClick={() => void restaurar(v.numero)}
                     disabled={restaurando !== null}
-                    className="min-h-11 rounded-full border-[0.5px] border-arena bg-marfil px-4 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro disabled:opacity-50"
+                    className="min-h-11 rounded-control border-[0.5px] border-arena bg-marfil px-4 text-sm font-medium text-grafito hover:border-marca-medio hover:text-marca disabled:opacity-50"
                   >
                     {restaurando === v.numero
                       ? "Restaurando…"

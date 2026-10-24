@@ -195,24 +195,22 @@ describe("TurnosTable", () => {
     expect(screen.queryByRole("button", { name: "Cancelar" })).not.toBeInTheDocument();
   });
 
-  // Corrección de QA (2026-09-06, screenshot del cliente): "Contacto"
-  // metía teléfono y mail en una sola celda contra una sola etiqueta —
-  // la fuente real del desalineado visual reportado. Se separan en dos
-  // filas propias del panel desplegado (mobile), mismo criterio que
-  // PacientesTable.
-  it("el panel desplegado muestra Teléfono y Email como filas propias, no combinadas en 'Contacto'", async () => {
+  // Correcciones generales, ítem 9 (2026-10-12): la tabla va completa en
+  // todos los anchos —en el celular scrollea de costado—, así que el panel
+  // desplegado ya no repite Contacto, Motivo ni Origen (hasta esa fecha
+  // los mostraba en el celular, donde esas columnas se escondían). Lleva
+  // solo las acciones.
+  it("el panel desplegado lleva las acciones y no repite las columnas", async () => {
     const user = userEvent.setup();
     render(<TurnosTable turnosIniciales={[turnoAgendado]} tiposConsulta={tiposConsulta} filtros={{}} />);
 
+    expect(screen.getByRole("columnheader", { name: "Contacto" })).toBeInTheDocument();
     await desplegarFila(user, "Julián Ortiz");
 
-    // "Contacto" sigue existiendo como encabezado de columna de
-    // escritorio (`<th>`, siempre en el DOM, oculto en mobile por CSS) —
-    // lo relevante acá es que el panel desplegado (mobile) ya no lo usa
-    // como etiqueta combinada, por eso se verifica Teléfono/Email por
-    // separado en vez de la ausencia de "Contacto".
-    expect(screen.getByText("Teléfono")).toBeInTheDocument();
-    expect(screen.getByText("Email")).toBeInTheDocument();
+    const panel = screen.getByRole("button", { name: "Editar" }).closest("tr")!;
+    expect(within(panel).queryByText("Teléfono")).not.toBeInTheDocument();
+    expect(within(panel).queryByText("Email")).not.toBeInTheDocument();
+    expect(within(panel).queryByText("Origen")).not.toBeInTheDocument();
   });
 
   it("clickear la fila la despliega y clickearla de nuevo la cierra", async () => {
@@ -384,28 +382,18 @@ describe("TurnosTable", () => {
   });
 
   // QA de la 3.2.6 (2026-09-21): *"falta en la tabla de turnos en mobile
-  // el dato del profesional en la vista de toda la clínica, tendría que
-  // verse cuando se despliega la fila"*.
-  //
-  // La columna propia es `max-md:hidden`, así que en mobile el único
-  // lugar donde puede verse es el panel desplegado — y sin eso, en una
-  // lista que mezcla las agendas de varias personas la fila no decía de
-  // quién era el turno por ningún lado.
-  describe("el profesional en el panel desplegado (vista de toda la clínica)", () => {
+  // el dato del profesional en la vista de toda la clínica"*. Hasta el
+  // 2026-10-12 la columna se escondía en el celular y el dato iba en el
+  // panel desplegado; desde las correcciones generales (ítem 9) la columna
+  // se ve en todos los anchos, porque la tabla scrollea de costado.
+  describe("el profesional en su columna (vista de toda la clínica)", () => {
     const deLaClinica = { ...turnoAgendado, atendidoPorNombre: "Lucía Gómez" };
 
-    it("al desplegar la fila, dice de quién es el turno", () => {
-      render(
-        <TurnosTable
-          turnosIniciales={[deLaClinica]}
-          tiposConsulta={tiposConsulta}
-          filtros={{}}
-          abrirId="agen-1"
-        />,
-      );
-      const panel = screen.getByRole("button", { name: "Editar" }).closest("tr")!;
-      expect(within(panel).getByText("Profesional")).toBeInTheDocument();
-      expect(within(panel).getAllByText("Lucía Gómez").length).toBeGreaterThan(0);
+    it("la fila dice de quién es el turno, sin desplegarla", () => {
+      render(<TurnosTable turnosIniciales={[deLaClinica]} tiposConsulta={tiposConsulta} filtros={{}} />);
+      expect(screen.getByRole("columnheader", { name: "Profesional" })).toBeInTheDocument();
+      const fila = screen.getByText("Julián Ortiz").closest("tr")!;
+      expect(within(fila).getByText("Lucía Gómez")).toBeInTheDocument();
     });
 
     // En la vista de UN profesional todos los turnos son suyos: el
@@ -421,6 +409,7 @@ describe("TurnosTable", () => {
       );
       const panel = screen.getByRole("button", { name: "Editar" }).closest("tr")!;
       expect(within(panel).queryByText("Profesional")).not.toBeInTheDocument();
+      expect(screen.queryByRole("columnheader", { name: "Profesional" })).not.toBeInTheDocument();
     });
   });
 

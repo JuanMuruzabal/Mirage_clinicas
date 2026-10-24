@@ -18,10 +18,10 @@ export default async function SeguridadPage() {
   return (
     <div className="flex flex-col gap-6 p-8 max-md:px-[clamp(1rem,4vw,2rem)] max-md:pt-3 max-md:pb-[clamp(1rem,4vw,2rem)]">
       <div>
-        <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito max-md:text-[clamp(1.375rem,6.5vw,1.875rem)]">
+        <h1 className="font-[family-name:var(--font-display)] tracking-tight text-3xl font-semibold text-grafito max-md:text-[clamp(1.375rem,6.5vw,1.875rem)]">
           Seguridad
         </h1>
-        <p className="mt-1 text-sm text-grafito/60">
+        <p className="mt-1 text-sm text-grafito/80">
           Mails e IPs que el sistema bloqueó solo por un patrón de abuso en el formulario público de turnos, y el registro de qué se
           borró en cada caso.
         </p>

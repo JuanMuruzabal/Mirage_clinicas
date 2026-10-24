@@ -4,6 +4,14 @@ import { useState } from "react";
 import type { BloqueosSeguridad } from "@dental-mirage/shared-types";
 import { desbloquearIPAction, desbloquearMailAction, listBloqueosSeguridadAction } from "@/app/actions/seguridad";
 import { formatFechaHora } from "@/lib/turno-format";
+import { CLASE_TACTIL } from "@/components/editor-pagina/estilos";
+import { CajaDeTabla } from "./caja-de-tabla";
+import { CLASE_CABECERA, CLASE_CAJA_TABLA, CLASE_CELDA, CLASE_CELDA_SECUNDARIA, CLASE_CODIGO, CLASE_COLUMNA_ACCIONES, CLASE_FILA, CLASE_MONO, CLASE_TABLA } from "./tabla";
+
+// Las tres tablas con el sistema común del panel (correcciones generales,
+// ítem 9): en el celular, completas, con scroll de costado. Cada caja mide
+// como mucho una pantalla, sin bajar de cuatro filas (CajaDeTabla).
+const BOTON = `inline-flex items-center rounded-control border border-linea bg-marfil px-3 py-1.5 text-xs font-medium text-grafito hover:border-marca-medio hover:bg-velo hover:text-marca disabled:opacity-60 ${CLASE_TACTIL}`;
 
 interface SeguridadBloqueosProps {
   inicial: BloqueosSeguridad;
@@ -64,30 +72,32 @@ export function SeguridadBloqueos({ inicial }: SeguridadBloqueosProps) {
       )}
 
       <section className="flex flex-col gap-3">
-        <h2 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">Mails bloqueados</h2>
+        <h2 className="font-[family-name:var(--font-display)] text-lg font-semibold text-grafito">Mails bloqueados</h2>
         {datos.mailsBloqueados.length === 0 ? (
-          <p className="text-sm text-grafito/60">No hay ningún mail bloqueado en este momento.</p>
+          <p className="text-sm text-grafito/75">No hay ningún mail bloqueado en este momento.</p>
         ) : (
-          <div className="overflow-x-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
-            <table className="w-full text-left text-sm">
+          <CajaDeTabla llenaLaPantalla className={CLASE_CAJA_TABLA}>
+            <table className={CLASE_TABLA}>
               <thead>
-                <tr className="border-b-[0.5px] border-arena text-xs font-semibold uppercase tracking-wide text-grafito/60">
-                  <th className="px-4 py-3">Mail</th>
-                  <th className="px-4 py-3">Bloqueado hasta</th>
-                  <th className="px-4 py-3" aria-hidden="true" />
+                <tr>
+                  <th className={CLASE_CABECERA}>Mail</th>
+                  <th className={CLASE_CABECERA}>Bloqueado hasta</th>
+                  <th className={`${CLASE_CABECERA} ${CLASE_COLUMNA_ACCIONES}`}>
+                    <span className="sr-only">Acciones</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {datos.mailsBloqueados.map((m) => (
-                  <tr key={m.id} className="border-b-[0.5px] border-arena last:border-b-0">
-                    <td className="px-4 py-3 text-grafito">{m.email}</td>
-                    <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-grafito/70">{formatFechaHora(m.bloqueadoHasta)}</td>
-                    <td className="px-4 py-3 text-right">
+                  <tr key={m.id} className={CLASE_FILA}>
+                    <td className={CLASE_CELDA}>{m.email}</td>
+                    <td className={`${CLASE_CELDA_SECUNDARIA} ${CLASE_MONO}`}>{formatFechaHora(m.bloqueadoHasta)}</td>
+                    <td className={`${CLASE_CELDA} ${CLASE_COLUMNA_ACCIONES}`}>
                       <button
                         type="button"
                         onClick={() => desbloquearMail(m.id)}
                         disabled={pendingId === m.id}
-                        className="rounded-full border-[0.5px] border-arena px-3 py-1.5 text-xs font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro disabled:opacity-60"
+                        className={BOTON}
                       >
                         {pendingId === m.id ? "Desbloqueando…" : "Desbloquear"}
                       </button>
@@ -96,35 +106,37 @@ export function SeguridadBloqueos({ inicial }: SeguridadBloqueosProps) {
                 ))}
               </tbody>
             </table>
-          </div>
+          </CajaDeTabla>
         )}
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">IPs bloqueadas</h2>
+        <h2 className="font-[family-name:var(--font-display)] text-lg font-semibold text-grafito">IPs bloqueadas</h2>
         {datos.ipsBloqueadas.length === 0 ? (
-          <p className="text-sm text-grafito/60">No hay ninguna IP bloqueada en este momento.</p>
+          <p className="text-sm text-grafito/75">No hay ninguna IP bloqueada en este momento.</p>
         ) : (
-          <div className="overflow-x-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
-            <table className="w-full text-left text-sm">
+          <CajaDeTabla llenaLaPantalla className={CLASE_CAJA_TABLA}>
+            <table className={CLASE_TABLA}>
               <thead>
-                <tr className="border-b-[0.5px] border-arena text-xs font-semibold uppercase tracking-wide text-grafito/60">
-                  <th className="px-4 py-3">IP</th>
-                  <th className="px-4 py-3">Bloqueada hasta</th>
-                  <th className="px-4 py-3" aria-hidden="true" />
+                <tr>
+                  <th className={CLASE_CABECERA}>IP</th>
+                  <th className={CLASE_CABECERA}>Bloqueada hasta</th>
+                  <th className={`${CLASE_CABECERA} ${CLASE_COLUMNA_ACCIONES}`}>
+                    <span className="sr-only">Acciones</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {datos.ipsBloqueadas.map((ipRow) => (
-                  <tr key={ipRow.id} className="border-b-[0.5px] border-arena last:border-b-0">
-                    <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-grafito">{ipRow.ip}</td>
-                    <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-grafito/70">{formatFechaHora(ipRow.bloqueadoHasta)}</td>
-                    <td className="px-4 py-3 text-right">
+                  <tr key={ipRow.id} className={CLASE_FILA}>
+                    <td className={`${CLASE_CELDA} ${CLASE_CODIGO}`}>{ipRow.ip}</td>
+                    <td className={`${CLASE_CELDA_SECUNDARIA} ${CLASE_MONO}`}>{formatFechaHora(ipRow.bloqueadoHasta)}</td>
+                    <td className={`${CLASE_CELDA} ${CLASE_COLUMNA_ACCIONES}`}>
                       <button
                         type="button"
                         onClick={() => desbloquearIP(ipRow.id)}
                         disabled={pendingId === ipRow.id}
-                        className="rounded-full border-[0.5px] border-arena px-3 py-1.5 text-xs font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro disabled:opacity-60"
+                        className={BOTON}
                       >
                         {pendingId === ipRow.id ? "Desbloqueando…" : "Desbloquear"}
                       </button>
@@ -133,56 +145,58 @@ export function SeguridadBloqueos({ inicial }: SeguridadBloqueosProps) {
                 ))}
               </tbody>
             </table>
-          </div>
+          </CajaDeTabla>
         )}
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">Auditoría</h2>
-        <p className="text-sm text-grafito/60">
+        <h2 className="font-[family-name:var(--font-display)] text-lg font-semibold text-grafito">Auditoría</h2>
+        <p className="text-sm text-grafito/75">
           Turnos borrados automáticamente por un patrón de abuso detectado — no se pueden recuperar, esto es solo un registro de qué pasó.
           Una fila marcada <span className="font-semibold text-grafito">Simulado</span> no bloqueó ni borró nada de verdad — es el modo de
           prueba en desarrollo local.
         </p>
         {datos.auditoria.length === 0 ? (
-          <p className="text-sm text-grafito/60">Todavía no se registró ningún bloqueo.</p>
+          <p className="text-sm text-grafito/75">Todavía no se registró ningún bloqueo.</p>
         ) : (
-          <div className="overflow-x-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
-            <table className="w-full text-left text-sm">
+          <CajaDeTabla llenaLaPantalla className={CLASE_CAJA_TABLA}>
+            <table className={CLASE_TABLA}>
               <thead>
-                <tr className="border-b-[0.5px] border-arena text-xs font-semibold uppercase tracking-wide text-grafito/60">
-                  <th className="px-4 py-3">Motivo</th>
-                  <th className="px-4 py-3">Mail / IP</th>
-                  <th className="px-4 py-3">DNIs</th>
-                  <th className="px-4 py-3">Turnos borrados</th>
-                  <th className="px-4 py-3">Fecha</th>
+                <tr>
+                  <th className={CLASE_CABECERA}>Motivo</th>
+                  <th className={CLASE_CABECERA}>Mail / IP</th>
+                  <th className={CLASE_CABECERA}>DNIs</th>
+                  <th className={`${CLASE_CABECERA} text-right`}>Turnos borrados</th>
+                  <th className={CLASE_CABECERA}>Fecha</th>
                 </tr>
               </thead>
               <tbody>
                 {datos.auditoria.map((a) => (
-                  <tr key={a.id} className="border-b-[0.5px] border-arena last:border-b-0">
-                    <td className="px-4 py-3 text-grafito">
+                  <tr key={a.id} className={CLASE_FILA}>
+                    <td className={CLASE_CELDA}>
                       <div className="flex items-center gap-2">
                         <span>{MOTIVO_LABEL[a.motivo] ?? a.motivo}</span>
                         {a.simulado && (
-                          <span className="rounded-full border-[0.5px] border-salvia bg-salvia-claro px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-salvia-oscuro">
+                          <span className="rounded-pastilla border-[0.5px] border-marca-medio bg-marca-claro px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-marca">
                             Simulado
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-grafito/70">
+                    <td className={CLASE_CELDA_SECUNDARIA}>
                       {a.email && <div>{a.email}</div>}
-                      {a.ip && <div className="font-[family-name:var(--font-mono)]">{a.ip}</div>}
+                      {a.ip && <div className={CLASE_CODIGO}>{a.ip}</div>}
                     </td>
-                    <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-xs text-grafito/70">{a.dnis || "—"}</td>
-                    <td className="px-4 py-3 text-grafito">{a.turnosBorrados}</td>
-                    <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-grafito/70">{formatFechaHora(a.createdAt)}</td>
+                    {/* Una lista de DNIs puede ser larga: es la única celda
+                        que parte renglón, con un ancho tope. */}
+                    <td className={`${CLASE_CELDA_SECUNDARIA} ${CLASE_MONO} max-w-[18rem] min-w-[10rem] whitespace-normal`}>{a.dnis || "—"}</td>
+                    <td className={`${CLASE_CELDA} text-right tabular-nums`}>{a.turnosBorrados}</td>
+                    <td className={`${CLASE_CELDA_SECUNDARIA} ${CLASE_MONO}`}>{formatFechaHora(a.createdAt)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
+          </CajaDeTabla>
         )}
       </section>
     </div>

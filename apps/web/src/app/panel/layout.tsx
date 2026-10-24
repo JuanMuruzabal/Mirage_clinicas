@@ -7,11 +7,11 @@ import { NotificacionesConflictoGlobal } from "@/components/panel/notificaciones
 // Shell de gestión de clínica (T2.1, spec §4.1) — protegido, sidebar +
 // contenido. pt-[var(--header-height)] compensa el header fixed (mismo
 // criterio que el resto de las páginas sin foto, ver globals.css).
-// `panel-texture` (TR-013 en docs/Arquitectura y base/tradeoffs.md) es la textura de fondo
-// cálida de las cuatro pantallas de gestión (General/Calendario/Turnos/
-// Pacientes) — vive acá, en el contenedor raíz de ESTE layout nada más,
-// nunca dentro de una card ni en marketing/onboarding/"Personalizá tu
-// página" (esas rutas no pasan por este layout).
+// El fondo del panel es `FondoOndas` (correcciones generales, ítem 1,
+// 2026-10-10: reemplaza a la textura de crucecitas `panel-texture` de
+// TR-013 y al cascarón plano). Se monta una sola vez, dentro de
+// `PanelShell`; los contenedores de acá quedan transparentes para que se
+// vea, y nunca va dentro de una card.
 //
 // "Estructura fija" en mobile (rama fix/mobile, 2026-08-24, pedido
 // explícito del cliente: "el header superior queda FIJO... el sidebar...
@@ -89,7 +89,13 @@ export default async function PanelLayout({ children }: LayoutProps<"/panel">) {
             docs/foto1.png, que ya no está en el repo). Primer hijo de `<main>`, antes que la propia
             página — cada pantalla se salta su propio aviso más
             específico para no duplicarlo (ver el componente). */}
-        <NotificacionesConflictoGlobal />
+        {/* `key` con la clínica (2026-10-20, bug reportado por la persona):
+            al cambiar de clínica con el selector del panel la página se
+            refresca pero este layout no se vuelve a montar, y los avisos
+            seguían con lo de la clínica anterior hasta su próximo sondeo
+            (el cartel de asistencia no aparecía hasta recargar). Con la
+            clínica como `key` se vuelven a montar y consultan enseguida. */}
+        <NotificacionesConflictoGlobal key={sesion.clinicaId} />
         {children}
       </main>
       {/* AsistenciaCartelGlobal (TR-107, 1.3ter) — montado acá, no dentro
@@ -97,7 +103,7 @@ export default async function PanelLayout({ children }: LayoutProps<"/panel">) {
           pantalla del panel esté el profesional cuando un turno cumple
           su hora de fin. Usa un portal al body (ModalPortal), así que su
           posición en este árbol no afecta dónde se pinta. */}
-      {!soloRecepcion && <AsistenciaCartelGlobal />}
+      {!soloRecepcion && <AsistenciaCartelGlobal key={sesion.clinicaId} />}
     </PanelShell>
   );
 }

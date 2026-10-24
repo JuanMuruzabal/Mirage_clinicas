@@ -169,7 +169,7 @@ function CartelConfirmacionAsistencia({
         <div className="w-full max-w-sm rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
           <div className="border-b-[0.5px] border-arena px-6 py-4">
             <p className="text-xs uppercase tracking-widest text-grafito/50">Turno finalizado</p>
-            <h2 className="mt-1 font-[family-name:var(--font-display)] text-lg font-medium text-grafito">
+            <h2 className="mt-1 font-[family-name:var(--font-display)] text-lg font-semibold text-grafito">
               {turno.nombreContacto} {turno.apellidoContacto}
             </h2>
             <p className="mt-0.5 text-xs text-grafito/50">DNI {turno.dniContacto}</p>
@@ -177,7 +177,7 @@ function CartelConfirmacionAsistencia({
           <div className="flex flex-col gap-4 p-6 text-sm">
             <div>
               {inicio && <p className="text-xs uppercase tracking-widest text-grafito/50">{formatDiaLargo(inicio)}</p>}
-              <p className="mt-1 font-[family-name:var(--font-mono)] text-2xl font-semibold text-grafito">
+              <p className="mt-1 font-[family-name:var(--font-mono)] tabular-nums text-2xl font-semibold text-grafito">
                 {inicio && fin ? `${formatHora(inicio)}–${formatHora(fin)}` : "—"}
               </p>
             </div>

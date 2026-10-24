@@ -63,8 +63,8 @@ export function HoraPicker({ slots, value, onChange, cargando }: HoraPickerProps
         // contener el texto visible" (WCAG 2.5.3) porque el texto visible
         // ("09:00") es al final del string.
         aria-label={`Hora: ${etiqueta}`}
-        className={`flex w-full items-center justify-between rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-left text-sm outline-none hover:border-salvia disabled:cursor-not-allowed disabled:opacity-60 ${
-          sinValor ? "text-grafito/60" : "font-[family-name:var(--font-mono)] text-grafito"
+        className={`flex w-full items-center justify-between rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-left text-sm outline-none hover:border-marca-medio disabled:cursor-not-allowed disabled:opacity-60 ${
+          sinValor ? "text-grafito/60" : "font-[family-name:var(--font-mono)] tabular-nums text-grafito"
         }`}
       >
         <span className="truncate">{etiqueta}</span>
@@ -93,8 +93,8 @@ export function HoraPicker({ slots, value, onChange, cargando }: HoraPickerProps
             onChange(s);
             setAbierto(false);
           }}
-          className={`shrink-0 rounded-field px-2 py-1.5 text-left text-sm font-[family-name:var(--font-mono)] ${
-            value === s ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"
+          className={`shrink-0 rounded-field px-2 py-1.5 text-left text-sm font-[family-name:var(--font-mono)] tabular-nums ${
+            value === s ? "bg-marca-relleno text-marfil" : "text-grafito hover:bg-velo"
           }`}
         >
           {s}

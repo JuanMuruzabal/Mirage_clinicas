@@ -21,7 +21,7 @@ interface CatalogoSeccionesProps {
 }
 
 const CLASE_OPCION =
-  "flex h-full flex-col gap-1.5 rounded-field border-[0.5px] border-arena bg-marfil p-2 text-left text-xs text-grafito transition-colors hover:border-salvia-oscuro hover:bg-salvia-claro";
+  "flex h-full flex-col gap-1.5 rounded-field border-[0.5px] border-arena bg-marfil p-2 text-left text-xs text-grafito transition-colors hover:border-marca hover:bg-velo";
 
 // CatalogoSecciones (PP-6, H20) — "Agregar sección" era un <select> con
 // "Nombre — descripción" que siempre agregaba al final, y otro igual para las

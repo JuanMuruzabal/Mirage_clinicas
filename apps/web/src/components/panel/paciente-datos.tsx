@@ -5,6 +5,7 @@ import type { Paciente } from "@dental-mirage/shared-types";
 import { textoEsLargo } from "@/lib/texto-largo";
 import { IconMail, IconPhone } from "@/components/icons";
 import { VerTextoBoton } from "../ver-texto-boton";
+import { TUTOR_RELACION_LABEL } from "@/lib/tutores";
 import { AvatarIniciales } from "./avatar-iniciales";
 import { EditarPacienteModal } from "./editar-paciente-modal";
 import { useEstadoDelServidor } from "@/lib/estado-del-servidor";
@@ -50,8 +51,8 @@ export function PacienteDatos({ pacienteInicial, emailsAlternativos = [], telefo
     <>
     <section className="flex flex-col gap-4 rounded-card border-[0.5px] border-arena bg-marfil p-6 shadow-soft">
       <div className="flex items-center justify-between">
-        <h2 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">Datos de contacto</h2>
-        <button type="button" onClick={() => setModalAbierto(true)} className="text-sm font-medium text-salvia-oscuro hover:text-grafito">
+        <h2 className="font-[family-name:var(--font-display)] text-lg font-semibold text-grafito">Datos de contacto</h2>
+        <button type="button" onClick={() => setModalAbierto(true)} className="text-sm font-medium text-marca hover:text-grafito">
           Editar datos
         </button>
       </div>
@@ -144,7 +145,7 @@ export function PacienteDatos({ pacienteInicial, emailsAlternativos = [], telefo
         lectura. */}
     {paciente.tutores && paciente.tutores.length > 0 && (
       <section className="flex flex-col gap-4 rounded-card border-[0.5px] border-arena bg-marfil p-6 shadow-soft">
-        <h2 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">Datos de tutores</h2>
+        <h2 className="font-[family-name:var(--font-display)] text-lg font-semibold text-grafito">Datos de tutores</h2>
         <div className="flex flex-col">
           {paciente.tutores.map((tutor, i) => {
             const [nombreTutor, ...restoTutor] = tutor.nombre.trim().split(/\s+/);
@@ -157,8 +158,8 @@ export function PacienteDatos({ pacienteInicial, emailsAlternativos = [], telefo
                 <AvatarIniciales nombre={nombreTutor} apellido={apellidoTutor} />
                 <div className="flex flex-col gap-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-[family-name:var(--font-display)] text-base font-medium text-grafito">{tutor.nombre}</span>
-                    <span className="rounded-full bg-salvia-claro px-2.5 py-0.5 text-xs font-medium text-salvia-oscuro">
+                    <span className="font-[family-name:var(--font-display)] text-base font-semibold text-grafito">{tutor.nombre}</span>
+                    <span className="rounded-pastilla bg-marca-claro px-2.5 py-0.5 text-xs font-medium text-marca">
                       {TUTOR_RELACION_LABEL[tutor.relacion] ?? tutor.relacion}
                     </span>
                   </div>
@@ -205,20 +206,11 @@ function fechaDeNacimiento(iso?: string | null): string {
   return anio && mes && dia ? `${dia}/${mes}/${anio}` : iso;
 }
 
-// TUTOR_RELACION_LABEL — mismas 3 opciones que el wizard público
-// (pedir-turno-form.tsx), acá solo para mostrar el valor guardado con
-// mayúscula inicial en vez del value crudo del select ("familiar").
-const TUTOR_RELACION_LABEL: Record<string, string> = {
-  familiar: "Familiar",
-  amigo: "Amigo/a",
-  otro: "Otro",
-};
-
 function Dato({ label, valor, icon }: { label: string; valor: React.ReactNode; icon?: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
       <span className="text-xs font-semibold uppercase tracking-wide text-grafito/50">{label}</span>
-      <span className="flex items-center gap-1.5 font-[family-name:var(--font-mono)] text-grafito">
+      <span className="flex items-center gap-1.5 font-[family-name:var(--font-mono)] tabular-nums text-grafito">
         {icon && <span className="text-grafito/40">{icon}</span>}
         {valor}
       </span>

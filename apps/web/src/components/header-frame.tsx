@@ -58,8 +58,13 @@ export function HeaderFrame({
   useEffect(() => {
     const el = headerRef.current;
     if (!el) return;
+    // `getBoundingClientRect` y no `offsetHeight`: con el zoom del navegador
+    // o la escala de Windows el alto real puede ser fraccionario (un borde
+    // de 1px se dibuja como 0,8px a 125 %), y `offsetHeight` lo redondea
+    // hacia arriba: el sidebar quedaba unas décimas de píxel por debajo del
+    // header y asomaba una línea del fondo (2026-10-10).
     const actualizarAltura = () => {
-      document.documentElement.style.setProperty("--header-height", `${el.offsetHeight}px`);
+      document.documentElement.style.setProperty("--header-height", `${el.getBoundingClientRect().height}px`);
     };
     actualizarAltura();
     const observer = new ResizeObserver(actualizarAltura);

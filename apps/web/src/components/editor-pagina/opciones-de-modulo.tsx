@@ -108,7 +108,7 @@ export function OpcionesDeModulo({ modulo, onConfig }: OpcionesDeModuloProps) {
         // defecto, a la vista quedan el contenido y el diseño de la sección.
         // Un <details> nativo: se abre con teclado y el lector anuncia el estado.
         <details className="group flex flex-col border-t-[0.5px] border-arena pt-3">
-          <summary className={`flex cursor-pointer list-none items-center gap-2 text-sm font-medium text-grafito hover:text-salvia-oscuro ${CLASE_TACTIL}`}>
+          <summary className={`flex cursor-pointer list-none items-center gap-2 text-sm font-medium text-grafito hover:text-marca ${CLASE_TACTIL}`}>
             <span aria-hidden="true" className="inline-block transition-transform group-open:rotate-90">›</span>
             Más opciones
           </summary>

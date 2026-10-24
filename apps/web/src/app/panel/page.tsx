@@ -3,7 +3,8 @@ import { apiResumenPanel } from "@/lib/api";
 import { getSessionToken, requireOnboardingComplete } from "@/lib/session";
 import { datosDeLaVista } from "@/lib/vista-de-recepcion";
 import { ZonaProfesional } from "@/components/panel/zona-profesional";
-import { addDays, fechaISOLocal, formatDiaCorto, hoyEnCordoba, parseFechaISOLocal } from "@/lib/calendar-utils";
+import { CLASE_PANTALLA_CON_ENCABEZADO, EncabezadoDeSeccion } from "@/components/panel/encabezado-de-seccion";
+import { addDays, fechaISOLocal, formatDiaCorto, hoyEnCordoba, instanteActual, parseFechaISOLocal } from "@/lib/calendar-utils";
 import { TarjetaConLista, TarjetaEstadistica, TarjetaSimple, FilaResumen } from "@/components/panel/tarjeta-turnero";
 import { TarjetaTurnosDeHoy } from "@/components/panel/tarjeta-turnos-de-hoy";
 import {
@@ -80,6 +81,10 @@ export default async function PanelGeneralPage() {
   // siempre hora de Córdoba — mismo criterio que clock.Today() del
   // backend.
   const hoyISO = fechaISOLocal(hoyEnCordoba());
+  // La hora a la que se armó la pantalla: "Turnos de hoy" la usa hasta que
+  // el cliente tiene su propio reloj, así el estado de las filas viene en
+  // el HTML (ver tarjeta-turnos-de-hoy.tsx).
+  const ahoraDelServidor = instanteActual();
   const mañanaISO = fechaISOLocal(addDays(hoyEnCordoba(), 1));
   const filtroTurnos = (tab: string, desde: string, hasta: string) =>
     `/panel/turnos?estado=${tab}&desde=${desde}&hasta=${hasta}`;
@@ -94,44 +99,28 @@ export default async function PanelGeneralPage() {
     : "/panel/calendario?vista=semana";
 
   return (
-    <div className="flex flex-col gap-8 p-8 max-md:px-[clamp(1rem,4vw,2rem)] max-md:pt-3 max-md:pb-[clamp(1rem,4vw,2rem)]">
-      {/* gap-3 (corrección de QA, 2026-09-06: "separar más el título
-          General [del] subtítulo Turnero") — antes gap-1, quedaban casi
-          pegados. */}
-      {/* ARRIBA DEL TÍTULO, en su propia fila (QA de la 3.2.6:
-          *"el selector de carrusel debe estar por encima del título
-          principal... así queda alargado como se ve en calendario"*).
-          Al lado del título competía por el ancho con él y quedaba
-          apretado; en su propia fila respira, y es lo primero que se lee
-          — que es lo correcto: dice DE QUIÉN es todo lo que sigue. */}
-      {esRecepcion && (
-        <ZonaProfesional
-          profesionales={profesionales}
-          vista={vista}
-          etiqueta="Viendo"
-          etiquetaConFoco="Viendo la agenda de"
-          etiquetaGeneral="Toda la clínica"
-          detalleGeneral="Métricas y turnos de todo el equipo"
-        />
-      )}
-
-      <div className="flex flex-col gap-3">
-        <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito max-md:text-[clamp(1.375rem,6.5vw,1.875rem)]">
-          General
-        </h1>
-        {/* "TURNERO" más visible + descripción al lado (corrección de QA,
-            2026-09-06) — antes era un subtítulo chico tipo eyebrow, casi
-            invisible; ahora un subtítulo real, con una bajada explicando
-            qué es esta sección. */}
-        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <h2 className="font-[family-name:var(--font-display)] text-xl font-bold tracking-wide text-salvia-oscuro uppercase">
-            Turnero
-          </h2>
-          <p className="text-sm text-grafito/60">
-            {esRecepcion ? "Control general de los turnos de la clínica." : "Control general de tus turnos y pacientes."}
-          </p>
-        </div>
-      </div>
+    <div className={CLASE_PANTALLA_CON_ENCABEZADO}>
+      {/* Encabezado de sección (correcciones generales, ítem 2): el título
+          y la escena en una tarjeta opaca, sin el subtítulo "Turnero" (a
+          pedido de la persona). El selector de recepción va arriba
+          de la tarjeta, afuera y a su mismo ancho (dice DE QUIÉN es todo
+          lo que sigue; QA de la 3.2.6 y pedido de la persona, 2026-10-11). */}
+      <EncabezadoDeSeccion
+        seccion="general"
+        titulo="General"
+        antes={
+          esRecepcion ? (
+            <ZonaProfesional
+              profesionales={profesionales}
+              vista={vista}
+              etiqueta="Viendo"
+              etiquetaConFoco="Viendo la agenda de"
+              etiquetaGeneral="Toda la clínica"
+              detalleGeneral="Métricas y turnos de todo el equipo"
+            />
+          ) : undefined
+        }
+      />
 
       <div className="grid grid-cols-2 gap-6 max-md:min-w-[18rem] max-md:grid-cols-1">
         {/* La tarjeta principal, a lo ancho de la fila (2026-09-19,
@@ -141,6 +130,7 @@ export default async function PanelGeneralPage() {
         <div className="md:col-span-2">
           <TarjetaTurnosDeHoy
             turnos={resumen.turnosHoy}
+            ahoraDelServidor={ahoraDelServidor}
             hrefCabecera={hrefTurnosHoy}
             hrefPie={filtroTurnos("agendado", hoyISO, hoyISO)}
           />
@@ -158,7 +148,7 @@ export default async function PanelGeneralPage() {
           labelPie="Ver todos"
           vacioMensaje="No hay turnos próximos."
           acento
-          icono={<IconoAvance className="pointer-events-none absolute right-2 -bottom-4 h-24 w-24 text-salvia/35" />}
+          icono={<IconoAvance className="pointer-events-none absolute right-2 -bottom-4 h-24 w-24 opacity-60" />}
           orden={1}
           filas={resumen.turnosProximos.map((t) => ({
             key: t.id,
@@ -185,7 +175,7 @@ export default async function PanelGeneralPage() {
           // Un poco más abajo que las demás (pedido explícito del
           // cliente, 2026-09-06) — mismo tamaño/offset horizontal, más
           // margen inferior.
-          icono={<IconoCasilleros className="pointer-events-none absolute right-2 -bottom-8 h-24 w-24 text-salvia/35" />}
+          icono={<IconoCasilleros className="pointer-events-none absolute right-2 -bottom-8 h-24 w-24 opacity-60" />}
           orden={2}
           filas={resumen.horariosReservados.map((h) => ({
             key: h.id,
@@ -224,7 +214,7 @@ export default async function PanelGeneralPage() {
           labelPie="Ver todos"
           vacioMensaje="Todavía no terminó ningún turno hoy."
           acento
-          icono={<IconoTilde className="pointer-events-none absolute right-2 -bottom-4 h-24 w-24 text-salvia/35" />}
+          icono={<IconoTilde className="pointer-events-none absolute right-2 -bottom-4 h-24 w-24 opacity-60" />}
           orden={3}
           filas={resumen.turnosResueltos.map((t) => ({
             key: t.id,
@@ -245,7 +235,7 @@ export default async function PanelGeneralPage() {
                       ? "text-salvia-oscuro"
                       : t.asistencia === "ausente"
                         ? "text-terracota-oscuro"
-                        : "text-grafito/50"
+                        : "text-grafito/75"
                   }
                 >
                   {t.asistencia === "asistio"
@@ -277,14 +267,14 @@ export default async function PanelGeneralPage() {
             titulo="Ver turnos"
             acento
             orden={4}
-            icono={<IconoSello className="pointer-events-none absolute right-3 -bottom-3 h-24 w-24 text-salvia/35" />}
+            icono={<IconoSello className="pointer-events-none absolute right-3 -bottom-3 h-24 w-24 opacity-60" />}
           />
           <TarjetaEstadistica
             eyebrow="Estadística"
             asistieron={resumen.turnosAsistidos}
             ausentes={resumen.turnosAusentes}
             orden={5}
-            icono={<IconoEstadistica className="pointer-events-none absolute right-2 -bottom-2 h-24 w-28 text-salvia/35" />}
+            icono={<IconoEstadistica className="pointer-events-none absolute right-2 -bottom-2 h-24 w-28 opacity-60" />}
           />
         </div>
       </div>

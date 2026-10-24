@@ -16,11 +16,11 @@ import { CampoOdontograma } from "./campo-odontograma";
 // API (valores.ts del paquete): string, número, lista o {respuesta, detalle}.
 
 const CLASE_CAMPO =
-  "w-full rounded-field border border-linea bg-hueso px-3 py-2 text-[15px] text-grafito outline-none focus:border-salvia disabled:opacity-70";
+  "w-full rounded-field border border-linea bg-hueso px-3 py-2 text-[15px] text-grafito outline-none focus:border-marca-medio disabled:opacity-70";
 
-const PILDORA = "rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors";
-const PILDORA_ELEGIDA = "border-salvia-oscuro bg-salvia-oscuro text-marfil";
-const PILDORA_LIBRE = "border-linea bg-hueso text-grafito hover:border-salvia";
+const PILDORA = "rounded-control border px-3.5 py-1.5 text-sm font-medium transition-colors";
+const PILDORA_ELEGIDA = "border-marca-relleno bg-marca-relleno text-marfil";
+const PILDORA_LIBRE = "border-linea bg-hueso text-grafito hover:border-marca-medio";
 
 export function idDelCampo(campoId: string): string {
   return `campo-${campoId}`;
@@ -56,7 +56,7 @@ function Arcada({
                 aria-label={`Pieza ${p}`}
                 onClick={() => onAlternar(p)}
                 className={`h-8 w-8 rounded-[6px] border font-[family-name:var(--font-mono)] text-[12px] tabular-nums transition-colors max-sm:h-7 max-sm:w-7 max-sm:text-[11px] ${
-                  elegida ? "border-salvia-oscuro bg-salvia-oscuro text-marfil" : "border-linea bg-marfil text-grafito hover:border-salvia"
+                  elegida ? "border-marca-relleno bg-marca-relleno text-marfil" : "border-linea bg-marfil text-grafito hover:border-marca-medio"
                 }`}
               >
                 {p}

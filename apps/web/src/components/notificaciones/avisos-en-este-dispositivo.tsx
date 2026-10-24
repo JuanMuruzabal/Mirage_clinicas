@@ -168,7 +168,7 @@ export function AvisosEnEsteDispositivo() {
   if (estado === "cargando" || estado === "no-disponible") return null;
 
   return (
-    <section aria-label="Avisos en este dispositivo" className="border-t-[0.5px] border-arena bg-marfil/60 px-6 py-4">
+    <section aria-label="Avisos en este dispositivo" className="border-t-[0.5px] border-arena bg-hueso px-6 py-4">
       {estado === "inactivo" && (
         <div className="flex items-center gap-4">
           <p className="flex-1 text-sm text-grafito/80">
@@ -179,7 +179,7 @@ export function AvisosEnEsteDispositivo() {
             type="button"
             onClick={activar}
             disabled={trabajando}
-            className="flex-shrink-0 rounded-full border border-salvia-oscuro px-4 py-2 text-xs font-bold uppercase tracking-wider text-salvia-oscuro transition hover:bg-salvia-oscuro hover:text-marfil disabled:opacity-60"
+            className="flex-shrink-0 rounded-control border border-marca px-4 py-2 text-xs font-bold uppercase tracking-wider text-marca transition hover:bg-marca hover:text-marfil disabled:opacity-60"
           >
             {trabajando ? "Activando…" : "Activar"}
           </button>

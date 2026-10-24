@@ -183,7 +183,7 @@ export function SelectorDeVistaDeRecepcion({
   }
 
   return (
-    <div className="border-b border-linea bg-hueso px-6 py-4">
+    <div className="border-b border-linea bg-hueso px-4 py-4 sm:px-6">
       <CarruselDeProfesionales
         profesionales={opciones.profesionales}
         valorId={foco}
@@ -221,14 +221,14 @@ export function SelectorDeVistaDeRecepcion({
               type="button"
               disabled={guardando}
               onClick={() => cambiarA(aConfirmar)}
-              className="rounded-full bg-salvia-oscuro px-4 py-2 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
+              className="rounded-control boton-primario px-4 py-2 text-sm font-semibold"
             >
               Cambiar igual
             </button>
             <button
               type="button"
               onClick={() => setAConfirmar(undefined)}
-              className="rounded-full border-[0.5px] border-arena bg-marfil px-4 py-2 text-sm font-semibold text-grafito hover:border-salvia hover:text-salvia-oscuro"
+              className="rounded-control border-[0.5px] border-arena bg-marfil px-4 py-2 text-sm font-semibold text-grafito hover:border-marca-medio hover:text-marca"
             >
               Seguir acá
             </button>

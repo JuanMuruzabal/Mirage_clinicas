@@ -77,43 +77,44 @@ export function ModuloDocumentos({
 
   return (
     <div className="flex flex-col gap-10">
-      <div className="grid items-start gap-8 xl:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
-        <div className="flex min-w-0 flex-col gap-6">
-          <SelectorDePlantillas plantillas={modelos} elegida={elegida} onElegir={setElegida} />
-
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-wrap items-center gap-3">
+      <div className="grid items-start gap-8 xl:grid-cols-[minmax(0,30rem)_minmax(0,1fr)]">
+        <div className="flex min-w-0 flex-col gap-3">
+          <SelectorDePlantillas
+            plantillas={modelos}
+            elegida={elegida}
+            onElegir={setElegida}
+            accion={
               <button
                 type="button"
                 onClick={completar}
                 disabled={creando || deMuestra}
-                className="rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
+                // La acción principal de la pantalla, con el contorno
+                // multicolor como "+ Nuevo documento" (pedido de la persona,
+                // 2026-10-18); deshabilitado ("Creando…"), el aro se va. Al
+                // lado del carrusel y a su alto (2026-10-19): en dos o tres
+                // renglones si hace falta, con el nombre del paciente. Si
+                // baja debajo (celular), a todo el ancho y a 44 px.
+                className="contorno-prisma boton-primario w-full rounded-control px-4 py-2.5 text-sm leading-snug font-semibold text-balance min-h-11 @md:w-40"
               >
                 {creando ? (esAnexo ? "Buscando sus historias…" : "Creando…") : paciente ? `Completar para ${paciente.nombre} ${paciente.apellido}` : "Completar este documento"}
               </button>
-              {!deMuestra && (
-                <a
-                  href={elegida.fuente.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm font-medium text-salvia-oscuro underline-offset-4 hover:underline"
-                >
-                  Web del Colegio ↗
-                </a>
-              )}
-            </div>
-            {deMuestra && (
-              <p className="text-sm text-grafito/75">Es una hoja de muestra para ver la pila de modelos: no se puede completar.</p>
-            )}
-            {error && (
-              <p role="alert" className="text-sm text-terracota-oscuro first-letter:uppercase">
-                {error}
-              </p>
-            )}
-          </div>
-
-          {enCurso}
+            }
+          />
+          {deMuestra && (
+            <p className="text-sm text-grafito/75">Es una hoja de muestra para ver la pila de modelos: no se puede completar.</p>
+          )}
+          {error && (
+            <p role="alert" className="text-sm text-terracota-oscuro first-letter:uppercase">
+              {error}
+            </p>
+          )}
         </div>
+
+        {/* Lo en curso, después de "Completar" en el orden de lectura. En la
+            computadora ancha (xl) va en su propia fila, a todo el ancho y
+            debajo del modelo: en la columna de 30 rem la tabla no entraba
+            sin scroll de costado (correcciones generales, ítem 9). */}
+        {enCurso && <div className="min-w-0 xl:col-span-2 xl:row-start-2">{enCurso}</div>}
 
         {/* Sin rótulo arriba de la hoja (pedido del cliente, 2026-09-29):
             el documento lo nombra el carrusel de al lado. */}

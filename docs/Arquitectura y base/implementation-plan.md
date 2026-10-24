@@ -936,7 +936,7 @@ Pedido directo del cliente, sin brief. Decisiones: `docs/Arquitectura y base/tra
 
 ## 16. Pulido visual del panel y la home pública (2026-09-26/27)
 
-Pedidos directos del cliente, sin brief. Decisiones: `tradeoffs.md` TR-180 (panel) y TR-181 (home).
+Pedidos directos del cliente, sin brief. Decisiones: `tradeoffs.md` TR-180 (panel), TR-181 (home) y TR-195 (el rediseño de las correcciones generales de octubre).
 
 | Parte | Qué | Estado |
 |---|---|---|
@@ -945,6 +945,7 @@ Pedidos directos del cliente, sin brief. Decisiones: `tradeoffs.md` TR-180 (pane
 | Panel — sidebar | Íconos propios con una pieza de acento que se rellena en la sección activa; la sección queda marcada en sus pantallas de adentro | ✅ mergeado (PR #72) |
 | Home, primera versión | Siete secciones contando el dolor del profesional, con ilustraciones de producto | ✅ mergeada (PR #73) — reemplazada por la segunda |
 | Home, segunda versión | Simple y al pie: qué es, la historia de Lucía en tres escenas, cuatro ventajas, pacientes y cierre, con dibujos propios (el mate, el celular, el calendario) | ✅ mergeada (PR #74) |
+| Panel y pantallas con sesión — rediseño (correcciones generales, 2026-10) | Fondo de ondas WebGL y blancos en lugar del cascarón; color de marca en petróleo, separado del verde de estado; Figtree y radios por escala; vidrio en tablas, General y encabezados (título prismático, escenas sin personas); contorno prismático en la acción principal de cada pantalla; íconos del sidebar rehechos; tablas que llenan el espacio libre (`useAltoLibre`) y completas en el celular; todo modal a `Dialogo` y cierre solo con la cruz; `TarjetaConDibujo` en `/clinicas` y `/seleccionar-servicio`; Pacientes sin "Ver ficha" y Turnos sin contadores; fix del cartel de asistencia al cambiar de clínica (TR-195). La home, la página pública y el PDF quedan afuera | ✅ PR #92 a `dev`; pendiente de mirar a ojo: el drawer y los popovers del header y el contorno en Safari de iOS |
 
 **Pendiente, sin fecha:** si el cliente quiere contar la seguridad o los pasos para empezar, van en una página aparte, no en la home (TR-181, "lo que se sacrifica").
 
@@ -964,6 +965,7 @@ Decisiones del cliente (2026-09-27): firma del profesional **electrónica con ev
 | 5.6 Historias clínicas | En tres rondas, un PR cada una: **5.6a PcD (páginas 1 y 2, con la firma del profesional, escala de página y la General v2; la 3 va en la 5.7) ✅**, **5.6b historia clínica de odontopediatría con el genograma, el tipo `dibujo` y el vínculo anexo ↔ historia (ronda A; ficha con dos tablas, estados y nombres sin prefijo repetido; TR-193) ✅** y 5.6c ortodoncia (cefalogramas, VTO) ⏳. La General ya está en la 5.5 | 🔄 |
 | 5.4 Firma a distancia | Vínculo al celular del paciente, alerta push al celular del profesional (`firma_pendiente`), testigos, representante desde los tutores, anular, rúbrica en el perfil, **usada con solo la sesión iniciada** (TR-192). Solo historias clínicas: los consentimientos se firman en papel (TR-188). **Pasó después de la 5.6 (TR-192)** | ⏳ |
 | 5.6d Anexos de continuación | "Continúa en Anexo Nº" (diagnóstico, plan, observaciones, estudios): un anexo por sección, creado desde la historia con el número generado solo, que evoluciona con anotaciones que se suman (profesional de la sesión, fecha y hora, sin firma dibujada; tabla `documento_asientos`, estado `abierto`) y folio x.y. Usa el vínculo `anexo_de` de la 5.6b (TR-193, addendum). Incluye la pasada de coherencia visual de la Fase 5 (TR-194) | ✅ |
+| PDF de una historia con sus anexos | `GET /documentos/{id}/pdf?con=anexos`: un solo PDF con las hojas de la historia y las de cada anexo con PDF, cada parte con su folio y su pie, determinista y auditado (un evento `exportado` por documento); las filas de las tablas de documentos con PDF se despliegan al tocarlas, con "Solo la historia" y "Con sus N anexos" (TR-196) | ✅ PR #92 a `dev` |
 | 5.7 Evolución y copias | Registro de prestaciones como asientos sellados, enmiendas, revocación, copia completa para el paciente | ⏳ |
 | 5.8 Anclaje y cierre | Sello de tiempo externo diario, bucket con retención bloqueada, verificación de la cadena, revisión legal, QA en dispositivos reales | ⏳ |
 

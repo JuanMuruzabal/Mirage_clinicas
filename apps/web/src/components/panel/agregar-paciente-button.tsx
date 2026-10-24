@@ -12,6 +12,15 @@ import { AgregarPacienteModal } from "./agregar-paciente-modal";
 // propia: PacientesPage es un Server Component que resuelve la lista
 // desde sus props, no un fetch de cliente — refresh() vuelve a correr ese
 // Server Component con la lista ya actualizada.
+// La acción principal de una lista del panel ("+ Agregar paciente", "+
+// Agregar turno"): el mismo dibujo que "+ Agregar turno" del calendario, y
+// 44 px de alto, los del buscador de al lado (correcciones generales, ítem 6).
+// Es la acción principal de su pantalla: lleva el contorno prismático
+// (`.contorno-prisma`, ítem 11), que reemplaza al borde de 0,5 px, sobre el
+// celeste de todos los botones (`boton-primario`).
+export const CLASE_BOTON_AGREGAR =
+  "contorno-prisma boton-primario inline-flex h-11 flex-none items-center justify-center rounded-control px-5 text-sm font-semibold whitespace-nowrap shadow-soft";
+
 export function AgregarPacienteButton({
   sinListaPropia = false,
 }: {
@@ -27,7 +36,7 @@ export function AgregarPacienteButton({
       <button
         type="button"
         onClick={() => setAbierto(true)}
-        className="rounded-full bg-salvia-oscuro px-4 py-2 text-sm font-semibold text-marfil hover:brightness-95"
+        className={CLASE_BOTON_AGREGAR}
       >
         + Agregar paciente
       </button>

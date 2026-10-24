@@ -1,7 +1,8 @@
-import { Fragment } from "react";
+import { Fragment, type CSSProperties } from "react";
 import type { BloqueoHorario, HorarioAtencion, TipoConsulta, Turno } from "@dental-mirage/shared-types";
 import { fechaISOLocal, formatDiaCorto, formatHora, isSameDay, minutosDesdeMedianocheCordoba } from "@/lib/calendar-utils";
 import { temaTipoConsulta } from "@/lib/turno-format";
+import { IconCheck, IconX } from "@/components/icons";
 
 // HORA_INICIO/HORA_FIN: rango fijo, NO sale del horario de atención
 // configurado (corrección de QA, F2.3: "el horario de atención que no
@@ -537,7 +538,7 @@ export function CalendarGrid({
             <span
               key={h}
               style={{ top: i * PX_POR_HORA }}
-              className={`absolute right-2 font-[family-name:var(--font-mono)] text-xs text-grafito/60 ${i === 0 ? "" : "-translate-y-1/2"}`}
+              className={`absolute right-2 font-[family-name:var(--font-mono)] tabular-nums text-xs text-grafito/60 ${i === 0 ? "" : "-translate-y-1/2"}`}
             >
               {String(h).padStart(2, "0")}:00
             </span>
@@ -603,7 +604,7 @@ export function CalendarGrid({
                   className={
                     columna.subtitulo
                       ? "max-w-full truncate px-1 font-[family-name:var(--font-display)] text-[13px] font-semibold text-grafito"
-                      : "font-[family-name:var(--font-mono)] text-xs tracking-wide text-grafito/60 uppercase"
+                      : "font-[family-name:var(--font-mono)] tabular-nums text-xs tracking-wide text-grafito/60 uppercase"
                   }
                 >
                   {columna.titulo}
@@ -851,7 +852,11 @@ export function CalendarGrid({
                   // esquinas — con el turno redondeado solo arriba y el
                   // postturno solo abajo, el conjunto se ve como una sola
                   // tarjeta con un segundo tono debajo, nunca dos.
-                  const hayPost = tiempoPost > 0 && !resuelto;
+                  // Un turno resuelto CONSERVA su postturno (correcciones
+                  // generales, 2026-10-11, pedido de la persona): la
+                  // tarjeta no cambia de forma ni de tamaño al terminar,
+                  // solo pasa a gris.
+                  const hayPost = tiempoPost > 0;
                   // Autoreservado (nueva función, 2026-09-08): "estos
                   // horarios auto reservados en el calendario se deben
                   // ver con rayas" — mismo color del tipo de consulta
@@ -859,43 +864,42 @@ export function CalendarGrid({
                   // rayas diagonales encima, para distinguirlo de un
                   // turno agendado a mano sin perder la identidad de
                   // color del tipo de consulta.
-                  const colorBase = resuelto ? "var(--color-arena)" : tema.fondo;
+                  // El gris del resuelto es el tema neutro (el de un turno
+                  // sin tipo): arena el turno, hueso el postturno.
+                  const temaGris = resuelto ? temaTipoConsulta(undefined) : tema;
+                  const colorBase = temaGris.fondo;
                   const background = t.autoreservado ? fondoConRayas(colorBase) : colorBase;
-                  // Contorno verde/rojo (corrección de QA): "en el
-                  // calendario a los turnos resueltos si son asistidos
-                  // que tengan un contorno verde y los ausentes un
-                  // contorno rojo" — referencia visual inmediata sin
-                  // tener que abrir la tarjeta. Uno sin marcar todavía
-                  // (el cartel global se encarga de eso) se queda con el
-                  // borde neutro de siempre.
-                  const bordeResuelto =
-                    t.asistencia === "asistio"
-                      ? "border-2 border-salvia-oscuro"
-                      : t.asistencia === "ausente"
-                        ? "border-2 border-terracota-oscuro"
-                        : "border-arena";
+                  // La asistencia ya no va en el contorno (verde o rojo, a
+                  // 2 px): va como un ícono arriba a la izquierda
+                  // (`MarcaDeAsistencia`, correcciones generales,
+                  // 2026-10-11, pedido de la persona). El contorno es el
+                  // de siempre de la notita. La marca definitiva le gana
+                  // al borrador (`asistenciaPreliminar`, la anotada por
+                  // adelantado), que se dibuja más tenue.
+                  const asistencia = t.asistencia ?? t.asistenciaPreliminar ?? null;
+                  const notita = { "--notita-borde": temaGris.borde } as CSSProperties;
                   return (
                     <div key={t.id}>
                       <button
                         type="button"
                         onClick={() => onTurnoClick(t)}
-                        style={{
-                          top,
-                          height: alto,
-                          background,
-                          // Contorno del MISMO color, un tono más
-                          // saturado: separa tarjetas vecinas sin
-                          // transparencia (QA de la 3.2.6). El borde de
-                          // asistencia de un turno resuelto le gana, que
-                          // es información y no decoración.
-                          borderColor: resuelto ? undefined : tema.borde,
-                        }}
-                        className={`absolute inset-x-1 overflow-hidden border px-2 py-1 text-left text-xs hover:brightness-95 ${
-                          hayPost ? "rounded-t-turno" : "rounded-turno"
-                        } ${resuelto ? `${bordeResuelto} text-grafito/60` : ""}`}
+                        // Contorno del MISMO color, un tono más saturado:
+                        // separa tarjetas vecinas sin transparencia (QA de
+                        // la 3.2.6).
+                        style={{ top, height: alto, background, ...notita }}
+                        // Arriba, no centrado (el `<button>` centra su
+                        // contenido): como en una notita, el texto empieza
+                        // arriba, y la marca de asistencia queda en la
+                        // esquina de arriba a la izquierda.
+                        className={`turno-notita absolute inset-x-1 flex flex-col justify-start overflow-hidden px-2 py-1 text-left text-xs hover:brightness-95 ${
+                          hayPost ? "rounded-t-turno" : "turno-notita--doblez rounded-turno"
+                        } ${resuelto ? "text-grafito/75" : ""}`}
                       >
-                        <span className="block truncate font-semibold" style={resuelto ? undefined : { color: tema.texto }}>
-                          {t.nombreContacto} {t.apellidoContacto}
+                        <span className="flex min-w-0 items-center gap-1 font-semibold" style={resuelto ? undefined : { color: tema.texto }}>
+                          {asistencia && <MarcaDeAsistencia asistencia={asistencia} borrador={!t.asistencia} />}
+                          <span className="min-w-0 truncate">
+                            {t.nombreContacto} {t.apellidoContacto}
+                          </span>
                         </span>
                         <span className="block truncate" style={resuelto ? undefined : { color: tema.texto }}>
                           {formatHora(inicio)}
@@ -915,14 +919,14 @@ export function CalendarGrid({
                           style={{
                             top: top + alto,
                             height: altoPost,
-                            background: tema.fondoPost,
-                            borderColor: tema.borde,
+                            background: temaGris.fondoPost,
+                            ...notita,
                           }}
-                          className="absolute inset-x-1 overflow-hidden rounded-b-turno border border-t-0 px-2 py-0.5"
+                          className="turno-notita turno-notita--pie turno-notita--doblez absolute inset-x-1 overflow-hidden rounded-b-turno px-2 py-0.5"
                         >
                           <span
-                            className="block truncate text-[10px] leading-tight font-medium"
-                            style={{ color: tema.texto }}
+                            className={`block truncate text-[10px] leading-tight font-medium ${resuelto ? "text-grafito/75" : ""}`}
+                            style={resuelto ? undefined : { color: tema.texto }}
                           >
                             Postturno {tiempoPost}min
                           </span>
@@ -937,5 +941,41 @@ export function CalendarGrid({
         })}
       </div>
     </div>
+  );
+}
+
+/**
+ * La asistencia de un turno, arriba a la izquierda de su tarjeta
+ * (correcciones generales, 2026-10-11, pedido de la persona; antes era el
+ * contorno verde o rojo). Un círculo con el tilde (asistió, en el verde de
+ * ESTADO, no el de marca) o la cruz (no asistió, en el terracota de
+ * error). Lleva un aro blanco de 1 px: sobre el gris de un turno resuelto
+ * el círculo da más de 6:1, y sobre un papel de color medio lo separa el
+ * aro (más de 3:1); así no depende del color del tipo de consulta. El
+ * nombre accesible dice qué es: no depende solo del color.
+ * El borrador (la marca anticipada, todavía reversible) es el mismo ícono
+ * hueco: fondo blanco, borde punteado y el trazo en su color.
+ */
+function MarcaDeAsistencia({ asistencia, borrador }: { asistencia: "asistio" | "ausente"; borrador: boolean }) {
+  const asistio = asistencia === "asistio";
+  const etiqueta = `${asistio ? "Asistió" : "No asistió"}${borrador ? " (sin confirmar)" : ""}`;
+  const color = borrador
+    ? asistio
+      ? "border border-dashed border-salvia-oscuro bg-marfil text-salvia-oscuro"
+      : "border border-dashed border-terracota-oscuro bg-marfil text-terracota-oscuro"
+    : asistio
+      ? "bg-salvia-oscuro text-marfil"
+      : "bg-terracota-oscuro text-marfil";
+  return (
+    <span
+      role="img"
+      aria-label={etiqueta}
+      title={etiqueta}
+      data-asistencia={asistencia}
+      data-borrador={borrador ? "si" : undefined}
+      className={`inline-flex h-3.5 w-3.5 flex-none items-center justify-center rounded-full shadow-[0_0_0_1px_var(--color-marfil)] ${color}`}
+    >
+      {asistio ? <IconCheck className="h-2.5 w-2.5 stroke-[2.6]" /> : <IconX className="h-2 w-2 stroke-[2.8]" />}
+    </span>
   );
 }
