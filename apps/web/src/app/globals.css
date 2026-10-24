@@ -34,8 +34,19 @@
      medio (salvia, terracota) no alcanza 4.5:1 como texto de cuerpo
      normal contra blanco, así que nunca se usa como texto, solo como
      relleno de puntos/avatares/acentos decorativos grandes. */
-  --color-hueso: #f6f2ea;
-  --color-marfil: #fffdf9;
+  /* BLANCOS (correcciones generales, ítem 1, 2026-10-10, pedido de la
+     persona: "los tonos cascarón pasan a distintos tonos de blanco"). Los
+     nombres quedan por compatibilidad, los valores ya no son cálidos:
+     `marfil` es el blanco puro de tarjetas y paneles, `hueso` un blanco
+     apenas gris para fondos de campos y zonas, `arena` un gris claro para
+     separadores y `linea` el borde de campos y tarjetas, un escalón más
+     oscuro para que un campo se siga leyendo como un hueco sobre blanco.
+     La home y la página pública de las clínicas conservan los cálidos de
+     antes con `.paleta-cascaron` / `.pp-raiz` (más abajo). Valores
+     anteriores: hueso #f6f2ea, marfil #fffdf9, arena #e7dfd1, linea
+     #dbd3c2. */
+  --color-hueso: #f5f6f6;
+  --color-marfil: #ffffff;
   --color-salvia: #6e8f72;
   --color-salvia-claro: #e4ebe2;
   --color-salvia-oscuro: #3f5943;
@@ -54,7 +65,7 @@
   --color-acero-claro: #dee7ed;
   --color-acero-oscuro: #2c4a5e;
   --color-grafito: #35312b;
-  --color-arena: #e7dfd1;
+  --color-arena: #e7e9ea;
   /* --color-linea (#dbd3c2): el borde de los campos y de las tarjetas.
      Corrección de QA del 2026-09-14, textual: las píldoras donde se
      completan los datos "se camuflan bastante con el fondo blanco".
@@ -63,32 +74,113 @@
      mismo gris cálido, un escalón más oscuro, y los inputs pasan a
      llevarlo a 1px con relleno `hueso` en vez de blanco: un campo se
      tiene que ver como un hueco, no como un renglón. */
-  --color-linea: #dbd3c2;
+  --color-linea: #cfd4d8;
+  /* --color-marca*: el verde PETRÓLEO de la marca de la app con sesión
+     (correcciones generales, ítem 11; pedido de la persona, 2026-10-18,
+     que eligió #069494; antes, desde el ítem 1, un verde grisáceo
+     #386556): botones, links, foco, ítem activo, pestañas, íconos activos
+     y cifras. El verde de ESTADO ("listo / está bien": completado,
+     sellado, asistió, confirmada) sigue siendo `salvia*`, más oliva, para
+     que se distingan; las ondas del fondo y el contorno prismático tampoco
+     cambian.
+     - `marca`: el texto, los íconos, el borde de un botón delineado y el
+       foco. Más oscuro que el relleno porque es texto: 6,3:1 sobre blanco,
+       5,8:1 sobre `hueso`, 5,3:1 sobre `marca-claro` y 4,8:1 sobre el punto
+       más oscuro del fondo de ondas y del vidrio (L 0,905; un título como
+       "Turnero" va directo sobre el fondo). Como fondo, blanco encima 6,3:1.
+     - `-relleno`: el relleno de un botón (`boton-primario`, más abajo) y
+       lo ELEGIDO de pestañas y segmentos, con texto marfil (4,8:1).
+       #069494 como relleno no llegaba a 4,5:1 con texto de 14 px.
+     - `-hover`: el hover del relleno, el #069494 que eligió la persona
+       (blanco encima 3,7:1: dura lo que dura el puntero encima).
+     - `-medio`, para bordes y puntos (decorativo, nunca texto: 2,7:1);
+       `-claro`, para fondos suaves como lo activo. */
+  --color-marca: #056b6b;
+  --color-marca-relleno: #057f7f;
+  --color-marca-hover: #069494;
+  --color-marca-medio: #4aabab;
+  --color-marca-claro: #e1f0f0;
+  /* --color-velo: el hover de los botones secundarios, links-botón, ítems
+     de menú y filas clicables. Antes pintaban `arena` o `hueso` —el tono
+     cascarón—. Es un velo translúcido de la marca: sobre blanco se lee
+     como un petróleo muy claro (más claro que el `marca-claro` de lo
+     ACTIVO, así hover y activo no se confunden) y sobre el vidrio deja
+     pasar el fondo. Una sola clase: `hover:bg-velo`. Los primarios
+     (`boton-primario`) tienen su propio hover, y lo que va sobre fondos
+     oscuros, `hover:bg-marfil/10`. */
+  --color-velo: color-mix(in oklab, var(--color-marca) 9%, transparent);
+  /* --prisma-*: los tonos del degradé de los dibujos (`DegradePrismatico`),
+     apagados a propósito (con un 20 % más de croma que la primera versión
+     apagada, para acompañar al fondo): acompañan, no llaman la atención. */
+  --prisma-magenta: #c686aa;
+  --prisma-violeta: #9b89d1;
+  --prisma-azul: #799bd9;
+  --prisma-cian: #74b7c3;
+  --prisma-dorado: #c8aa6b;
 
 
   /* --- Formas (TR-013): el panel sube el radius respecto al resto del
      producto (Sistema Cascarón, borde duro) — cards/contenedores en
-     rounded-card, inputs/selects en rounded-field, todo lo demás usa el
-     rounded-full nativo de Tailwind para el pill de botones/chips. --- */
+     rounded-card, inputs/selects en rounded-field, los controles en
+     rounded-control y las pastillas en rounded-pastilla (2026-10-17;
+     antes, el rounded-full de Tailwind para todo botón o chip). --- */
   --radius-card: 18px;
-  --radius-field: 12px;
+  /* Los campos y los selects, con el mismo radio que los controles
+     (2026-10-17; antes 12 px). La página pública conserva sus 12 px. */
+  --radius-field: var(--radius-control);
+  /* --radius-control / --radius-pastilla (correcciones generales,
+     2026-10-17, pedido de la persona: "botones menos redondos"): los
+     controles con texto —botones, pestañas, Día·Semana·Mes, ‹ Hoy ›,
+     "Filtros", el buscador, los selects— dejan la píldora y van a 10 px
+     (`rounded-control`). Lo de adentro de un segmentado (la pastilla de la
+     pestaña elegida, con 4 px de margen) y las pastillas de estado chicas
+     van a 6 px (`rounded-pastilla`): 10 − 4, la misma curva. Siguen
+     redondos (`rounded-full`) los avatares, los puntos, los interruptores,
+     las barras, los contadores chiquitos y los botones de solo ícono
+     (la cruz, la campana, la tuerca, el menú de una fila): un círculo dice
+     "ícono", un rectángulo redondeado dice "acción con texto". La
+     excepción son ‹ y ›, que van con "Hoy" y toman su forma. La página
+     pública de cada clínica no usa esto: sus temas tienen su propio radio. */
+  --radius-control: 10px;
+  --radius-pastilla: 6px;
   /* --radius-turno: la tarjeta de un turno en el calendario (QA de la
      3.2.6, 2026-09-21: *"en vez de píldoras serán rectángulos con bordes
      redondeados"*). A 12px sobre un bloque de media hora —unos 30px de
      alto— las dos esquinas se tocaban y el turno se leía como una
      píldora, no como una tarjeta. A 8px vuelve a ser un rectángulo. */
   --radius-turno: 8px;
+  /* --radius-vidrio / --vidrio-margen: el vidrio del panel (`.vidrio`,
+     2026-10-17). Esquinas grandes, y la capa de adentro concéntrica:
+     24 − 6 = 18, el mismo `--radius-card` del resto del panel. */
+  --radius-vidrio: 24px;
+  --vidrio-margen: 6px;
+  /* --radius-encabezado: la tarjeta del encabezado de cada sección
+     (rediseño del 18/10, pedido de la persona: "no tan redondos"). Sigue el
+     paso de 4 px que ya separa la pastilla de adentro de un segmentado (6)
+     del control (10): 6 → 10 → 14. Así la tarjeta del calendario, con sus
+     controles de 10 px adentro, se lee un escalón más redonda que ellos y
+     no una píldora. */
+  --radius-encabezado: 14px;
 
   /* Sombra difusa muy suave para separar del fondo con textura sin volver
      a bordes duros (TR-013) — nunca la sombra dura tipo bungie.net que
      describe la spec §9.7 para el resto del producto. */
   --shadow-soft: 0 1px 2px 0 rgb(53 49 43 / 0.05), 0 4px 12px -4px rgb(53 49 43 / 0.08);
 
-  /* --- Tipografía (TR-010): display condensada de alto contraste, cuerpo
-     de legibilidad institucional, utilitaria para datos tabulares. --- */
-  --font-display: var(--font-big-shoulders), "Arial Narrow", sans-serif;
-  --font-body: var(--font-public-sans), -apple-system, "Segoe UI", sans-serif;
-  --font-mono: var(--font-plex-mono), ui-monospace, "SF Mono", monospace;
+  /* --- Tipografía (correcciones generales, 2026-10-17; antes TR-010):
+     Figtree en todo —el texto, los títulos (en seminegrita) y las cifras—,
+     pedido de la persona ("como Mercado Pago"). `--font-mono` ya NO es
+     monoespaciada: es la letra de las cifras (DNI, teléfono, fecha y hora,
+     folio, contadores), Figtree con `tabular-nums` en cada uso (cada
+     dígito mide lo mismo, así las columnas no bailan). La monoespaciada
+     queda en `--font-codigo`, solo para lo que se compara carácter por
+     carácter: la huella, el código de verificación y la IP. La home y la
+     página pública de cada clínica conservan las de antes (ver
+     `.paleta-cascaron, .pp-raiz`). --- */
+  --font-display: var(--font-figtree), -apple-system, "Segoe UI", sans-serif;
+  --font-body: var(--font-figtree), -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-figtree), -apple-system, "Segoe UI", sans-serif;
+  --font-codigo: var(--font-plex-mono), ui-monospace, "SF Mono", monospace;
 
   /* Header fixed (site-header.tsx, header-frame.tsx) — transparente sobre
      la primera foto del Home, sólido en el resto, mismo criterio que
@@ -114,6 +206,12 @@
   --color-marfil: var(--color-marfil);
   --color-salvia: var(--color-salvia);
   --color-salvia-claro: var(--color-salvia-claro);
+  --color-velo: var(--color-velo);
+  --color-marca: var(--color-marca);
+  --color-marca-relleno: var(--color-marca-relleno);
+  --color-marca-hover: var(--color-marca-hover);
+  --color-marca-medio: var(--color-marca-medio);
+  --color-marca-claro: var(--color-marca-claro);
   --color-salvia-oscuro: var(--color-salvia-oscuro);
   --color-terracota: var(--color-terracota);
   --color-terracota-claro: var(--color-terracota-claro);
@@ -126,25 +224,60 @@
   --color-linea: var(--color-linea);
   --radius-card: var(--radius-card);
   --radius-field: var(--radius-field);
+  --radius-control: var(--radius-control);
+  --radius-pastilla: var(--radius-pastilla);
   --radius-turno: var(--radius-turno);
   --shadow-soft: var(--shadow-soft);
   --font-display: var(--font-display);
   --font-body: var(--font-body);
   --font-mono: var(--font-mono);
+  --font-codigo: var(--font-codigo);
 }
 
-/* Textura de fondo (TR-013) — un tile de cruces suaves muy tenue.
-   Originalmente solo en el layout raíz de /panel (General, Calendario,
-   Turnos, Pacientes; ver app/panel/layout.tsx), nunca dentro de una
-   card. Extendida a /ingresar y /sumarse (TR-073, 2026-08-27, pedido
-   explícito del cliente), y a /recuperar-password y su paso "nueva
-   contraseña" (TR-076, mismo día — se habían quedado afuera de TR-073).
-   El resto de marketing/onboarding sigue sin
-   ella. */
-.panel-texture {
+/* `.fondo-ondas` — la base estática del fondo animado de toda la app con
+   sesión (`components/fondo-ondas.tsx`, correcciones generales ítem 1,
+   2026-10-10; reemplaza a la textura de crucecitas `soft-cross.svg` de
+   TR-013/TR-073/TR-076 y a `.home-fondo`). Es lo que se ve en el HTML del
+   servidor, sin JavaScript, sin WebGL o mientras el canvas no dibujó su
+   primer cuadro: los mismos tres tintes del shader (salvia #d5e5d1,
+   acero #cde3f3 y un toque de arena #eadec8) sobre `hueso`, quietos. El
+   canvas aparece encima con un fundido, así que al hidratar no hay salto. */
+.fondo-ondas {
   background-color: var(--color-hueso);
-  background-image: url("/textures/soft-cross.svg");
-  background-repeat: repeat;
+  background-image:
+    radial-gradient(60% 55% at 15% 20%, #d5e5d1 0%, transparent 72%),
+    radial-gradient(60% 55% at 85% 30%, #cde3f3 0%, transparent 72%),
+    radial-gradient(55% 50% at 70% 88%, #d5e5d1 0%, transparent 72%),
+    radial-gradient(45% 40% at 25% 85%, #eadec8 0%, transparent 72%);
+}
+
+/* `.paleta-cascaron` — la home y la página pública de las clínicas
+   (`.pp-raiz`) conservan los tonos cálidos de antes del cambio a blancos
+   (2026-10-10): la decisión fue solo para la app con sesión. */
+.paleta-cascaron,
+.pp-raiz {
+  --color-hueso: #f6f2ea;
+  --color-marfil: #fffdf9;
+  --color-arena: #e7dfd1;
+  --color-linea: #dbd3c2;
+  /* Y las letras de antes de Figtree (2026-10-17): la página pública tiene
+     sus propios temas (que pisan display y cuerpo en el `style` del mismo
+     elemento, y ganan), y la home se rediseña aparte. */
+  --font-display: var(--font-big-shoulders), "Arial Narrow", sans-serif;
+  --font-body: var(--font-public-sans), -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, "SF Mono", monospace;
+  font-family: var(--font-body);
+  --radius-field: 12px;
+}
+
+/* El `<body>` tiene su propio fondo hueso, y como `<html>` también lo tiene,
+   el del body no se propaga al lienzo: se pinta POR ENCIMA de las capas con
+   z-index negativo del contexto raíz, que es donde vive `.fondo-ondas` en
+   las pantallas sin `PanelShell` (que la aísla en su propio contexto). Con
+   el fondo de ondas en la página, el body queda transparente y el hueso
+   sigue debajo, en `<html>`. */
+body:has(.fondo-ondas) {
+  background-color: transparent;
 }
 
 /* `.panel-shell-h`/`.panel-sidebar-h` — rama fix/mobile, sexta vuelta
@@ -384,24 +517,32 @@ body {
    el rebote en el borde de la caja en vez de dejarlo escapar hacia el
    fondo de la página (`--color-hueso`, un tono distinto al `bg-marfil`
    de la caja — de ahí el "espacio blanco" que no combinaba). */
+/* La barra en sí ya no es de esta clase: es la discreta de toda la app
+   (`.scroll-discreto`, más abajo), siempre visible y un poco más oscura
+   que el `arena` de antes. Acá queda solo lo propio de las tablas. */
 .panel-table-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-arena) transparent;
   overscroll-behavior: contain;
 }
 
-.panel-table-scroll::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+/* `.caja-alto-libre` — la caja de una tabla de las pantallas del panel
+   crece hasta el espacio libre de la pantalla (2026-10-19, pedido de la
+   persona): el alto visible menos lo que hay arriba de la caja y lo que la
+   sigue en la página, que mide `useAltoLibre` (lib/alto-de-filas.ts). Nunca
+   menos que antes: cuatro filas en el celular (`--alto-minimo`, medido) y
+   20 rem en la computadora. `svh` y no `dvh`: el teclado no la hace saltar
+   mientras se escribe en el buscador. Antes de medir vale el mínimo. */
+.caja-alto-libre {
+  --alto-visible: 100vh;
+  max-height: max(
+    var(--alto-minimo, 20rem),
+    calc(var(--alto-visible) - var(--arriba-caja, var(--alto-visible)) - var(--abajo-caja, 0px))
+  );
 }
 
-.panel-table-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.panel-table-scroll::-webkit-scrollbar-thumb {
-  background-color: var(--color-arena);
-  border-radius: 9999px;
+@supports (height: 100svh) {
+  .caja-alto-libre {
+    --alto-visible: 100svh;
+  }
 }
 
 /* `.panel-card-scroll` — mismo criterio que `.panel-table-scroll` de
@@ -410,70 +551,225 @@ body {
    una tarjeta (F2.3 extra ítem 1, docs/Arquitectura y base/implementation-plan.md §11.5:
    "si el cuerpo de tarjeta tiene [scroll], hacer esta discreta"), no una
    tabla de gestión. */
-.panel-card-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-arena) transparent;
+/* La barra ya no se define acá: ver `.scroll-discreto`. La clase queda
+   como marca del cuerpo scrolleable de una tarjeta. */
+
+/* `.vidrio` — EL VIDRIO DEL PANEL: las tarjetas de General y las cajas de
+   las tablas (correcciones generales, 2026-10-17). Modelo: el reproductor
+   del Centro de Control de iOS 26 ("Liquid Glass", la foto de referencia
+   de la persona), llevado del modo oscuro a la paleta clara del panel:
+
+   - Un panel translúcido: blanco al 48 % sobre el fondo de ondas, que se
+     desenfoca y se satura (`blur` + `saturate`). El blanco aclara y la
+     saturación le devuelve al tono lo que el blanco le saca: así se lee
+     como vidrio y no como un blanco lavado.
+   - Un borde iluminado, como un reflejo: la línea de 1 px es el BORDE del
+     elemento, en blanco translúcido, fuerte arriba, a media fuerza a los
+     costados y tenue abajo; en las esquinas de arriba se juntan dos lados
+     y quedan más brillantes. Es un `border` y no un `box-shadow` inset
+     porque ningún hijo lo tapa (la cabecera fija de una tabla tapaba la
+     sombra) y porque en una caja que scrollea un pseudo-elemento se iría
+     con el contenido. Afuera, un filete de grafito al 7 % le da el
+     contorno que sobre un fondo claro el blanco solo no da.
+   - Un brillo suave arriba (`background-image`, de blanco a nada), sin
+     bordes duros, y una sombra larga y muy liviana.
+   - Esquinas grandes y concéntricas: el vidrio va a `--radius-vidrio`
+     (24 px) y la segunda capa de adentro (`.vidrio-capa`, la "carátula":
+     el bloque del número de cada tarjeta) a 24 − 6 = 18 px, con
+     `--vidrio-margen` (6 px, contando el borde) alrededor: la misma curva.
+   - Una tabla lleva más cuerpo (`.vidrio-tabla`): son muchos renglones de
+     texto chico. Su cabecera fija y su columna fija (celular) son la capa
+     clara y opaca, para que las filas que pasan por debajo no se
+     mezclen con ellas (ver `.panel-th-sticky`).
+
+   El costo: el `backdrop-filter` se recalcula en cada cuadro del fondo
+   animado y crece con el área y con el radio del desenfoque (con las seis
+   tarjetas de General, uno de 16 px ocupaba casi un núcleo). Es de 8 px
+   porque detrás hay solo ondas grandes y lisas: más radio no se vería y
+   costaría más; el aspecto lo dan el borde, el brillo y la saturación.
+
+   Para que funcione, ningún ancestro entre el vidrio y el canvas puede ser
+   una raíz de backdrop: nada de `filter`, `opacity` < 1, `mask`,
+   `clip-path`, `mix-blend-mode`, otro `backdrop-filter` ni `will-change`
+   de esos (un `transform` o `isolation` no la crean). Tampoco pintar un
+   fondo opaco de por medio: los contenedores del panel quedan
+   transparentes. Por lo mismo, un vidrio no va adentro de otro: la capa de
+   adentro (`.vidrio-capa`) es solo un relleno más claro.
+
+   Sin soporte de `backdrop-filter` el relleno sube al 86 % y se lee igual;
+   con "reducir transparencia", sube un poco (ver más abajo).
+
+   Contraste, medido sobre el tono más oscuro del fondo (las ondas de
+   salvia, acero y arena a L 0,905) y sin contar el brillo, que solo
+   aclara: el texto secundario (`grafito/75`) queda arriba de 5:1 sobre el
+   panel de una tarjeta y sobre el cuerpo de una tabla, también con el velo
+   del hover. Por eso los rótulos de las tarjetas, que estaban en
+   `grafito/50` (2,9:1), pasan a `grafito/75`. */
+:root {
+  --vidrio-relleno: color-mix(in srgb, var(--color-marfil) 48%, transparent);
+  --vidrio-relleno-tabla: color-mix(in srgb, var(--color-marfil) 66%, transparent);
+  --vidrio-relleno-opaco: color-mix(in srgb, var(--color-marfil) 86%, transparent);
+  /* La segunda capa (la carátula de una tarjeta) y la capa fija de una
+     tabla (cabecera y columna fija). La fija es opaca: con un 5 % de
+     transparencia se adivinaban las filas que pasan por debajo, y en
+     pantallas con escala de 125 o 150 % el borde entre dos celdas dejaba
+     ver una raya del vidrio. */
+  --vidrio-capa: color-mix(in srgb, var(--color-marfil) 72%, transparent);
+  --vidrio-capa-fija: var(--color-marfil);
+  /* Los separadores: un gris translúcido que se ve sobre cualquier tono
+     del fondo (el `arena` opaco desaparecía sobre el vidrio). */
+  --vidrio-separador: color-mix(in oklab, var(--color-grafito) 10%, transparent);
+  --vidrio-luz-arriba: color-mix(in srgb, var(--color-marfil) 95%, transparent);
+  --vidrio-luz-costados: color-mix(in srgb, var(--color-marfil) 55%, transparent);
+  --vidrio-luz-abajo: color-mix(in srgb, var(--color-marfil) 28%, transparent);
+  --vidrio-brillo: linear-gradient(180deg, color-mix(in srgb, var(--color-marfil) 40%, transparent), transparent 45%);
+  --vidrio-sombra:
+    0 0 0 1px color-mix(in srgb, var(--color-grafito) 7%, transparent),
+    0 1px 2px rgb(53 49 43 / 0.04),
+    0 12px 32px -14px rgb(53 49 43 / 0.16);
+  --vidrio-desenfoque: blur(8px) saturate(160%);
 }
 
-.panel-card-scroll::-webkit-scrollbar {
-  width: 6px;
-}
-
-.panel-card-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.panel-card-scroll::-webkit-scrollbar-thumb {
-  background-color: var(--color-arena);
-  border-radius: 9999px;
-}
-
-/* `.panel-card-vidrio` — cuerpo "medio transparente" de una tarjeta del
-   Turnero (F2.3 extra ítem 1, corrección de QA 2026-09-06: "no se ve la
-   transparencia... se sigue viendo de color cascarón", "la transparencia
-   debe ser más opaca, es decir que los objetos de fondo tengan más
-   blur"). `backdrop-filter: blur` en el propio elemento no alcanzaba acá:
-   depende de que TODOS los ancestros hasta la textura real de la página
-   (`.panel-texture`, aplicada varios niveles arriba en PanelShell) no
-   creen su propio contexto de apilamiento ni pinten nada opaco de por
-   medio — fràgil, y en la práctica el cuerpo terminaba viéndose como un
-   color plano sin ningún desenfoque real detrás.
-
-   Solución robusta: la tarjeta pinta y desenfoca SU PROPIA copia de la
-   misma textura (`soft-cross.svg`, la de `.panel-texture`) en un
-   pseudo-elemento detrás del contenido, en vez de depender de lo que
-   haya de verdad detrás en la página. `::before` con `inset` negativo
-   (se extiende más allá del propio borde) para que el `blur` no deje un
-   borde nítido/viñeta visible en los bordes de la tarjeta; `overflow:
-   hidden` en el contenedor recorta ese excedente. El contenido real va
-   en un `position: relative` propio (`z-index: 1`) para quedar arriba
-   del pseudo-elemento (`z-index: 0`), nítido. */
-.panel-card-vidrio {
+.vidrio {
   position: relative;
-  /* Solo X: el cuerpo de la tarjeta también necesita overflow-y: auto
-     (scroll vertical, aplicado como utility de Tailwind junto a esta
-     clase) — el desborde vertical del `inset` negativo de abajo ya queda
-     contenido por ESE overflow-y, sin pisarlo acá con el shorthand. */
-  overflow-x: hidden;
+  border: 1px solid;
+  border-color: var(--vidrio-luz-arriba) var(--vidrio-luz-costados) var(--vidrio-luz-abajo);
+  border-radius: var(--radius-vidrio);
+  background-color: var(--vidrio-relleno-opaco);
+  background-image: var(--vidrio-brillo);
+  box-shadow: var(--vidrio-sombra);
 }
 
-.panel-card-vidrio::before {
-  content: "";
-  position: absolute;
-  inset: -16px;
-  background-color: var(--color-hueso);
-  background-image: url("/textures/soft-cross.svg");
-  background-repeat: repeat;
-  /* blur(3px) — bajado de 7px (corrección de QA, 2026-09-06: "quitale más
-     intensidad al blur"), sigue siendo un desenfoque real y visible, sin
-     emborronar la textura hasta perderla del todo. */
-  filter: blur(3px);
-  z-index: 0;
+/* Las tablas, con las esquinas de los encabezados de sección (14 px) y no
+   las de 24 de las tarjetas de General (pedido de la persona, 2026-10-19:
+   "las tablas no deben ser tan redondeadas"). */
+.vidrio-tabla {
+  --vidrio-relleno: var(--vidrio-relleno-tabla);
+  --radius-vidrio: var(--radius-encabezado);
 }
 
-.panel-card-vidrio > * {
-  position: relative;
-  z-index: 1;
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .vidrio {
+    background-color: var(--vidrio-relleno);
+    -webkit-backdrop-filter: var(--vidrio-desenfoque);
+    backdrop-filter: var(--vidrio-desenfoque);
+  }
+}
+
+/* "Reducir transparencia": el vidrio lleva más cuerpo, pero sigue siendo
+   vidrio. No pasa a opaco porque Windows prende esa preferencia cuando se
+   apagan los "efectos de transparencia" del sistema (por rendimiento o por
+   batería), sin que la persona la elija para la web: es el mismo caso que
+   "reducir movimiento" en Android (TR-180). */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --vidrio-relleno: color-mix(in srgb, var(--color-marfil) 60%, transparent);
+    --vidrio-relleno-tabla: color-mix(in srgb, var(--color-marfil) 74%, transparent);
+  }
+}
+
+/* Una tarjeta que es un link entera ("Turnos pendientes"): el velo del
+   hover va ENCIMA del vidrio, no en su lugar (`hover:bg-velo` le
+   cambiaría el relleno por un 9 % de verde y la tarjeta quedaría
+   transparente). */
+.vidrio-enlace:hover {
+  background-image: linear-gradient(var(--color-velo), var(--color-velo)), var(--vidrio-brillo);
+}
+
+/* La segunda capa: la carátula de una tarjeta (el bloque del número), un
+   poco más clara que el panel, a la misma curva que sus esquinas. */
+.vidrio-capa {
+  margin: calc(var(--vidrio-margen) - 1px);
+  border-radius: calc(var(--radius-vidrio) - var(--vidrio-margen));
+  background-color: var(--vidrio-capa);
+  box-shadow: inset 0 1px 0 var(--vidrio-luz-costados);
+}
+
+/* `.encabezado-seccion` — la tarjeta del encabezado de cada sección del
+   panel (`EncabezadoDeSeccion`), con `.vidrio` (rediseño del 18/10, pedido
+   de la persona: "dejan de ser blancas y tener el contorno multicolor,
+   pasan a tener la textura de vidrio y en los bordes un efecto de blur y no
+   tan redondos"; el 19/10 se quedó con este vidrio y con el título, sobre
+   la composición y los dibujos de antes). Es el mismo vidrio de las tablas y de General —relleno,
+   desenfoque, saturación y brillo de arriba— con dos cambios:
+
+   - EL CANTO ESMERILADO. Sin la línea de 1 px del borde ni el filete de
+     grafito de afuera: el borde queda transparente y el canto lo dibuja un
+     brillo blanco difuso hacia adentro (14 px, como el vidrio esmerilado,
+     que se ve más blanco en el canto), con un halo blanco apenas afuera que
+     lo funde con el fondo, más la sombra larga de siempre. Se eligió así y
+     no un borde desenfocado de verdad (un segundo `backdrop-filter` en un
+     pseudo-elemento) ni una máscara de canto suave: las dos se recalculan
+     en cada cuadro del fondo animado, y la máscara además recortaría el
+     contenido. Una sombra interior se pinta una vez y no cuesta nada al
+     moverse el fondo. `background-origin: border-box`: con el borde
+     transparente, el brillo de arriba se repetía 1 px abajo, como una raya.
+   - LAS ESQUINAS: `--radius-encabezado` (14 px) en vez de las de 24.
+
+   Lo demás es de `.vidrio`: sin soporte de `backdrop-filter` el relleno
+   sube al 86 %, y "reducir transparencia" le da más cuerpo. El contraste
+   del título, medido sobre este vidrio, está en `.titulo-prismatico`. */
+.vidrio.encabezado-seccion {
+  border-color: transparent;
+  border-radius: var(--radius-encabezado);
+  background-origin: border-box;
+  box-shadow:
+    inset 0 0 14px 1px color-mix(in srgb, var(--color-marfil) 55%, transparent),
+    0 0 10px 2px color-mix(in srgb, var(--color-marfil) 65%, transparent),
+    0 1px 3px rgb(53 49 43 / 0.05),
+    0 12px 32px -14px rgb(53 49 43 / 0.16);
+}
+
+/* `.titulo-prismatico` — el título de los encabezados de sección y el de
+   "¿Qué necesitás hoy?": el MISMO degradé apagado que pinta la línea de
+   los dibujos (`--prisma-*`, `DegradePrismatico`: las mismas cinco paradas,
+   parejas, de magenta a dorado, y la misma dirección, a lo largo de la caja
+   y apenas hacia abajo), recortado a las letras (`background-clip: text`).
+   Pedido de la persona (2026-10-19): el arco profundo que había antes
+   (`--prisma-titulo-*`, 3,6:1) le resultaba estridente, y quiere que el
+   título hable el idioma de los dibujos. SE ELIGIÓ SABIENDO QUE NO LLEGA A
+   3:1: medido sobre el vidrio de un encabezado da de 2,0:1 (dorado) a 2,7:1
+   (violeta), y sobre las ondas del fondo, sin vidrio ("¿Qué necesitás
+   hoy?"), de 1,7 a 2,3:1. Va siempre grande (24 px o más).
+   Quieto: un degradé que corre repintaría el texto adentro del vidrio en
+   cada paso. Sin soporte de `background-clip: text`, el violeta sólido; con
+   colores forzados, el color del sistema (el degradé desaparece y el texto
+   transparente no se vería). */
+/* Después (2026-10-19), la persona eligió oscurecerlo apenas: cada parada se
+   mezcla con un 30 % de grafito. Son los mismos tonos, más profundos, y da
+   de 3,2 a 4,1:1 sobre el vidrio de un encabezado (pasa el 3:1 del texto
+   grande) y de 2,7 a 3,5:1 sobre las ondas del fondo. */
+.titulo-prismatico {
+  --titulo-sombra: var(--color-grafito);
+  color: color-mix(in oklab, var(--prisma-violeta) 70%, var(--titulo-sombra));
+}
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .titulo-prismatico {
+    background-image: linear-gradient(
+      100deg,
+      color-mix(in oklab, var(--prisma-magenta) 70%, var(--titulo-sombra)),
+      color-mix(in oklab, var(--prisma-violeta) 70%, var(--titulo-sombra)),
+      color-mix(in oklab, var(--prisma-azul) 70%, var(--titulo-sombra)),
+      color-mix(in oklab, var(--prisma-cian) 70%, var(--titulo-sombra)),
+      color-mix(in oklab, var(--prisma-dorado) 70%, var(--titulo-sombra))
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+  }
+  .titulo-prismatico::selection {
+    background-color: var(--color-marca);
+    color: var(--color-marfil);
+    -webkit-text-fill-color: var(--color-marfil);
+  }
+}
+@media (forced-colors: active) {
+  .titulo-prismatico {
+    background-image: none;
+    color: CanvasText;
+    -webkit-text-fill-color: CanvasText;
+  }
 }
 
 /* `.panel-th-sticky` — bug reportado 2026-08-28 (Safari de iOS): "cuando
@@ -497,80 +793,166 @@ body {
    `transform: translateZ(0)` — fuerza una capa de composición GPU propia
    para esta celda, ayuda a que WebKit la repinte bien durante el rebote
    en vez de dejarla en el mismo layer que el contenido que sí se mueve. */
+/* La cabecera de las tablas (correcciones generales, ítem 9): un fondo
+   apenas distinto del blanco de las filas (`hueso`) y la línea inferior
+   como sombra interior, no como borde de la fila: el borde de un `<tr>` se
+   va con el scroll, la sombra de la celda fija se queda con ella.
+
+   Sobre el vidrio (`.vidrio`, 2026-10-17) la cabecera es la capa clara de
+   la tabla, blanca y opaca (`--vidrio-capa-fija`): las filas pasan por
+   debajo al scrollear y no se pueden mezclar con ella. Es la
+   misma idea que la carátula de una tarjeta —una segunda capa, un poco
+   más clara que el panel—, así que se lee como parte del vidrio y no como
+   una pieza pegada encima. La línea de abajo es el separador translúcido,
+   que se ve sobre cualquier tono del fondo. Fuera del vidrio (la tabla de
+   un diálogo, sobre blanco) sigue en `hueso`. */
 .panel-th-sticky {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: var(--color-marfil);
+  background: var(--color-hueso);
+  box-shadow: inset 0 -1px 0 var(--color-linea);
   transform: translateZ(0);
 }
 
-/* Scrollbar fina para el cuerpo de los modales de alta (Fase 3.2.3, ronda
-   de QA del 2026-09-13, `docs/Fases post MVP/Fase 3/fase3.2-multi-tenant.md`:
-   "la nativa gris de tu captura rompe el borde redondeado").
-   El cliente pidió #E6E1D4; se usa `--color-arena` (#e7dfd1), que es el
-   token que ya tiene el proyecto para ese mismo gris cálido y queda a un
-   punto de diferencia — un hex suelto habría sido un color nuevo en la
-   paleta para nada.
-   Firefox usa `scrollbar-width`/`scrollbar-color`, que no admiten grosor
-   en píxeles: ahí queda "thin", que es lo más cerca que se puede pedir. */
-.scrollbar-fina {
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-arena) transparent;
+.vidrio .panel-th-sticky {
+  background: var(--vidrio-capa-fija);
+  box-shadow: inset 0 -1px 0 var(--vidrio-separador);
 }
 
-.scrollbar-fina::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* `.tabla-columna-fija` — la columna que nombra la fila (el paciente) queda
+   fija a la izquierda en el celular mientras el resto de la tabla scrollea
+   de costado (correcciones generales, ítem 9). Necesita fondo propio y
+   opaco, o se verían pasar las otras columnas por debajo; el velo del hover
+   va como imagen encima del blanco para que la celda fija se ilumine junto
+   con su fila. La fila desplegada de Turnos se marca con `data-abierta`.
+   La esquina (la cabecera de esta columna) va por encima de todo. */
+@media (max-width: 47.999rem) {
+  .tabla-columna-fija {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background-color: var(--color-marfil);
+    box-shadow: inset -1px 0 0 var(--color-arena);
+  }
+
+  tr:hover > td.tabla-columna-fija {
+    background-image: linear-gradient(var(--color-velo), var(--color-velo));
+  }
+
+  tr[data-abierta] > td.tabla-columna-fija {
+    background-color: var(--color-hueso);
+  }
+
+  .panel-th-sticky.tabla-columna-fija {
+    z-index: 20;
+    background-color: var(--color-hueso);
+    box-shadow:
+      inset 0 -1px 0 var(--color-linea),
+      inset -1px 0 0 var(--color-arena);
+  }
+
+  /* Sobre el vidrio, la columna fija es la misma capa clara que la
+     cabecera (las otras columnas pasan por debajo), con el separador
+     translúcido; también en la fila desplegada y en la esquina. */
+  .vidrio .tabla-columna-fija,
+  .vidrio tr[data-abierta] > td.tabla-columna-fija {
+    background-color: var(--vidrio-capa-fija);
+    box-shadow: inset -1px 0 0 var(--vidrio-separador);
+  }
+
+  .vidrio .panel-th-sticky.tabla-columna-fija {
+    background-color: var(--vidrio-capa-fija);
+    box-shadow:
+      inset 0 -1px 0 var(--vidrio-separador),
+      inset -1px 0 0 var(--vidrio-separador);
+  }
 }
 
-.scrollbar-fina::-webkit-scrollbar-track {
+/* `.scroll-discreto` — LA barra de scroll de la app (correcciones
+   generales, 2026-10-12, pedido de la persona: "todas las pestañas internas
+   en la app deberían usar un scrollbar más discreto"). Unifica las cuatro
+   que había —`.panel-table-scroll` (tablas, 2026-08-27: "no se ve el
+   scrollbar"), `.panel-card-scroll` (cuerpos de tarjeta), `.scrollbar-fina`
+   (modales de alta, 2026-09-13: "la nativa gris rompe el borde redondeado")
+   y `.scrollbar-discreta` (editor de documentos)—, que repetían lo mismo con
+   anchos de 6 y 8 px y el pulgar en `arena`, que con los blancos nuevos casi
+   no se distinguía del fondo.
+
+   - Vale para TODO contenedor que scrollee (diálogos, hojas de filtros, la
+     bandeja de notificaciones, las tablas, el sidebar, los menús), con
+     `:where()` para no sumar especificidad: una clase que la cambia a
+     propósito (la fila de acciones del calendario la oculta) gana sola.
+   - Afuera quedan la barra de la página (<html>, con su `overflow-y:
+     scroll` de TR-034, la de todo el sitio) y la página pública de cada
+     clínica (`.pp-raiz`), que tiene sus propios temas.
+   - 8 px, carril transparente y el pulgar en `linea`, siempre visible (no
+     solo al scrollear), un poco más oscuro al pasar el mouse. En el
+     celular, la barra horizontal de las tablas es esta misma, y se ve.
+   - Dos caminos: Chrome, Edge y Safari dibujan los `::-webkit-scrollbar*`,
+     que admiten un ancho en píxeles; Firefox, `scrollbar-width` y
+     `scrollbar-color`, que no ("thin" es lo más cerca). Las propiedades
+     estándar van solo donde NO hay pseudo-elementos (el `@supports`):
+     Chrome, desde la 121, ignora los pseudo-elementos de un elemento que
+     tiene `scrollbar-color`, y la barra volvía a su ancho de sistema.
+   - iOS no deja estilarla en un contenedor: ahí sigue la nativa, que
+     aparece al scrollear. */
+:root {
+  --scroll-pulgar: var(--color-linea);
+  --scroll-pulgar-activo: color-mix(in oklab, var(--color-linea), var(--color-grafito) 25%);
+}
+
+:where(.scroll-discreto, .panel-table-scroll, .panel-card-scroll, .scrollbar-fina, *:not(html, body, .pp-raiz, .pp-raiz *))::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+:where(.scroll-discreto, .panel-table-scroll, .panel-card-scroll, .scrollbar-fina, *:not(html, body, .pp-raiz, .pp-raiz *))::-webkit-scrollbar-track,
+:where(.scroll-discreto, .panel-table-scroll, .panel-card-scroll, .scrollbar-fina, *:not(html, body, .pp-raiz, .pp-raiz *))::-webkit-scrollbar-corner {
   background: transparent;
 }
 
-.scrollbar-fina::-webkit-scrollbar-thumb {
-  background: var(--color-arena);
+:where(.scroll-discreto, .panel-table-scroll, .panel-card-scroll, .scrollbar-fina, *:not(html, body, .pp-raiz, .pp-raiz *))::-webkit-scrollbar-thumb {
+  background: var(--scroll-pulgar);
   border-radius: 9999px;
 }
 
-/* Scrollbar discreta: la de `.scrollbar-fina` (fina, `arena`), pero casi
-   invisible hasta que el mouse está sobre la caja o el foco adentro
-   (Fase 5.3, pedido del 2026-10-02 para la columna de secciones del editor
-   de documentos: con varias secciones abiertas aparecía la nativa, gris y
-   ancha, al lado del formulario). Sigue ahí para quien la busca: al pasar
-   el mouse o al tabular hacia adentro, el thumb toma el color.
-   Dos caminos, como en `.scrollbar-fina`: Firefox —y Chrome/Edge desde la
-   121, que con `scrollbar-color` puesto IGNORAN los `::-webkit-scrollbar*`—
-   van por `scrollbar-color`; Safari, por los pseudo-elementos.
-   No se suma a `.scrollbar-fina`: esa la usan otras pantallas, donde la
-   barra tiene que verse siempre. */
-.scrollbar-discreta {
-  scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
+:where(.scroll-discreto, .panel-table-scroll, .panel-card-scroll, .scrollbar-fina, *:not(html, body, .pp-raiz, .pp-raiz *))::-webkit-scrollbar-thumb:hover {
+  background: var(--scroll-pulgar-activo);
 }
 
-.scrollbar-discreta:hover,
-.scrollbar-discreta:focus-within {
-  scrollbar-color: var(--color-arena) transparent;
+@supports not selector(::-webkit-scrollbar) {
+  :where(.scroll-discreto, .panel-table-scroll, .panel-card-scroll, .scrollbar-fina, *:not(html, body, .pp-raiz, .pp-raiz *)) {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scroll-pulgar) transparent;
+  }
 }
 
-.scrollbar-discreta::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-.scrollbar-discreta::-webkit-scrollbar-track {
-  background: transparent;
-}
-
+/* Scrollbar discreta "al pasar": la de `.scroll-discreto`, pero con el
+   pulgar más tenue (`arena`) hasta que el mouse está sobre la caja o el foco
+   adentro, y ahí toma el tono de siempre (Fase 5.3, pedido del 2026-10-02
+   para la columna de secciones del editor de documentos: con varias
+   secciones abiertas aparecía la nativa, gris y ancha, al lado del
+   formulario). Ya no se esconde del todo: tenue sigue viéndose, y quien la
+   busca la encuentra (correcciones generales, 2026-10-12). */
 .scrollbar-discreta::-webkit-scrollbar-thumb {
-  background: transparent;
-  border-radius: 9999px;
+  background: var(--color-arena);
 }
 
 .scrollbar-discreta:hover::-webkit-scrollbar-thumb,
 .scrollbar-discreta:focus-within::-webkit-scrollbar-thumb {
-  background: var(--color-arena);
+  background: var(--scroll-pulgar);
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  .scrollbar-discreta {
+    scrollbar-color: var(--color-arena) transparent;
+  }
+
+  .scrollbar-discreta:hover,
+  .scrollbar-discreta:focus-within {
+    scrollbar-color: var(--scroll-pulgar) transparent;
+  }
 }
 
 /* El ojo duplicado en los campos de contraseña (corrección de QA del
@@ -597,7 +979,7 @@ input[type="password"]::-ms-clear {
    desaparece. */
 .tag-rol {
   font-size: 13.5px;
-  border-radius: 999px;
+  border-radius: var(--radius-pastilla);
   padding: 6px 14px;
   border: 1px solid transparent;
   white-space: nowrap;
@@ -647,7 +1029,8 @@ input[type="password"]::-ms-clear {
    pública (ClinicaPublicaTemplate) y los módulos de
    @dental-mirage/prisma-engine. Son EXACTAMENTE el aspecto de antes de PE-2
    (marfil, grafito, arena, radio de tarjeta, p-6…): una página sin tema no
-   cambia. Con tema, el style en línea que arma estiloDeTema()
+   cambia, salvo el acento, que desde el 2026-10-18 es el petróleo de la app
+   (antes caía al salvia en cada componente). Con tema, el style en línea que arma estiloDeTema()
    (lib/temas-pagina-publica/aplicar.ts) pisa los que correspondan — si se
    cambia un default acá, cambiar también TOKENS_POR_DEFECTO / los mapas de
    aplicar.ts, que tienen que describir lo mismo.
@@ -668,7 +1051,17 @@ input[type="password"]::-ms-clear {
   --pp-espacio-pagina: 2.5rem;
   --pp-fondo-imagen: none;
   --pp-fondo-tamano: auto;
-  --pp-contraste-fondo: var(--pp-acento-texto, var(--color-salvia-oscuro));
+  /* El acento de una página sin tema, con los mismos papeles que el que
+     arma estiloDeTema(): el tono de los puntos, los bordes y la marca
+     (`--pp-acento`, el relleno), el del texto y los links (`-texto`, 6,3:1
+     sobre marfil), un fondo suave (`-suave`) y el botón relleno con texto
+     marfil (4,8:1). */
+  --pp-acento: var(--color-marca-relleno);
+  --pp-acento-texto: var(--color-marca);
+  --pp-acento-suave: var(--color-marca-claro);
+  --pp-boton-fondo: var(--color-marca-relleno);
+  --pp-boton-texto: var(--color-marfil);
+  --pp-contraste-fondo: var(--pp-acento-texto, var(--color-marca));
   --pp-contraste-texto: var(--color-marfil);
 }
 
@@ -1072,4 +1465,612 @@ li > [data-pp-efecto] {
 @keyframes pila-sale-fundido {
   from { z-index: 1; opacity: 1; transform: none; }
   to { z-index: 1; opacity: 0; transform: none; }
+}
+
+/* `.dibujo-prismatico` — el movimiento de los dibujos pintados con
+   `DegradePrismatico`: el SVG entero gira de tono (`hue-rotate`), 30 s por
+   vuelta. Como las paradas del degradé están ordenadas por tono, girar el
+   tono se ve como si los colores corrieran a lo largo del trazo.
+   Por qué no se animan las paradas (`stop-color`), que fue la primera
+   versión: repinta el SVG en cada cuadro, y con los seis dibujos de
+   General la GPU pasaba de 14 % a 71 % de un núcleo (medido por CDP). Con
+   el filtro queda en 35 %. Se suma a la entrada de `.despliegue-dibujo`
+   (misma propiedad `animation`, por eso van en una lista); con "reducir
+   movimiento" queda solo el fundido de entrada y el color quieto.
+   Desde que las tarjetas son de vidrio (2026-10-17) el giro va en 120
+   pasos (4° cada cuarto de segundo, a la vista es el mismo corrimiento
+   lento): cada cuadro del filtro adentro de un `backdrop-filter` obliga a
+   recomponer el desenfoque de la tarjeta, y a 60 cuadros por segundo las
+   cinco tarjetas llevaban la GPU de 19 % a 67 % de un núcleo (medido por
+   CDP en General a 1440 px). */
+.despliegue-dibujo.dibujo-prismatico {
+  animation:
+    despliegue-aparecer 500ms ease-out backwards,
+    dibujo-prismatico-girar 30s steps(120) infinite;
+  animation-delay: calc(var(--despliegue-retraso) + 200ms), 0s;
+}
+@keyframes dibujo-prismatico-girar {
+  to { filter: hue-rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .despliegue-dibujo.dibujo-prismatico {
+    animation: despliegue-fundido 600ms ease-out backwards;
+    animation-delay: calc(var(--despliegue-retraso) + 200ms);
+  }
+}
+
+/* `.ico-*` — el gesto de los íconos del sidebar (`sidebar-icons.tsx`,
+   correcciones generales ítem 10): un movimiento chico de la escena de su
+   sección con el hover o el foco del link (`.group`), una sola vez y en no
+   más de 300 ms. El sidebar está siempre en pantalla: nada va en bucle.
+   - Lo que se ACOMODA (la notita se inclina, el talón se separa, la ficha
+     sube 1 px) es una transición, y queda así mientras dure el hover.
+   - Lo que se VUELVE A HACER (las barras crecen, la firma y el renglón se
+     escriben) es una animación de una vuelta: arranca en cada hover y
+     termina en el dibujo de siempre.
+   Solo `transform` y `stroke-dashoffset`. Las piezas que se mueven no
+   llevan atributo `transform` (el del CSS lo pisaría). Los trazos que se
+   escriben tienen `pathLength="1"`, y el `1 2` del guion deja el hueco
+   más largo que el trazo: así, al arrancar, no asoma un punto en la punta.
+   Con "reducir movimiento" no hay gesto; el relleno del acento sí queda. */
+.ico-barra,
+.ico-notita,
+.ico-talon,
+.ico-ficha {
+  transform-box: fill-box;
+}
+.ico-barra {
+  transform-origin: 50% 100%; /* la base del gráfico */
+}
+.ico-notita {
+  transform-origin: 50% 0; /* el borde con pegamento */
+}
+.ico-talon {
+  transform-origin: 100% 89%; /* la muesca de abajo del troquel */
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ico-notita,
+  .ico-talon,
+  .ico-ficha {
+    transition: transform 240ms cubic-bezier(0.3, 0.7, 0.4, 1);
+  }
+  :is(.group:hover, .group:focus-visible) .ico-barra {
+    animation: ico-crecer 220ms cubic-bezier(0.2, 0.8, 0.3, 1) backwards;
+  }
+  :is(.group:hover, .group:focus-visible) .ico-barra-2 {
+    animation-delay: 40ms;
+  }
+  :is(.group:hover, .group:focus-visible) .ico-barra-3 {
+    animation-delay: 80ms;
+  }
+  :is(.group:hover, .group:focus-visible) .ico-notita {
+    transform: rotate(-6deg);
+  }
+  :is(.group:hover, .group:focus-visible) .ico-talon {
+    transform: rotate(-9deg);
+  }
+  :is(.group:hover, .group:focus-visible) .ico-ficha {
+    transform: translateY(-1.2px); /* 1,2 de la grilla de 24 = 1 px a 20 px */
+  }
+  :is(.group:hover, .group:focus-visible) .ico-trazo {
+    stroke-dasharray: 1 2;
+    animation: ico-trazar 300ms ease-out backwards;
+  }
+}
+@keyframes ico-crecer {
+  from {
+    transform: scaleY(0.4);
+  }
+}
+@keyframes ico-trazar {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* `boton-primario` — el botón relleno de la app con sesión: el relleno
+   petróleo de la marca con el texto marfil (ver `--color-marca*`).
+   Reemplaza a `bg-marca text-marfil hover:brightness-95` y a los
+   `disabled:opacity-*` de cada botón (correcciones generales, ítem 11):
+   un solo lugar para el color, y el deshabilitado es UNO para todos. Con
+   opacidad, un botón deshabilitado sin el aro casi desaparecía sobre el
+   blanco; así queda un petróleo muy pálido con el borde de los campos
+   (`linea`) y el texto apagado, sin sombra: se lee como apagado y se
+   sigue viendo.
+   Es una `@utility` y no una clase suelta para que conviva con las demás
+   utilidades (`shadow-soft`, los `max-md:`) en la misma capa. */
+@utility boton-primario {
+  background-color: var(--color-marca-relleno);
+  color: var(--color-marfil);
+  &:hover:not(:disabled, [aria-disabled="true"]) {
+    background-color: var(--color-marca-hover);
+  }
+  &:is(:disabled, [aria-disabled="true"]) {
+    background-color: color-mix(in srgb, var(--color-marca-relleno) 16%, var(--color-marfil));
+    color: color-mix(in srgb, var(--color-marca) 60%, transparent);
+    box-shadow: inset 0 0 0 1px var(--color-linea);
+    cursor: not-allowed;
+  }
+}
+
+/* `relieve` — los controles que van SOBRE el vidrio del encabezado del
+   calendario (‹ Hoy › y Día/Semana/Mes; rediseño del 18/10, pedido de la
+   persona: "los botones pasan a tener cierta profundidad para
+   diferenciarlos de la tarjeta"). Sobre un vidrio claro, un botón blanco
+   plano se confunde con la tarjeta; con relieve se lee como una pieza
+   apoyada encima:
+   - una sombra corta y una larga, suaves (la misma familia que
+     `shadow-soft` y `--vidrio-sombra`);
+   - un canto: arriba una luz (se ve sobre el relleno petróleo de lo
+     elegido) y abajo una sombra fina adentro;
+   - una cara apenas convexa: un velo de grafito al 5 % en la mitad de
+     abajo. Es una imagen translúcida encima del color de fondo, así el
+     hover (`hover:bg-velo`) y el relleno de lo elegido se siguen viendo.
+   Apretado, se hunde: la sombra pasa adentro. Solo el botón: en el
+   segmentado el relieve también va en la barra, y un clic en una opción
+   no la hunde entera. */
+@utility relieve {
+  background-image: linear-gradient(
+    180deg,
+    transparent 45%,
+    color-mix(in oklab, var(--color-grafito) 5%, transparent)
+  );
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--color-marfil) 28%, transparent),
+    inset 0 -1px 0 color-mix(in oklab, var(--color-grafito) 10%, transparent),
+    0 1px 2px rgb(53 49 43 / 0.1),
+    0 4px 10px -4px rgb(53 49 43 / 0.22);
+  &:where(button):active:not(:disabled) {
+    box-shadow:
+      inset 0 1px 3px rgb(53 49 43 / 0.16),
+      inset 0 -1px 0 color-mix(in oklab, var(--color-grafito) 6%, transparent);
+  }
+}
+
+/* `.contorno-prisma` — la acción principal de cada pantalla, con un
+   contorno multicolor animado (correcciones generales,
+   ítem 11): "+ Agregar paciente" y "+ Agregar turno" (`CLASE_BOTON_AGREGAR`),
+   "+ Agregar turno" del calendario, "+ Nuevo documento" y "Publicar". Una
+   sola por vista: si brillan todas, ninguna se destaca.
+   El gesto: los colores dan la vuelta al borde. El `::before` es un
+   cuadrado del doble de ancho que el botón (así lo cubre en cualquier
+   ángulo) con un degradé cónico de los `--prisma-*`, y gira adentro del
+   botón, que lo recorta. El `::after` pinta el cuerpo a 2 px del borde,
+   con el radio concéntrico (10 − 2). Se eligió el giro y no una tira que
+   se desliza (el contorno que tuvo el encabezado de sección): en un botón
+   ancho y bajo la tira corre para el mismo
+   lado arriba y abajo, y se lee como un brillo que pasa, no como un
+   borde; además mostraba los cinco tonos a la vez en 2 px. Girando, en
+   cada lado largo se ven dos o tres y los extremos cambian de color.
+   El degradé se dibuja una vez: girarlo es un `transform` que resuelve el
+   compositor, sin repintar (un `conic-gradient` animado con `@property`
+   repinta el botón en cada cuadro, en el hilo principal). 8 s por vuelta,
+   en 160 pasos: 20 cuadros por segundo, la cadencia del fondo.
+   El botón lleva además `boton-primario` (el relleno, el texto y el
+   hover), y el `::after` repite su relleno adentro del aro. Reemplaza el
+   borde de 0,5 px: el tamaño no cambia. Sin JavaScript ni marcado: los
+   dos pseudo-elementos del botón, con `isolation`, quedan debajo del
+   texto.
+   - Deshabilitado, sin aro: queda el deshabilitado de `boton-primario`,
+     igual que cualquier otro botón, y un botón que se mueve invita a
+     tocarlo.
+   - En pausa mientras hay un modal abierto: su velo desenfoca lo que
+     tiene detrás, y un botón que se mueve ahí lo recompone en cada cuadro.
+   - Con "reducir movimiento", quieto (ver el bloque de esa preferencia).
+   - El foco, afuera del aro: la misma línea de 2 px de los demás
+     controles del panel. */
+.contorno-prisma {
+  --contorno-grosor: 2px;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+.contorno-prisma::before {
+  content: "";
+  position: absolute;
+  z-index: -2;
+  top: 50%;
+  left: 50%;
+  width: 200%;
+  aspect-ratio: 1;
+  background: conic-gradient(
+    var(--prisma-magenta),
+    var(--prisma-violeta),
+    var(--prisma-azul),
+    var(--prisma-cian),
+    var(--prisma-dorado),
+    var(--prisma-magenta)
+  );
+  transform: translate(-50%, -50%);
+  animation: contorno-prisma-girar 8s steps(160) infinite;
+  will-change: transform;
+  pointer-events: none;
+}
+.contorno-prisma::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: var(--contorno-grosor);
+  border-radius: calc(var(--radius-control) - var(--contorno-grosor));
+  background-color: var(--color-marca-relleno);
+  transition: background-color 150ms ease-out;
+  pointer-events: none;
+}
+.contorno-prisma:hover:not(:disabled, [aria-disabled="true"])::after {
+  background-color: var(--color-marca-hover);
+}
+.contorno-prisma:is(:disabled, [aria-disabled="true"])::before,
+.contorno-prisma:is(:disabled, [aria-disabled="true"])::after {
+  display: none;
+}
+:root:has([aria-modal="true"]) .contorno-prisma::before {
+  animation-play-state: paused;
+}
+.contorno-prisma:focus-visible {
+  outline: 2px solid var(--color-marca);
+  outline-offset: 2px;
+}
+@keyframes contorno-prisma-girar {
+  to { transform: translate(-50%, -50%) rotate(1turn); }
+}
+
+/* `.escena` — las escenas ilustradas de los encabezados (`escenas.tsx`).
+   Cada viñeta son dos SVG superpuestos. Abajo, la línea (`.escena-linea`):
+   el dibujo entero con rellenos blancos, que tapan lo que queda detrás, y
+   el contorno prismático. Arriba, los colores y la tinta
+   (`.escena-relleno`), multiplicados: sobre el blanco dan su color y sobre
+   una línea la dejan ver teñida. El giro de tono va solo en la capa de la
+   línea porque sobre el dibujo entero giraba también la piel; y al blanco
+   no lo cambia. Sobre el vidrio, lo blanco deja pasar el fondo
+   (`--esc-blanco-vidrio`).
+   Los tonos de piel y de las notitas son de las ilustraciones y no se usan
+   en la interfaz: las notitas salen de mezclar los tokens con blanco. */
+.escena {
+  --esc-piel-clara: #f4d8c4;
+  --esc-piel-miel: #e8bc94;
+  --esc-piel-triguena: #d39c6f;
+  --esc-piel-morena: #a7714b;
+  --esc-piel-oscura: #6f4732;
+  --esc-madera-frente: color-mix(in oklab, var(--color-cascaron) 55%, white);
+  --esc-corcho: color-mix(in oklab, var(--color-cascaron) 72%, var(--color-terracota));
+  --esc-nota-verde: color-mix(in oklab, var(--color-salvia) 34%, white);
+  --esc-nota-celeste: color-mix(in oklab, var(--color-acero) 30%, white);
+  --esc-nota-dorada: color-mix(in oklab, var(--prisma-dorado) 42%, white);
+  --esc-nota-rosa: color-mix(in oklab, var(--prisma-magenta) 32%, white);
+  --esc-nota-lila: color-mix(in oklab, var(--prisma-violeta) 30%, white);
+  /* Sobre el vidrio, cuánto se ve una pieza blanca (la máscara de
+     `escenas.tsx` lo lee como luminancia): el 72 %, lo mismo que la segunda
+     capa del vidrio (`--vidrio-capa`). Opaca se veía como una mancha. */
+  --esc-blanco-vidrio: color-mix(in srgb, white 72%, black);
+}
+@media (prefers-reduced-transparency: reduce) {
+  .escena {
+    --esc-blanco-vidrio: color-mix(in srgb, white 86%, black);
+  }
+}
+.escena * {
+  vector-effect: non-scaling-stroke;
+}
+.escena .escena-relleno {
+  mix-blend-mode: multiply;
+}
+
+/* EL MOVIMIENTO: UNA ACCIÓN CORTA Y UN DESCANSO LARGO (correcciones
+   generales, 2026-10-11, pedido de la persona: "acortar las animaciones
+   para optimizar").
+   Una pieza de un SVG que cambia en un cuadro hace repintar las dos capas
+   de su viñeta, y el costo crece con lo que se mueve: con las piezas en
+   ciclos infinitos que no coincidían, siempre había alguna en movimiento y
+   cada escena costaba de 11 a 17 puntos de CPU del renderer (medido con
+   SwiftShader). Ahora las piezas solo se animan con `.en-accion` en su
+   viñeta: una sola vez, unos 3 s, y todas en la misma ventana. La clase la
+   pone `TarjetaConEscenas` (`tarjeta-con-escenas.tsx`), una viñeta por
+   vez y con un descanso de varios segundos, y no la pone fuera de pantalla,
+   con la pestaña oculta ni con "reducir movimiento". En el descanso no
+   corre ninguna animación (una animación infinita que "descansa" en un
+   tramo quieto igual se recalcula en cada cuadro: medido, unos 2 puntos).
+   Cada acción arranca y termina en el estado base de cada pieza, que es su
+   mejor cuadro (el gráfico crecido, el tilde hecho, la firma terminada, la
+   nota clavada) y lo que se ve sin JavaScript o con "reducir movimiento".
+   Los porcentajes son de la duración de la acción de la viñeta (`--accion`,
+   que fija `Lienzo`); `--d` corre una pieza dentro de su acción.
+   Solo `transform` y `opacity`, salvo el trazo de la firma y la línea del
+   gráfico (un solo `stroke-dashoffset` cada una, y solo en la capa de
+   arriba). */
+.escena.en-accion [class*="esc-"] {
+  animation-duration: var(--accion, 3s);
+  animation-delay: var(--d, 0ms);
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: 1;
+}
+/* El giro de tono: cada acción corre el arcoíris de la línea un tramo
+   (`--giro`, que suma `TarjetaConEscenas`), con una transición del filtro
+   que resuelve el compositor. Antes giraba sin parar, 30 s por vuelta. */
+.escena .escena-linea {
+  filter: hue-rotate(var(--giro, 0deg));
+  transition: filter 3s ease-in-out;
+}
+
+/* Piezas que giran o se escalan sobre su propia caja. */
+.escena .esc-mecer,
+.escena .esc-agujas,
+.escena .esc-crecer,
+.escena .esc-tilde,
+.escena .esc-latido,
+.escena .esc-vibrar,
+.escena .esc-destacar,
+.escena .esc-nota-llega,
+.escena .esc-chinche {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.escena .esc-mecer,
+.escena .esc-agujas,
+.escena .esc-crecer,
+.escena .esc-vibrar {
+  transform-origin: 50% 100%;
+}
+
+/* Comunes: mecerse una vez y el tilde que aparece. */
+.escena.en-accion .esc-mecer {
+  animation-name: esc-mecer;
+}
+@keyframes esc-mecer {
+  0%, 70%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-3deg); }
+  50% { transform: rotate(2deg); }
+}
+.escena .esc-trazo,
+.escena .esc-firma {
+  stroke-dasharray: 1;
+}
+/* El tilde se va al empezar y vuelve con un saltito hacia el final. */
+.escena.en-accion .esc-tilde {
+  animation-name: esc-tilde;
+  animation-timing-function: ease-out;
+}
+@keyframes esc-tilde {
+  0% { transform: scale(1); opacity: 1; }
+  6%, 54% { transform: scale(0); opacity: 0; }
+  60% { transform: scale(1.25); opacity: 1; }
+  66%, 100% { transform: scale(1); opacity: 1; }
+}
+
+/* General. Izquierda: el minutero da una vuelta. Derecha: las barras vuelven a crecer, la línea se
+   traza, aparece el tilde, el indicador late y la lista se tilda. */
+.escena.en-accion .esc-agujas {
+  animation-name: esc-agujas;
+}
+@keyframes esc-agujas {
+  0% { transform: rotate(0deg); }
+  75%, 100% { transform: rotate(360deg); }
+}
+.escena.en-accion .esc-crecer {
+  animation-name: esc-crecer;
+  animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes esc-crecer {
+  0%, 100% { transform: scaleY(1); }
+  10%, 14% { transform: scaleY(0.3); }
+  40% { transform: scaleY(1); }
+}
+.escena.en-accion .esc-trazo {
+  animation-name: esc-trazo;
+}
+@keyframes esc-trazo {
+  0% { stroke-dashoffset: 0; opacity: 1; }
+  9% { stroke-dashoffset: 0; opacity: 0; }
+  10% { stroke-dashoffset: 1; opacity: 0; }
+  16% { stroke-dashoffset: 1; opacity: 1; }
+  50%, 100% { stroke-dashoffset: 0; opacity: 1; }
+}
+.escena.en-accion .esc-latido {
+  animation-name: esc-latido;
+  animation-timing-function: ease-out;
+}
+@keyframes esc-latido {
+  0%, 62% { transform: scale(1); opacity: 1; }
+  82% { transform: scale(2.4); opacity: 0; }
+  83% { transform: scale(1); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Turnos. Derecha: el celular vibra dos veces y salen las ondas, y
+   después el horario de la agenda se pinta y se tilda. Izquierda: en la
+   tablet, el tilde del próximo turno vuelve a aparecer y late
+   (`esc-destacar` y `esc-latido`, de las comunes). */
+.escena.en-accion .esc-vibrar {
+  animation-name: esc-vibrar;
+  animation-timing-function: linear;
+}
+@keyframes esc-vibrar {
+  0%, 8%, 24%, 32%, 48%, 100% { transform: translateX(0) rotate(0deg); }
+  10%, 14%, 18%, 34%, 38%, 42% { transform: translateX(-1px) rotate(-3deg); }
+  12%, 16%, 20%, 36%, 40%, 44% { transform: translateX(1px) rotate(3deg); }
+}
+.escena.en-accion .esc-onda {
+  animation-name: esc-onda;
+}
+@keyframes esc-onda {
+  0%, 52%, 100% { opacity: 1; }
+  6% { opacity: 0; }
+  12% { opacity: 1; }
+  24% { opacity: 0.15; }
+  36% { opacity: 1; }
+  46% { opacity: 0.15; }
+}
+.escena.en-accion .esc-resaltar {
+  animation-name: esc-resaltar;
+}
+@keyframes esc-resaltar {
+  0%, 66%, 100% { opacity: 1; }
+  6%, 54% { opacity: 0; }
+}
+
+/* Pacientes. Derecha: dos fichas pasan, la del medio sube y se destaca con
+   su tilde, y baja. Izquierda: la planta se mece. */
+.escena.en-accion .esc-pasar {
+  animation-name: esc-pasar;
+}
+@keyframes esc-pasar {
+  0%, 18%, 100% { transform: translateY(0); }
+  9% { transform: translateY(-5px); }
+}
+.escena.en-accion .esc-ficha {
+  animation-name: esc-ficha;
+}
+@keyframes esc-ficha {
+  0%, 24%, 94%, 100% { transform: translateY(0); }
+  38%, 80% { transform: translateY(-12px); }
+}
+.escena.en-accion .esc-destacar {
+  animation-name: esc-destacar;
+  animation-timing-function: ease-out;
+}
+@keyframes esc-destacar {
+  0%, 52%, 100% { transform: scale(1); }
+  6%, 38% { transform: scale(0); }
+  46% { transform: scale(1.25); }
+}
+
+/* Documentos. Derecha: la mano vuelve al principio y firma la hoja
+   mientras el trazo se dibuja; después aparece el tilde. La firma va de
+   (80, 88) a (114, 84): la mano arranca 34 a la izquierda y 4 más abajo,
+   que en su sistema (−70°, 0,8) es (−19.2, −38.2). Izquierda: la
+   sansevieria se mece. */
+.escena.en-accion .esc-firmar {
+  animation-name: esc-firmar;
+}
+@keyframes esc-firmar {
+  0%, 52%, 100% { transform: translate(0, 0); }
+  14%, 18% { transform: translate(-19.2px, -38.2px); }
+  26% { transform: translate(-10.7px, -29.4px); }
+  34% { transform: translate(-9.6px, -19.1px); }
+  42% { transform: translate(-3.4px, -9.4px); }
+}
+.escena.en-accion .esc-firma {
+  animation-name: esc-firma;
+}
+@keyframes esc-firma {
+  0% { stroke-dashoffset: 0; opacity: 1; }
+  10% { stroke-dashoffset: 0; opacity: 0; }
+  11% { stroke-dashoffset: 1; opacity: 0; }
+  17% { stroke-dashoffset: 1; opacity: 1; }
+  52%, 100% { stroke-dashoffset: 0; opacity: 1; }
+}
+
+/* Calendario: la mano se retira, la nota vieja se va, la mano vuelve con
+   una nueva, la aprieta y le aparece la chinche; queda apretándola, que es
+   el estado base. La mano está girada −70° en su `<g>` de afuera: sus
+   traslaciones van en ese sistema (y positivo es "hacia la muñeca");
+   (1.7, 63.2) ahí es lo mismo que (60, 20) en la pantalla, de donde viene
+   la nota. */
+.escena.en-accion .esc-mano {
+  animation-name: esc-mano;
+}
+@keyframes esc-mano {
+  0%, 72%, 100% { opacity: 1; transform: translate(0, 0); }
+  16% { opacity: 1; transform: translate(3px, 70px); }
+  22% { opacity: 0; transform: translate(4px, 100px); }
+  30% { opacity: 0; transform: translate(1.7px, 63.2px); }
+  34% { opacity: 1; }
+  60% { transform: translate(0, 0); }
+  66% { transform: translate(0, -2.5px); }
+}
+.escena.en-accion .esc-nota-llega {
+  animation-name: esc-nota-llega;
+}
+@keyframes esc-nota-llega {
+  0%, 24% { opacity: 1; transform: none; }
+  30% { opacity: 0; transform: none; }
+  30.1% { opacity: 0; transform: translate(60px, 20px) rotate(8deg); }
+  34% { opacity: 1; }
+  60% { transform: translate(0, 0) rotate(0deg) scale(1); }
+  66% { transform: scale(0.97); }
+  72%, 100% { opacity: 1; transform: none; }
+}
+.escena.en-accion .esc-chinche {
+  animation-name: esc-chinche;
+  animation-timing-function: ease-out;
+}
+@keyframes esc-chinche {
+  0%, 30% { transform: scale(1); }
+  30.1%, 66% { transform: scale(0); }
+  72% { transform: scale(1.25); }
+  77%, 100% { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .contorno-prisma::before,
+  .escena * {
+    animation: none !important;
+  }
+  .escena .escena-linea {
+    transition: none;
+  }
+}
+
+/* `.turno-notita` — la tarjeta de un turno en el calendario, con aspecto
+   de notita (correcciones generales, ítem 2, pedido de la persona: "las
+   tarjetas van a tener aspecto de notita, para darle un toque más amena a
+   la app").
+   - El papel: el color del tipo de consulta (el de quien mira, TR-145) y
+     una sombra corta, como un papel apoyado.
+   - El contorno es una sombra interior y no un `border`: así la esquina
+     doblada (`::after`) lo puede tapar. El `overflow: hidden` de la
+     tarjeta recorta en el borde de relleno, y un `border` quedaba dibujado
+     alrededor de la esquina cortada.
+   - La esquina doblada va abajo a la derecha; si el turno sigue en su
+     postturno, la lleva el postturno (`.turno-notita--pie`), que es donde
+     termina la nota.
+   - Sin rotación: inclinarla corría las esquinas un par de píxeles fuera
+     de su rango horario, y la grilla tiene que seguir siendo exacta.
+   Variable: `--notita-borde` (el contorno). La asistencia no va en el
+   contorno sino en un ícono (`MarcaDeAsistencia` en `calendar-grid.tsx`). */
+.turno-notita {
+  box-shadow:
+    inset 0 0 0 1px var(--notita-borde, var(--color-linea)),
+    0 1px 1px rgb(53 49 43 / 0.06),
+    0 3px 6px -3px rgb(53 49 43 / 0.22);
+}
+/* La franja de pegamento de arriba: un tono apenas más oscuro, como el
+   borde adhesivo de una notita. Solo en la tarjeta del turno (el
+   postturno es la misma nota, sigue de largo). */
+.turno-notita:not(.turno-notita--pie)::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 5px;
+  pointer-events: none;
+  background: linear-gradient(rgb(53 49 43 / 0.08), rgb(53 49 43 / 0));
+}
+
+/* El postturno sigue a su turno sin línea en la unión (el turno ya cierra
+   con la suya), como el `border-t-0` de antes. */
+.turno-notita--pie {
+  box-shadow:
+    inset 1px 0 0 0 var(--notita-borde, var(--color-linea)),
+    inset -1px 0 0 0 var(--notita-borde, var(--color-linea)),
+    inset 0 -1px 0 0 var(--notita-borde, var(--color-linea)),
+    0 1px 1px rgb(53 49 43 / 0.06),
+    0 3px 6px -3px rgb(53 49 43 / 0.22);
+}
+.turno-notita--doblez::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 10px;
+  height: 10px;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom right,
+    color-mix(in srgb, var(--notita-borde, var(--color-linea)) 80%, black) 50%,
+    var(--color-marfil) 50%
+  );
+  border-top-left-radius: 2px;
+  box-shadow: -1px -1px 1px rgb(53 49 43 / 0.12);
 }

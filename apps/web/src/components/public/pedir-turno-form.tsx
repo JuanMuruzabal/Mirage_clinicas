@@ -1145,7 +1145,7 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, tipoConsu
             href={linkWhatsapp}
             target="_blank"
             rel="noopener noreferrer"
-            className="mx-auto mt-5 inline-block rounded-lg bg-salvia-oscuro px-6 py-3 text-sm font-semibold text-marfil hover:brightness-95"
+            className="boton-primario mx-auto mt-5 inline-block rounded-lg px-6 py-3 text-sm font-semibold"
           >
             Escribir también por WhatsApp
           </a>
@@ -1535,7 +1535,7 @@ export function PedirTurnoForm({ slug, nombreClinica, telefonoClinica, tipoConsu
                   href={`https://wa.me/${telefonoClinica.replace(/[^\d]/g, "")}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="rounded-full bg-salvia-oscuro px-4 py-1.5 text-xs font-semibold text-marfil hover:brightness-95"
+                  className="boton-primario rounded-full px-4 py-1.5 text-xs font-semibold"
                 >
                   Escribir por WhatsApp
                 </a>

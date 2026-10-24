@@ -25,7 +25,7 @@ function Estadisticas({ config, estadisticas, estiloMovimiento }: { config: Reco
   const cuerpo =
     varianteDeConfig(config, VARIANTES) === "franja" ? (
       // Franja: una banda ancha con los números grandes, sobre el acento suave del tema.
-      <div className="flex flex-wrap items-center justify-around gap-6 rounded-(--pp-radio) bg-[var(--pp-acento-suave,var(--color-salvia-claro))] p-(--pp-relleno) text-center">
+      <div className="flex flex-wrap items-center justify-around gap-6 rounded-(--pp-radio) bg-[var(--pp-acento-suave,var(--color-marca-claro))] p-(--pp-relleno) text-center">
         {elegidas.map((e) => (
           <div key={e.id} className="flex flex-col items-center gap-1">
             {envolver("numero", <span className={`${CLASE_NUMERO} text-5xl`}>{FORMATO.format(estadisticas[e.id])}</span>)}

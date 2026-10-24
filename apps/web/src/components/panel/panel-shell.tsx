@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { useRef, type ReactNode } from "react";
 import { useIsomorphicLayoutEffect } from "@/lib/use-isomorphic-layout-effect";
+import { FondoOndas } from "@/components/fondo-ondas";
 
 /**
  * Envuelve la raíz de gestión de clínica (sidebar + `<main>`) — rama
@@ -52,7 +53,13 @@ export function PanelShell({ children }: { children: ReactNode }) {
   }, [pathname]);
 
   return (
-    <div ref={ref} className="panel-texture panel-shell-h flex flex-1 pt-[var(--header-height)] max-md:overflow-hidden">
+    // `isolate`: el fondo de ondas va con z-index negativo y tiene que
+    // quedar detrás del sidebar y de `<main>` pero adentro de esta raíz
+    // (sin contexto propio caería detrás del fondo del documento). El
+    // aislamiento no crea una raíz de backdrop, así que el vidrio de las
+    // tarjetas sigue viendo las ondas.
+    <div ref={ref} className="panel-shell-h isolate flex flex-1 pt-[var(--header-height)] max-md:overflow-hidden">
+      <FondoOndas />
       {children}
     </div>
   );

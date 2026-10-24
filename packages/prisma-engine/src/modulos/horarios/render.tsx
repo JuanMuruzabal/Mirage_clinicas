@@ -16,8 +16,8 @@ function horariosDelDia(dia: DiaClinica | undefined): string {
 
 function EstadoActual({ horarios }: { horarios: HorariosClinicaVista }) {
   return (
-    <p className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium ${horarios.abiertoAhora ? "bg-[var(--pp-acento-suave,var(--color-salvia-claro))] text-[var(--pp-acento-texto,var(--color-grafito))]" : "border border-(--pp-borde) text-(--pp-texto)"}`}>
-      <span aria-hidden="true" className={`h-2 w-2 rounded-full ${horarios.abiertoAhora ? "bg-[var(--pp-acento,var(--color-salvia))]" : "bg-(--pp-borde)"}`} />
+    <p className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium ${horarios.abiertoAhora ? "bg-[var(--pp-acento-suave,var(--color-marca-claro))] text-[var(--pp-acento-texto,var(--color-grafito))]" : "border border-(--pp-borde) text-(--pp-texto)"}`}>
+      <span aria-hidden="true" className={`h-2 w-2 rounded-full ${horarios.abiertoAhora ? "bg-[var(--pp-acento,var(--color-marca-relleno))]" : "bg-(--pp-borde)"}`} />
       {horarios.abiertoAhora ? "Abierto ahora" : "Cerrado ahora"}
     </p>
   );

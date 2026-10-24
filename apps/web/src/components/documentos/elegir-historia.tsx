@@ -66,7 +66,7 @@ export function ElegirHistoria({
               type="button"
               onClick={() => void crear(() => crearAnexoConHistoriaGeneralAction(plantillaId, paciente.id))}
               disabled={creando}
-              className={`rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60 ${CLASE_TACTIL}`}
+              className={`rounded-control boton-primario px-5 py-2.5 text-sm font-semibold ${CLASE_TACTIL}`}
             >
               Crear la Historia Clínica General
             </button>
@@ -79,7 +79,7 @@ export function ElegirHistoria({
                   type="button"
                   onClick={() => void crear(() => crearDocumentoAction(plantillaId, paciente.id, h.id))}
                   disabled={creando}
-                  className="flex w-full flex-col gap-1.5 rounded-field border border-linea bg-hueso px-4 py-3 text-left hover:border-salvia disabled:opacity-60"
+                  className="flex w-full flex-col gap-1.5 rounded-field border border-linea bg-hueso px-4 py-3 text-left hover:border-marca-medio disabled:opacity-60"
                 >
                   {/* El estado en su propio renglón, siempre en el mismo
                       lugar: al costado del nombre saltaba de lugar según

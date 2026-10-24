@@ -1,6 +1,11 @@
-import Link from "next/link";
-import { QuadrantMark } from "./quadrant-mark";
-import { IconArrowRight } from "./icons";
+import type { ServicioConEscena } from "./panel/escenas";
+import {
+  CLASE_ANTETITULO_DE_TARJETA,
+  CLASE_BOTON_DE_TARJETA_ENLAZADA,
+  CLASE_DESCRIPCION_DE_TARJETA,
+  CLASE_TITULO_DE_TARJETA,
+  TarjetaConDibujo,
+} from "./tarjeta-con-dibujo";
 
 interface NavCardProps {
   href: string;
@@ -8,82 +13,30 @@ interface NavCardProps {
   titulo: string;
   descripcion: string;
   cta?: string;
-  size?: "default" | "large";
-  /**
-   * "principal" cambia la COMPOSICIÓN, no solo el tamaño: la tarjeta pasa
-   * a ser horizontal, con el texto a la izquierda y un botón sólido a la
-   * derecha. Rediseño del 2026-09-14 — la acción principal ocupa las dos
-   * columnas de la grilla, y una tarjeta estirada sin cambiar de
-   * composición no justifica su ancho: queda peor que antes de
-   * agrandarla.
-   */
-  variante?: "normal" | "principal";
+  /** La escena de fondo: una por servicio. */
+  dibujo?: ServicioConEscena;
 }
 
-// Tarjeta de navegación. Uso actual: solo /seleccionar-servicio (la
-// pantalla post-login) — por eso lleva la identidad cálida del panel
-// (TR-013 en docs/Arquitectura y base/tradeoffs.md), no la del Sistema
-// Cascarón de la home marketing/pública, que no la usa.
+// Tarjeta de navegación de /seleccionar-servicio.
+//
+// Rediseño del 2026-10-19 (pedido de la persona): las tres tarjetas son
+// IGUALES —misma composición, mismo tamaño, una debajo de la otra—, sin la
+// variante "principal" ni el `PrismaMark`. El armado (el vidrio, la carátula,
+// la escena y el botón) es `TarjetaConDibujo`, el mismo de las tarjetas de
+// /clinicas: las dos pantallas no pueden divergir.
 //
 // Toda la tarjeta es el enlace, no solo el "Entrar": el objetivo de click
 // más grande es el que la persona ya está mirando.
-export function NavCard({
-  href,
-  eyebrow,
-  titulo,
-  descripcion,
-  cta = "Entrar",
-  size = "default",
-  variante = "normal",
-}: NavCardProps) {
-  const big = size === "large";
-
-  if (variante === "principal") {
-    return (
-      <Link
-        href={href}
-        className="group flex flex-col items-start gap-6 rounded-card border border-linea bg-marfil p-8 shadow-soft transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-lg sm:flex-row sm:items-center sm:gap-10 sm:p-11"
-      >
-        <QuadrantMark className="text-salvia transition-transform duration-300 group-hover:scale-110 group-hover:text-salvia-oscuro" />
-        <div className="flex flex-col gap-2">
-          {eyebrow && (
-            <p className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-grafito/50">
-              {eyebrow}
-            </p>
-          )}
-          <h3 className="font-[family-name:var(--font-display)] text-[clamp(32px,3.6vw,42px)] font-medium leading-tight text-grafito">
-            {titulo}
-          </h3>
-          <p className="text-[17.5px] text-grafito/60">{descripcion}</p>
-        </div>
-        <span className="flex items-center gap-2 rounded-full bg-salvia-oscuro px-[30px] py-4 text-sm font-semibold text-marfil transition-all duration-300 group-hover:brightness-95 sm:ml-auto">
-          {cta}
-          <IconArrowRight className="h-4 w-4" />
-        </span>
-      </Link>
-    );
-  }
-
+export function NavCard({ href, eyebrow, titulo, descripcion, cta = "Entrar", dibujo }: NavCardProps) {
   return (
-    <Link
-      href={href}
-      className={`group relative flex h-full flex-col gap-3 rounded-card border border-linea bg-marfil shadow-soft transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-salvia hover:shadow-lg ${
-        big ? "p-10" : "p-8"
-      }`}
-    >
-      <QuadrantMark className="text-salvia transition-transform duration-300 group-hover:scale-110 group-hover:text-salvia-oscuro" />
-      {eyebrow && (
-        <p className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-grafito/50">{eyebrow}</p>
-      )}
-      <h3
-        className={`font-[family-name:var(--font-display)] font-medium text-grafito ${big ? "text-3xl" : "text-2xl"}`}
-      >
-        {titulo}
-      </h3>
-      <p className="text-sm text-grafito/60">{descripcion}</p>
-      <span className="mt-auto pt-2 text-sm font-medium text-salvia-oscuro transition-transform duration-300 group-hover:translate-x-1 group-hover:text-grafito">
-        {cta}
-      </span>
-    </Link>
+    <TarjetaConDibujo href={href} dibujo={dibujo}>
+      {eyebrow && <p className={CLASE_ANTETITULO_DE_TARJETA}>{eyebrow}</p>}
+      <h2 className={CLASE_TITULO_DE_TARJETA}>{titulo}</h2>
+      <p className={`mb-3 ${CLASE_DESCRIPCION_DE_TARJETA}`}>{descripcion}</p>
+      {/* El botón secundario delineado de la app, a 44 px e igual en las
+          tres: tres rellenos competirían entre sí, y no hay una acción
+          principal. Es un <span> porque la tarjeta entera ya es el link. */}
+      <span className={`mt-auto self-start ${CLASE_BOTON_DE_TARJETA_ENLAZADA}`}>{cta}</span>
+    </TarjetaConDibujo>
   );
 }

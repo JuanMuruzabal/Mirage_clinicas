@@ -74,7 +74,7 @@ export function CrearCuentaForm({ onRegistrado }: { onRegistrado: (email: string
   return (
     <div className="flex flex-col gap-5">
       {cuentaExistente && (
-        <p className="rounded-field border-[0.5px] border-salvia bg-salvia-claro px-4 py-3 text-sm text-salvia-oscuro">
+        <p className="rounded-field border-[0.5px] border-marca-medio bg-marca-claro px-4 py-3 text-sm text-marca">
           Ese mail ya tiene una cuenta.{" "}
           <Link href="/ingresar" className="font-medium underline hover:no-underline">
             Iniciá sesión
@@ -116,11 +116,11 @@ export function CrearCuentaForm({ onRegistrado }: { onRegistrado: (email: string
 
         <AuthCheckboxField error={errors.aceptaTerminos?.message} {...register("aceptaTerminos")}>
           Acepto los{" "}
-          <Link href="/terminos" className="font-medium text-salvia-oscuro hover:text-grafito">
+          <Link href="/terminos" className="font-medium text-marca hover:text-grafito">
             términos
           </Link>{" "}
           y la{" "}
-          <Link href="/privacidad" className="font-medium text-salvia-oscuro hover:text-grafito">
+          <Link href="/privacidad" className="font-medium text-marca hover:text-grafito">
             política de privacidad
           </Link>
           .
@@ -147,7 +147,7 @@ export function CrearCuentaForm({ onRegistrado }: { onRegistrado: (email: string
 
       <p className="text-center text-sm text-grafito/60">
         ¿Ya tenés cuenta?{" "}
-        <Link href="/ingresar" className="font-medium text-salvia-oscuro hover:text-grafito">
+        <Link href="/ingresar" className="font-medium text-marca hover:text-grafito">
           Ingresar
         </Link>
       </p>

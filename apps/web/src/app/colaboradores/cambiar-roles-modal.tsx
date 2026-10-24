@@ -80,10 +80,10 @@ export function CambiarRolesModal({ miembro, onCerrar }: { miembro: MiembroDelEq
           onClick={() => setAdmin((a) => !a)}
           aria-pressed={admin}
           className={`flex items-center gap-3 rounded-[10px] border p-4 text-left transition-colors ${
-            admin ? "border-salvia-oscuro bg-salvia-claro" : "border-linea bg-marfil hover:border-salvia"
+            admin ? "border-marca bg-marca-claro" : "border-linea bg-marfil hover:border-marca-medio"
           }`}
         >
-          <span className={admin ? "text-salvia-oscuro" : "text-grafito/40"}>
+          <span className={admin ? "text-marca" : "text-grafito/40"}>
             <IconPersonalize className="h-5 w-5" />
           </span>
           <span className="flex flex-col">
@@ -93,7 +93,7 @@ export function CambiarRolesModal({ miembro, onCerrar }: { miembro: MiembroDelEq
           <span
             aria-hidden="true"
             className={`ml-auto flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border ${
-              admin ? "border-salvia-oscuro bg-salvia-oscuro text-marfil" : "border-linea"
+              admin ? "border-marca-relleno bg-marca-relleno text-marfil" : "border-linea"
             }`}
           >
             {admin && <IconCheck className="h-3.5 w-3.5" />}

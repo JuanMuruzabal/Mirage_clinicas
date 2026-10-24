@@ -1,8 +1,24 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { useAltoDeFilas } from "@/lib/alto-de-filas";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { CajaDeTabla } from "./caja-de-tabla";
 import { FechaHoraCelda } from "./fecha-hora-celda";
+import { CLASE_TACTIL } from "@/components/editor-pagina/estilos";
+import {
+  CLASE_CABECERA,
+  CLASE_CAJA_TABLA,
+  CLASE_CAJA_VACIA,
+  CLASE_CELDA,
+  CLASE_CELDA_SECUNDARIA,
+  CLASE_COLUMNA_ACCIONES,
+  CLASE_COLUMNA_FIJA,
+  CLASE_FILA,
+  CLASE_FILA_CLICABLE,
+  CLASE_FONDO_ANIDADO,
+  CLASE_MONO,
+  CLASE_TABLA,
+  CLASE_TEXTO_SECUNDARIO,
+} from "./tabla";
 import Link from "next/link";
 import type { ListarTurnosParams } from "@/lib/api";
 import type { TipoConsulta, Turno } from "@dental-mirage/shared-types";
@@ -49,7 +65,7 @@ interface TurnosTableProps {
 // 2026-09-06): la columna Contacto mostraba el teléfono/mail PROPIOS del
 // paciente aunque el turno sea "para otro" — ahí esos campos casi siempre
 // están vacíos (son opcionales), el dato útil para contactarse es el del
-// TUTOR que sacó el turno. La columna "Sacado por otro" ya identifica el
+// TUTOR que sacó el turno. La columna Origen ("Sacado por …") ya identifica el
 // caso, así que acá no hace falta ninguna etiqueta extra.
 function contactoDeTurno(t: Turno): { telefono: string; email: string } {
   if (t.esParaOtro) {
@@ -98,9 +114,6 @@ export function TurnosTable({ turnosIniciales, totalInicial, tiposConsulta, filt
   // establecido, ver el comentario ahí) — un efecto de montaje simple
   // alcanza, no hace falta re-disparar esto en ningún otro momento.
   const filaAbiertaRef = useRef<HTMLTableRowElement>(null);
-  // En el celular, cuatro filas enteras antes del scroll (ver lib/alto-de-filas.ts).
-  const cajaTabla = useRef<HTMLDivElement>(null);
-  useAltoDeFilas(cajaTabla);
   useEffect(() => {
     filaAbiertaRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, []);
@@ -208,7 +221,7 @@ export function TurnosTable({ turnosIniciales, totalInicial, tiposConsulta, filt
         <button
           type="button"
           onClick={() => setConfirmandoCancelarTodos(true)}
-          className="rounded-full border-[0.5px] border-terracota bg-marfil px-4 py-2 text-sm font-medium text-terracota-oscuro hover:bg-terracota-claro"
+          className="rounded-control border-[0.5px] border-terracota bg-marfil px-4 py-2 text-sm font-medium text-terracota-oscuro hover:bg-terracota-claro"
         >
           Cancelar todos los turnos sin verificar
         </button>
@@ -222,7 +235,7 @@ export function TurnosTable({ turnosIniciales, totalInicial, tiposConsulta, filt
               type="button"
               onClick={cancelarTodosSinVerificar}
               disabled={cancelandoTodos}
-              className="rounded-full bg-terracota-oscuro px-4 py-2 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
+              className="rounded-control bg-terracota-oscuro px-4 py-2 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
             >
               {cancelandoTodos ? "Cancelando…" : "Sí, cancelar todos"}
             </button>
@@ -230,7 +243,7 @@ export function TurnosTable({ turnosIniciales, totalInicial, tiposConsulta, filt
               type="button"
               onClick={() => setConfirmandoCancelarTodos(false)}
               disabled={cancelandoTodos}
-              className="rounded-full border-[0.5px] border-arena px-4 py-2 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro disabled:opacity-60"
+              className="rounded-control border-[0.5px] border-arena px-4 py-2 text-sm font-medium text-grafito hover:border-marca-medio hover:text-marca disabled:opacity-60"
             >
               Volver
             </button>
@@ -245,7 +258,7 @@ export function TurnosTable({ turnosIniciales, totalInicial, tiposConsulta, filt
     return (
       <>
         {bulkCancelarSinVerificar}
-        <p className="rounded-card border-[0.5px] border-arena bg-marfil p-8 text-center text-sm text-grafito/60 shadow-soft">
+        <p className={`${CLASE_CAJA_VACIA} p-8 text-center text-sm text-grafito/75`}>
           No hay turnos para este filtro.
         </p>
       </>
@@ -283,7 +296,11 @@ export function TurnosTable({ turnosIniciales, totalInicial, tiposConsulta, filt
   // ahora es una única tabla para cualquier ancho, pero se deja
   // extraído igual para no volver a mezclar la lógica de qué botón
   // mostrar según estado/resuelto con el JSX de la fila expandida.
-  function renderAcciones(t: Turno, resuelto: boolean) {
+  // `verPaciente` es el link a la ficha: va al final de las acciones, y en un
+  // turno resuelto, en el renglón de la asistencia (pedido de la persona,
+  // 2026-10-18: "el 'ver paciente' debería verse bien al lado del
+  // 'asistió'"; antes quedaba arriba, a la altura del aviso).
+  function renderAcciones(t: Turno, resuelto: boolean, verPaciente: ReactNode) {
     if (resuelto) {
       // Corrección de QA (rediseño del cartel de asistencia en tiempo
       // real, `AsistenciaCartelGlobal`): "vamos a quitar todos los otros
@@ -292,26 +309,36 @@ export function TurnosTable({ turnosIniciales, totalInicial, tiposConsulta, filt
       // resueltos en turnos" — esta fila deja de tener forma de marcar
       // asistencia, solo muestra lo que el cartel ya marcó (o un aviso
       // de que está pendiente ahí).
+      // La pastilla mide lo mismo que el botón de al lado (`py-1.5` y un
+      // borde de 1 px del mismo color: 30 px), así se ven del mismo sistema;
+      // con el dedo el botón crece a 44 y la pastilla queda centrada. El
+      // renglón no se parte: si no entra (el aviso de "pendiente" en el
+      // celular), se achica el texto y el botón sigue al lado.
       return (
         <div className="flex flex-col gap-2">
-          <p className="text-xs text-grafito/50">Turno ya resuelto — sin acciones de edición disponibles.</p>
-          {t.asistencia ? (
-            <p className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-medium text-grafito/60">Asistencia:</span>
-              <span
-                className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                  t.asistencia === "asistio" ? "bg-salvia-oscuro text-marfil" : "bg-terracota-oscuro text-marfil"
-                }`}
-              >
-                {t.asistencia === "asistio" ? "Asistió" : "Ausente"}
-              </span>
-            </p>
-          ) : (
-            <p className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-medium text-grafito/60">Asistencia:</span>
-              <span className="text-xs text-grafito/50">Pendiente de confirmar en el cartel de asistencia.</span>
-            </p>
-          )}
+          <p className="text-xs text-grafito/75">Turno ya resuelto — sin acciones de edición disponibles.</p>
+          <div className="flex items-center gap-4">
+            {t.asistencia ? (
+              <p className="flex min-w-0 flex-wrap items-center gap-2">
+                <span className="text-xs font-medium text-grafito/75">Asistencia:</span>
+                <span
+                  className={`rounded-control border px-3 py-1.5 text-xs font-semibold ${
+                    t.asistencia === "asistio"
+                      ? "border-salvia-oscuro bg-salvia-oscuro text-marfil"
+                      : "border-terracota-oscuro bg-terracota-oscuro text-marfil"
+                  }`}
+                >
+                  {t.asistencia === "asistio" ? "Asistió" : "Ausente"}
+                </span>
+              </p>
+            ) : (
+              <p className="flex min-w-0 flex-wrap items-center gap-2">
+                <span className="text-xs font-medium text-grafito/75">Asistencia:</span>
+                <span className="text-xs text-grafito/75">Pendiente de confirmar en el cartel de asistencia.</span>
+              </p>
+            )}
+            {verPaciente}
+          </div>
         </div>
       );
     }
@@ -321,7 +348,7 @@ export function TurnosTable({ turnosIniciales, totalInicial, tiposConsulta, filt
           <button
             type="button"
             onClick={() => setEditarTurno(t)}
-            className="rounded-full border-[0.5px] border-arena bg-marfil px-3 py-1.5 text-xs font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
+            className={`inline-flex items-center rounded-control border border-linea bg-marfil px-3 py-1.5 text-xs font-medium text-grafito hover:border-marca-medio hover:bg-velo hover:text-marca ${CLASE_TACTIL}`}
           >
             Editar
           </button>
@@ -330,11 +357,12 @@ export function TurnosTable({ turnosIniciales, totalInicial, tiposConsulta, filt
           <button
             type="button"
             onClick={() => pedirCancelar(t)}
-            className="rounded-full border-[0.5px] border-terracota bg-marfil px-3 py-1.5 text-xs font-medium text-terracota-oscuro hover:bg-terracota-claro"
+            className={`inline-flex items-center rounded-control border border-terracota bg-marfil px-3 py-1.5 text-xs font-medium text-terracota-oscuro hover:bg-terracota-claro ${CLASE_TACTIL}`}
           >
             Cancelar
           </button>
         )}
+        {verPaciente}
       </>
     );
   }
@@ -349,79 +377,43 @@ export function TurnosTable({ turnosIniciales, totalInicial, tiposConsulta, filt
         </p>
       )}
 
-      {/* Rediseño 2026-08-27 (pedido explícito del cliente, reemplaza el
-          intento anterior de cards apiladas) — "es descartar por
-          completo el movimiento horizontal y
-          vertical... quiero que las tablas... funcionen de la misma
-          forma que en escritorio, que cuando se vayan siendo muy
-          extensas con un scrollbar puedas ir bajando... dar la
-          información clave a la vista, al tocarlos desplegar más
-          información junto a sus respectivos botones, pero usar las
-          mismas tablas que en web"). Sigue siendo LA MISMA tabla en
-          mobile y escritorio (nunca un componente distinto) — lo que
-          cambia es CUÁNTAS columnas se ven en cada ancho:
-          Contacto/Motivo/Origen pasan a `max-md:hidden` (ver los
-          `<th>`/`<td>` de abajo), visibles otra vez desde `md`. Con
-          menos columnas, el contenido real vuelve a entrar sin
-          desbordar — la caja ya NO necesita ningún `min-width` forzado
-          ni compartir scroll con el buscador/tabs de arriba (eso lo
-          resolvía turnos/page.tsx por separado, tampoco lo necesita
-          más). `overflow-x-auto` queda como red de seguridad, no como
-          mecanismo principal: si algún dato puntual necesitara más ancho,
-          esta caja scrollea SOLA, nunca la página entera.
-
-          `max-h-[600px] overflow-y-auto` en escritorio (con
-          `max-md:max-h-[21rem]` en mobile — pedido explícito del
-          cliente, 2026-08-27: "solo habrá 4 visibles a primera vista,
-          para ver los demás se deberá ir para abajo" — cabecera + 4
-          filas ya alcanzan el ancho de la pantalla, así que 4 es lo que
-          entra cómodo). Reemplaza `max-md:max-h-none
-          max-md:overflow-visible` de TR-028: la caja vuelve a ser su
-          propio contenedor de scroll vertical en cualquier ancho — con
-          muchos turnos, es ESTA caja la que saca su propia scrollbar
-          (`.panel-table-scroll`, ver globals.css — la nativa quedaba
-          invisible), la página (`<main>`) no se alarga sin límite.
-          `max-md:overflow-x-hidden` (pedido explícito del cliente:
-          "que se pueda desplazar solo verticalmente") — con las
-          columnas secundarias ya ocultas en mobile (ver los `<th>`/
-          `<td>` de abajo) no hace falta scroll horizontal ahí, y sin
-          esto un gesto diagonal disparaba los dos ejes a la vez.
-          El sticky ya no vive en `thead`/`tr` — pasa a cada `th`
-          (`.panel-th-sticky`, ver globals.css) por un bug de Safari de
-          iOS con rebote elástico (2026-08-28): WebKit no soporta bien
-          el sticky en thead/tr durante el overscroll, sí en las celdas
-          directamente. */}
-      <div ref={cajaTabla} className="panel-table-scroll max-h-[600px] overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-[var(--alto-mobile,21rem)] max-md:overflow-x-hidden md:overflow-x-auto">
-        <table className="w-full text-left text-sm">
+      {/* La misma tabla en todos los anchos, con el sistema común de las
+          tablas del panel (components/panel/tabla.ts). Hasta el 2026-10-12
+          el celular escondía Contacto, Motivo, Origen y el resto, y los
+          mostraba al desplegar la fila; desde las correcciones generales
+          (ítem 9, pedido de la persona) la tabla va COMPLETA, en el orden de
+          la computadora, y scrollea de costado adentro de su caja —nunca la
+          página—, con la columna del paciente fija a la izquierda. El alto
+          crece hasta el espacio libre de la pantalla, sin bajar de cuatro
+          filas en el celular ni de 20 rem en la computadora (CajaDeTabla,
+          lib/alto-de-filas.ts). El sticky de la cabecera va en
+          cada `th` (`.panel-th-sticky`) por el bug de Safari de iOS con el
+          rebote elástico (2026-08-28). */}
+      <CajaDeTabla llenaLaPantalla className={CLASE_CAJA_TABLA}>
+        <table className={CLASE_TABLA}>
           <thead>
-            <tr className="border-b border-arena text-xs font-semibold uppercase tracking-wide text-grafito/60 md:border-b-[0.5px]">
-              <th className="panel-th-sticky px-4 py-3">Paciente</th>
-              <th className="panel-th-sticky max-md:hidden px-4 py-3">Tipo de consulta</th>
-              <th className="panel-th-sticky max-md:hidden px-4 py-3">Contacto</th>
-              <th className="panel-th-sticky max-md:hidden px-4 py-3">Motivo</th>
-              {/* Corrección de QA (2026-09-06): "Fecha y hora" envolvía en
-                  3 líneas en mobile (columna angosta con solo 3 visibles:
-                  Paciente/Fecha/Estado) — "Fecha" a secas entra en una
-                  línea; desde `md` sigue el texto completo. */}
-              <th className="panel-th-sticky px-4 py-3">
-                <span className="md:hidden">Fecha</span>
-                <span className="hidden md:inline">Fecha y hora</span>
-              </th>
-              <th className="panel-th-sticky px-4 py-3">Estado</th>
-              <th className="panel-th-sticky max-md:hidden px-4 py-3">Origen</th>
-              {/* Sacado por otro (Fase 2.4.2) — Sí cuando el turno se
-                  originó por el camino "sacar turno para otro" del
-                  wizard público (Turno.EsParaOtro), No en cualquier otro
-                  caso (incluido "para mí" y alta manual del panel). */}
-              <th className="panel-th-sticky max-md:hidden px-4 py-3">Sacado por otro</th>
+            <tr>
+              <th className={`${CLASE_CABECERA} ${CLASE_COLUMNA_FIJA}`}>Paciente</th>
+              <th className={CLASE_CABECERA}>Tipo de consulta</th>
+              <th className={CLASE_CABECERA}>Contacto</th>
+              <th className={CLASE_CABECERA}>Motivo</th>
+              <th className={CLASE_CABECERA}>Fecha y hora</th>
+              <th className={CLASE_CABECERA}>Estado</th>
+              {/* Origen con "Sacado por otro" adentro (correcciones
+                  generales, 2026-10-12): eran dos columnas, y la segunda
+                  decía "Sí"/"No" debajo del rótulo más ancho de la tabla.
+                  Juntas, la tabla entra entera en la computadora desde
+                  ~1280 px, y el nombre de quien lo sacó (Fase 2.4.2) va
+                  debajo del origen. */}
+              <th className={CLASE_CABECERA}>Origen</th>
               {/* Profesional (Fase 3.2.6) — SOLO en la vista general de
                   recepción, que es la única donde los turnos son de
                   varias personas. En la vista de un profesional todos
                   son suyos y la columna sería una palabra repetida en
                   cada fila. El backend manda el dato con el mismo
                   criterio. */}
-              {conProfesional && <th className="panel-th-sticky max-md:hidden px-4 py-3">Profesional</th>}
-              <th className="panel-th-sticky w-10 px-4 py-3" aria-hidden="true" />
+              {conProfesional && <th className={CLASE_CABECERA}>Profesional</th>}
+              <th className={`${CLASE_CABECERA} ${CLASE_COLUMNA_ACCIONES}`} aria-hidden="true" />
             </tr>
           </thead>
           <tbody>
@@ -449,22 +441,37 @@ export function TurnosTable({ turnosIniciales, totalInicial, tiposConsulta, filt
                   <tr
                     ref={t.id === abrirId ? filaAbiertaRef : undefined}
                     onClick={() => alternarExpandido(t.id)}
-                    className={`cursor-pointer border-b border-arena last:border-b-0 hover:bg-arena md:border-b-[0.5px] ${expandido ? "bg-hueso" : ""}`}
+                    data-abierta={expandido || undefined}
+                    // Abierta, sin el velo del hover: con el puntero encima,
+                    // recién tocada, quedaba de otro tono que lo desplegado
+                    // (igual que la fila desplegable de Documentos).
+                    className={expandido ? `${CLASE_FILA} cursor-pointer ${CLASE_FONDO_ANIDADO}` : CLASE_FILA_CLICABLE}
                   >
-                    <td className="px-4 py-3">
+                    <td className={`${CLASE_CELDA} ${CLASE_COLUMNA_FIJA}`}>
                       <div className="flex items-center gap-3">
-                        <AvatarIniciales nombre={t.nombreContacto} apellido={t.apellidoContacto} />
+                        {/* En el celular sin el avatar: la columna queda fija a la
+                            izquierda, y cuanto más angosta, más lugar le
+                            deja a las que scrollean. En la vista general,
+                            tampoco por debajo de 1536 px: con la columna
+                            "Profesional" la tabla no entraba a 1280. */}
+                        <AvatarIniciales
+                          nombre={t.nombreContacto}
+                          apellido={t.apellidoContacto}
+                          className={conProfesional ? "max-2xl:hidden" : "max-md:hidden"}
+                        />
                         <div>
                           <p className="font-medium text-grafito">
                             {t.nombreContacto} {t.apellidoContacto}
                           </p>
-                          <p className="font-[family-name:var(--font-mono)] text-xs text-grafito/50">DNI {t.dniContacto}</p>
+                          {/* El DNI no se parte ("DNI" arriba y el número
+                              abajo) cuando la columna se angosta. */}
+                          <p className={`${CLASE_MONO} ${CLASE_TEXTO_SECUNDARIO} whitespace-nowrap`}>DNI {t.dniContacto}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="max-md:hidden px-4 py-3 text-sm text-grafito">{renderTipoConsulta(tipo)}</td>
-                    <td className="max-md:hidden px-4 py-3 font-[family-name:var(--font-mono)] text-xs text-grafito">
-                      <div>{contactoDeTurno(t).telefono}</div>
+                    <td className={CLASE_CELDA}>{renderTipoConsulta(tipo)}</td>
+                    <td className={CLASE_CELDA}>
+                      <div className={CLASE_MONO}>{contactoDeTurno(t).telefono}</div>
                       {/* Corrección de QA: un mail largo en la columna de
                           Contacto pasa a "Ver email", solo texto (sin la
                           pastilla con borde que usa "Ver motivo" al lado)
@@ -474,10 +481,23 @@ export function TurnosTable({ turnosIniciales, totalInicial, tiposConsulta, filt
                         (textoEsLargo(contactoDeTurno(t).email) ? (
                           <VerTextoBoton titulo="Email" texto={contactoDeTurno(t).email} variante="link" />
                         ) : (
-                          <div className="text-grafito/50">{contactoDeTurno(t).email}</div>
+                          // En la computadora, a lo sumo 11 rem con puntos
+                          // suspensivos (el completo, al pasar el mouse): un
+                          // mail no parte renglón y era lo que más ensanchaba
+                          // la tabla. Uno de más de 30 letras ya va en "Ver
+                          // email". En la vista general, 9 rem hasta `2xl`:
+                          // con la columna "Profesional", un "Ver motivo" y
+                          // un mail de 30 letras, la tabla se pasaba por 12 px
+                          // a 1280 (medido con la barra de scroll de Windows).
+                          <div
+                            className={`${CLASE_TEXTO_SECUNDARIO} md:truncate ${conProfesional ? "md:max-w-[9rem] 2xl:max-w-[11rem]" : "md:max-w-[11rem]"}`}
+                            title={contactoDeTurno(t).email}
+                          >
+                            {contactoDeTurno(t).email}
+                          </div>
                         ))}
                     </td>
-                    <td className="max-md:hidden px-4 py-3 text-grafito">
+                    <td className={CLASE_CELDA_SECUNDARIA}>
                       {/* Extra 2.3.3 (E3.3): un motivo largo no se muestra
                           más inline — rompía el ancho de la fila. Reusa
                           VerTextoBoton (Extra 2.3.1/E1.7), el mismo
@@ -488,10 +508,10 @@ export function TurnosTable({ turnosIniciales, totalInicial, tiposConsulta, filt
                         t.motivo || "—"
                       )}
                     </td>
-                    <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-grafito">
-                      <FechaHoraCelda iso={t.horaInicio} />
+                    <td className={`${CLASE_CELDA} ${CLASE_MONO}`}>
+                      <FechaHoraCelda iso={t.horaInicio} apiladaBajo2xl={conProfesional} />
                     </td>
-                    <td className="px-4 py-3">
+                    <td className={CLASE_CELDA}>
                       <span className={`inline-flex items-center gap-2 text-xs ${ESTADO_DERIVADO_CLASS[estadoVisible]}`}>
                         <QuadrantMark estado={t.estado} />
                         {ESTADO_DERIVADO_LABEL[estadoVisible]}
@@ -505,7 +525,7 @@ export function TurnosTable({ turnosIniciales, totalInicial, tiposConsulta, filt
                           mostrarla duplicada en las dos filas a la vez. */}
                       {resuelto && t.asistencia && !expandido && (
                         <span
-                          className={`mt-1 block rounded-full px-2 py-0.5 text-center text-[10px] font-semibold ${
+                          className={`mt-1 block w-fit rounded-pastilla px-2 py-0.5 text-center text-[10px] font-semibold ${
                             t.asistencia === "asistio" ? "bg-salvia-oscuro text-marfil" : "bg-terracota-oscuro text-marfil"
                           }`}
                         >
@@ -513,14 +533,12 @@ export function TurnosTable({ turnosIniciales, totalInicial, tiposConsulta, filt
                         </span>
                       )}
                     </td>
-                    <td className="max-md:hidden px-4 py-3 text-xs text-grafito/50">{ORIGEN_LABEL[t.origen]}</td>
-                    <td className="max-md:hidden px-4 py-3 text-xs text-grafito/50">{t.esParaOtro ? "Sí" : "No"}</td>
-                    {conProfesional && (
-                      <td className="max-md:hidden px-4 py-3 text-xs text-grafito/70">
-                        {t.atendidoPorNombre || "—"}
-                      </td>
-                    )}
-                    <td className="px-4 py-3 text-right">
+                    <td className={CLASE_CELDA_SECUNDARIA}>
+                      {ORIGEN_LABEL[t.origen]}
+                      {t.esParaOtro && <p className={CLASE_TEXTO_SECUNDARIO}>{t.tutorNombre ? `Sacado por ${t.tutorNombre}` : "Sacado por otro"}</p>}
+                    </td>
+                    {conProfesional && <td className={CLASE_CELDA_SECUNDARIA}>{t.atendidoPorNombre || "—"}</td>}
+                    <td className={`${CLASE_CELDA} ${CLASE_COLUMNA_ACCIONES}`}>
                       <button
                         type="button"
                         aria-expanded={expandido}
@@ -529,165 +547,48 @@ export function TurnosTable({ turnosIniciales, totalInicial, tiposConsulta, filt
                           e.stopPropagation();
                           alternarExpandido(t.id);
                         }}
-                        className={`text-grafito/50 transition-transform duration-200 hover:text-grafito ${expandido ? "rotate-180" : ""}`}
+                        className={`inline-flex h-8 w-8 items-center justify-center rounded-full text-grafito/75 transition-transform duration-200 hover:bg-velo hover:text-grafito motion-reduce:transition-none ${CLASE_TACTIL} ${expandido ? "rotate-180" : ""}`}
                       >
                         ▾
                       </button>
                     </td>
                   </tr>
                   {expandido && (
-                    <tr className="border-b border-arena bg-hueso last:border-b-0 md:border-b-[0.5px]">
-                      {/* w-px + el div interno min-w-full — corrección de QA
-                          (2026-09-06, "imitando las dimensiones de mi
-                          celular el mail queda recortado"): en una
-                          `<table>` con `table-layout: auto` (el default,
-                          sin tocar acá porque el ancho de columna
-                          "a medida" es justo lo que hace ver bien las
-                          columnas de escritorio), el algoritmo de ancho
-                          mira el contenido de CUALQUIER celda —incluida
-                          una con `colSpan`— para decidir cuánto necesita
-                          la tabla entera, y en algunos navegadores/casos
-                          eso ignora que el contenido de adentro ya puede
-                          envolver (`break-all`): la tabla entera se
-                          estira para "no perder" ese texto, y el
-                          `overflow-x-hidden` del contenedor de más arriba
-                          termina RECORTANDO en vez de envolver. `w-px`
-                          en la celda le dice al algoritmo de ancho "esta
-                          celda casi no necesita nada" (gana prioridad
-                          sobre medir el contenido de adentro); el `div`
-                          con `min-w-full` de adentro después sí ocupa
-                          todo el ancho real ya resuelto de la tabla —
-                          truco estándar de CSS para este problema
-                          puntual, no afecta el resto de las columnas. */}
-                      <td colSpan={conProfesional ? 10 : 9} className="w-px px-4 py-3">
-                        <div className="min-w-full">
-                        {/* Contacto/Motivo/Origen — ocultos como columna en
-                            mobile (arriba), reaparecen ACÁ al desplegar la
-                            fila, junto a los botones. Desde `md` no hace
-                            falta (ya se ven como columnas), por eso
-                            `md:hidden`. `text-base` (pedido explícito del
-                            cliente, 2026-08-27: "hacer bien visibles los
-                            datos al presionar... porque se ven muy
-                            pequeños") — antes el teléfono/email quedaban
-                            en `text-xs` (12px) mientras motivo/origen ya
-                            heredaban un `text-sm` sin querer más chico que
-                            el resto; ahora todos los valores comparten el
-                            mismo tamaño, más grande, solo las etiquetas
-                            (dt) se mantienen chicas a propósito. */}
-                        {/* grid-cols-[auto_minmax(0,1fr)] — corrección de QA
-                            (2026-09-06, "el mail tiende a desbordarse... se
-                            ven no alineados"): con `1fr` a secas, una celda
-                            de contenido intrínsecamente ancho (un email
-                            largo) empuja la columna más allá del ancho
-                            disponible en vez de achicarse — el clásico bug
-                            de CSS Grid ("min-width: auto" por default en
-                            los hijos). `minmax(0, 1fr)` fuerza el mínimo a
-                            0, dejando que `break-all` de adentro recién ahí
-                            pueda envolver de verdad en vez de desbordar la
-                            pantalla. `min-w-0` explícito en la celda del
-                            teléfono/mail por las dudas (el `<dd>` en sí
-                            también necesita poder achicarse, no solo la
-                            columna del grid). */}
-                        {/* items-start explícito (corrección de QA,
-                            2026-09-06) — sin esto, el default de CSS
-                            Grid ("stretch") estira cada `dt`/`dd` a la
-                            altura de TODA su fila. También se pareja el
-                            tono de todos los valores a `text-grafito`
-                            (antes el mail y Origen quedaban en `/50`, más
-                            tenues que Tipo de consulta/teléfono al lado —
-                            leído como inconsistente/"desalineado" a
-                            simple vista, no un problema de posición sino
-                            de peso visual). Se saca también la fuente
-                            monoespaciada de Teléfono/Email (pedido
-                            textual del cliente: "tiene 2 tamaños
-                            diferentes el contenido a la referencia") —
-                            al mismo `text-base`, una fuente monoespaciada
-                            se ve más grande que la fuente normal de
-                            Tipo de consulta/Origen al lado; ahora las 4
-                            filas comparten exactamente la misma fuente.
-                            Teléfono/Email — corrección de QA (2026-09-06,
-                            seguía viéndose desalineado): "Contacto" metía
-                            las dos líneas (teléfono + mail) contra UNA
-                            sola etiqueta, en la misma celda del grid — la
-                            fuente real de la rareza visual (una etiqueta
-                            de una línea nunca queda prolijamente alineada
-                            contra un valor de dos). Se separan en dos
-                            filas propias, cada una con su propia
-                            etiqueta — mismo criterio que ya usa
-                            PacientesTable (DNI/Teléfono/Email, cada uno
-                            su fila), nunca dos datos combinados en una. */}
-                        <dl className="mb-3 grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-2 text-base md:hidden">
-                          {/* PROFESIONAL, PRIMERO (QA de la 3.2.6,
-                              2026-09-21). Su columna propia es
-                              `max-md:hidden`, así que en mobile solo se
-                              puede ver acá — y sin eso, en la vista de
-                              toda la clínica la fila no decía de quién
-                              era el turno por ningún lado.
-                              Arriba de todo y no al final como en
-                              escritorio: en una lista que mezcla las
-                              agendas de varias personas, de quién es
-                              enmarca todo lo que sigue. `conProfesional`
-                              ya es falso en la vista de un profesional,
-                              donde sería su nombre repetido. */}
-                          {conProfesional && (
-                            <>
-                              <dt className="text-xs font-semibold tracking-wide text-grafito/50 uppercase">Profesional</dt>
-                              <dd className="min-w-0 text-grafito">{t.atendidoPorNombre || "—"}</dd>
-                            </>
-                          )}
-                          <dt className="text-xs font-semibold uppercase tracking-wide text-grafito/50">Tipo de consulta</dt>
-                          <dd className="min-w-0 text-grafito">{renderTipoConsulta(tipo)}</dd>
-                          <dt className="text-xs font-semibold uppercase tracking-wide text-grafito/50">Teléfono</dt>
-                          <dd className="min-w-0 text-grafito">{contactoDeTurno(t).telefono}</dd>
-                          {contactoDeTurno(t).email && (
-                            <>
-                              <dt className="text-xs font-semibold uppercase tracking-wide text-grafito/50">Email</dt>
-                              <dd className="min-w-0 text-grafito">
-                                {textoEsLargo(contactoDeTurno(t).email) ? (
-                                  <VerTextoBoton titulo="Email" texto={contactoDeTurno(t).email} variante="link" />
-                                ) : (
-                                  <span className="break-all">{contactoDeTurno(t).email}</span>
-                                )}
-                              </dd>
-                            </>
-                          )}
-                          {t.motivo && (
-                            <>
-                              <dt className="text-xs font-semibold uppercase tracking-wide text-grafito/50">Motivo</dt>
-                              <dd className="min-w-0 text-grafito">
-                                {textoEsLargo(t.motivo) ? <VerTextoBoton titulo="Motivo de consulta" texto={t.motivo} /> : t.motivo}
-                              </dd>
-                            </>
-                          )}
-                          <dt className="text-xs font-semibold uppercase tracking-wide text-grafito/50">Origen</dt>
-                          <dd className="min-w-0 text-grafito">{ORIGEN_LABEL[t.origen]}</dd>
-                          {/* Sacado por otro (Fase 2.4.2) — la columna
-                              propia queda max-md:hidden, así que en
-                              mobile solo se ve acá, dentro del panel
-                              desplegado. */}
-                          {t.esParaOtro && (
-                            <>
-                              <dt className="text-xs font-semibold uppercase tracking-wide text-grafito/50">A cargo de</dt>
-                              <dd className="min-w-0 text-grafito">{t.tutorNombre || "—"}</dd>
-                            </>
-                          )}
-                        </dl>
+                    <tr className={`${CLASE_FILA} ${CLASE_FONDO_ANIDADO}`}>
+                      {/* La fila desplegada lleva las acciones del turno. La
+                          tabla puede estar scrolleada de costado (en el
+                          celular, siempre que se mira una columna de la
+                          derecha), así que su contenido queda fijo a la
+                          izquierda y al ancho visible de la caja
+                          (`--ancho-caja`, que mide useAltoDeFilas): las
+                          acciones se ven donde se tocó, no al principio de
+                          la tabla. `w-px` en la celda: que el colSpan no le
+                          pida ancho a la tabla (truco de QA del
+                          2026-09-06). Desde el 2026-10-12 ya no repite
+                          Contacto, Motivo ni Origen: en el celular esas
+                          columnas se ven. */}
+                      <td colSpan={conProfesional ? 9 : 8} className="w-px p-0">
+                        <div className="sticky left-0 w-[var(--ancho-caja,100%)] px-4 py-3 whitespace-normal">
                         <div className="flex flex-wrap gap-2">
-                          {renderAcciones(t, resuelto)}
-                          {/* Extra 2.3.3 (E3.4) — misma navegación que el
-                              botón homónimo de TurnoDetalle en el
-                              calendario (turno-detalle.tsx): un turno
-                              manual sin ficha vinculada (bug de DNI ya
-                              corregido, ver continuarConNuevo en
-                              agregar-turno-modal.tsx) no tiene
-                              `pacienteId`, así que no se ofrece el botón. */}
-                          {t.pacienteId && (
-                            <Link
-                              href={`/panel/pacientes/${t.pacienteId}`}
-                              className="rounded-full border-[0.5px] border-arena bg-marfil px-3 py-1.5 text-xs font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
-                            >
-                              Ver paciente
-                            </Link>
+                          {/* Extra 2.3.3 (E3.4) — "Ver paciente": misma
+                              navegación que el botón homónimo de
+                              TurnoDetalle en el calendario
+                              (turno-detalle.tsx). Un turno manual sin ficha
+                              vinculada (bug de DNI ya corregido, ver
+                              continuarConNuevo en agregar-turno-modal.tsx)
+                              no tiene `pacienteId`, así que no se ofrece el
+                              botón. Lo ubica `renderAcciones`. */}
+                          {renderAcciones(
+                            t,
+                            resuelto,
+                            t.pacienteId && (
+                              <Link
+                                href={`/panel/pacientes/${t.pacienteId}`}
+                                className={`inline-flex shrink-0 items-center rounded-control border border-linea bg-marfil px-3 py-1.5 text-xs font-medium text-grafito hover:border-marca-medio hover:bg-velo hover:text-marca ${CLASE_TACTIL}`}
+                              >
+                                Ver paciente
+                              </Link>
+                            ),
                           )}
                         </div>
                         </div>
@@ -699,7 +600,7 @@ export function TurnosTable({ turnosIniciales, totalInicial, tiposConsulta, filt
             })}
           </tbody>
         </table>
-      </div>
+      </CajaDeTabla>
 
       <CargarMas cargados={turnos.length} total={total} cargando={cargandoMas} onCargarMas={cargarMas} sustantivo="turnos" />
 

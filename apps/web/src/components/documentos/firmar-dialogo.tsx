@@ -8,7 +8,7 @@ import { firmarDocumentoAction } from "@/app/actions/documentos";
 import { Dialogo } from "@/components/dialogo";
 import { LienzoDeFirma } from "./lienzo-de-firma";
 
-const CLASE_CAMPO = "w-full rounded-field border border-linea bg-hueso px-3 py-2 text-[15px] text-grafito outline-none focus:border-salvia";
+const CLASE_CAMPO = "w-full rounded-field border border-linea bg-hueso px-3 py-2 text-[15px] text-grafito outline-none focus:border-marca-medio";
 
 // FirmarDialogo — una firma en este dispositivo, en persona (Fase 5.1,
 // TR-184): la identidad la constata el profesional, que está presente.
@@ -95,8 +95,8 @@ export function FirmarDialogo({
               ].map((o) => (
                 <label
                   key={o.texto}
-                  className={`cursor-pointer rounded-full border px-3.5 py-1.5 text-sm font-medium ${
-                    enRepresentacion === o.si ? "border-salvia-oscuro bg-salvia-oscuro text-marfil" : "border-linea bg-hueso text-grafito"
+                  className={`cursor-pointer rounded-control border px-3.5 py-1.5 text-sm font-medium ${
+                    enRepresentacion === o.si ? "border-marca-relleno bg-marca-relleno text-marfil" : "border-linea bg-hueso text-grafito"
                   }`}
                 >
                   <input type="radio" name="quien-firma" className="sr-only" checked={enRepresentacion === o.si} onChange={() => cambiarARepresentante(o.si)} />
@@ -148,15 +148,12 @@ export function FirmarDialogo({
           </p>
         )}
 
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <button type="button" onClick={onCerrar} className="min-h-11 rounded-full px-4 text-sm font-medium text-grafito hover:bg-arena">
-            Cancelar
-          </button>
+        <div className="flex justify-end">
           <button
             type="button"
             onClick={() => void firmar()}
             disabled={faltaAlgo || enviando}
-            className="min-h-11 rounded-full bg-salvia-oscuro px-5 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
+            className="min-h-11 rounded-control boton-primario px-5 text-sm font-semibold"
           >
             {enviando ? "Firmando…" : "Firmar"}
           </button>

@@ -20,7 +20,9 @@ import {
 // título, y tiene sentido — lo que se elige es el alcance de ESA
 // pantalla, no del sitio. (La primera versión de esta subfase lo puso
 // como un dropdown en el header global; estaba mal y se reemplazó por
-// esto.)
+// esto.) Desde las correcciones generales (2026-10-11, pedido de la
+// persona) va ARRIBA de la tarjeta del encabezado de sección, afuera y a
+// su mismo ancho (`antes` de `EncabezadoDeSeccion`).
 //
 // LAS FLECHAS NO SON UN ADORNO. Recepción atiende un teléfono y pasa de
 // un profesional a otro todo el tiempo; con un menú, cada salto son dos
@@ -94,6 +96,7 @@ export function ZonaProfesional({
       detalleGeneral={detalleGeneral}
       guardando={guardando}
       error={error}
+      aLoAncho
     />
   );
 }
@@ -124,6 +127,7 @@ export function CarruselDeProfesionales({
   detalleGeneral = "Turnos de todos los profesionales",
   guardando = false,
   error = null,
+  aLoAncho = false,
 }: {
   profesionales: OpcionProfesional[];
   /** Quién está elegido; `null` es la opción general. */
@@ -136,6 +140,9 @@ export function CarruselDeProfesionales({
   detalleGeneral?: string;
   guardando?: boolean;
   error?: string | null;
+  /** A todo el ancho también en la computadora: arriba de la tarjeta del
+   *  encabezado de sección, con su mismo ancho. */
+  aLoAncho?: boolean;
 }) {
   const [abierto, setAbierto] = useState(false);
   const contenedor = useRef<HTMLDivElement>(null);
@@ -150,7 +157,11 @@ export function CarruselDeProfesionales({
         setAbierto(false);
     }
     function alApretarEscape(evento: KeyboardEvent) {
-      if (evento.key === "Escape") setAbierto(false);
+      if (evento.key !== "Escape") return;
+      // Marcado como usado: adentro de un diálogo ("+ Agregar turno"),
+      // Escape cierra la lista y no el diálogo entero.
+      evento.preventDefault();
+      setAbierto(false);
     }
     document.addEventListener("mousedown", alClickearAfuera);
     document.addEventListener("keydown", alApretarEscape);
@@ -199,13 +210,13 @@ export function CarruselDeProfesionales({
       : `${profesionales.length} ${profesionales.length === 1 ? "profesional" : "profesionales"}`;
 
   return (
-    <div className="flex w-full flex-col md:w-auto">
+    <div className={`flex w-full flex-col ${aLoAncho ? "" : "md:w-auto"}`}>
       {/* En verde, no en gris (2026-09-20, pedido del cliente: "para
           mejor visualización"). El rótulo y el conteo dicen QUÉ estoy
           mirando — en recepción eso no es metadato al margen, es la
           primera cosa que hay que poder leer de un vistazo antes de
           contestar un teléfono. */}
-      <p className="mb-2 font-[family-name:var(--font-mono)] text-xs font-semibold tracking-[0.16em] text-salvia-oscuro uppercase">
+      <p className="mb-2 font-[family-name:var(--font-mono)] tabular-nums text-xs font-semibold tracking-[0.16em] text-marca uppercase">
         {rotulo}
       </p>
 
@@ -216,7 +227,7 @@ export function CarruselDeProfesionales({
             aria-label="Profesional anterior"
             disabled={guardando || rueda.length < 2}
             onClick={() => mover(-1)}
-            className="flex items-center px-3 text-grafito/60 transition-colors hover:bg-hueso hover:text-grafito disabled:opacity-40"
+            className="flex items-center px-3 text-grafito/60 transition-colors hover:bg-velo hover:text-grafito disabled:opacity-40"
           >
             <IconChevronLeft className="h-5 w-5" />
           </button>
@@ -229,12 +240,12 @@ export function CarruselDeProfesionales({
             disabled={guardando}
             onClick={() => setAbierto((a) => !a)}
             className={`flex min-w-0 flex-1 items-center gap-3 border-x border-linea px-4 py-2.5 text-left transition-colors disabled:opacity-60 md:min-w-[15rem] ${
-              abierto ? "bg-salvia-claro" : "hover:bg-hueso"
+              abierto ? "bg-marca-claro" : "hover:bg-velo"
             }`}
           >
             <span
               aria-hidden="true"
-              className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-full bg-salvia-claro font-[family-name:var(--font-display)] text-[13px] font-semibold text-salvia-oscuro"
+              className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-full bg-marca-claro font-[family-name:var(--font-display)] text-[13px] font-semibold text-marca"
             >
               {enFoco ? (
                 iniciales(enFoco.nombre)
@@ -257,13 +268,13 @@ export function CarruselDeProfesionales({
             aria-label="Profesional siguiente"
             disabled={guardando || rueda.length < 2}
             onClick={() => mover(1)}
-            className="flex items-center px-3 text-grafito/60 transition-colors hover:bg-hueso hover:text-grafito disabled:opacity-40"
+            className="flex items-center px-3 text-grafito/60 transition-colors hover:bg-velo hover:text-grafito disabled:opacity-40"
           >
             <IconChevronRight className="h-5 w-5" />
           </button>
         </div>
 
-        <p className="mt-2 text-[13px] font-medium text-salvia-oscuro">
+        <p className="mt-2 text-[13px] font-medium text-marca">
           {conteo}
         </p>
 
@@ -275,7 +286,7 @@ export function CarruselDeProfesionales({
           // derecha lo tiraba lejos del nombre, que es donde está la
           // mirada al abrirlo.
           <div className="absolute top-[calc(100%+0.5rem)] left-1/2 z-20 flex w-[19rem] max-w-[calc(100vw-3rem)] -translate-x-1/2 flex-col rounded-card border border-linea bg-marfil p-2 shadow-soft">
-            <p className="px-3 py-2 font-[family-name:var(--font-mono)] text-[11.5px] tracking-[0.16em] text-grafito/45 uppercase">
+            <p className="px-3 py-2 font-[family-name:var(--font-mono)] tabular-nums text-[11.5px] tracking-[0.16em] text-grafito/45 uppercase">
               Profesionales de la clínica
             </p>
 
@@ -335,12 +346,12 @@ function ItemDeVista({
       onClick={onElegir}
       aria-current={elegida ? "true" : undefined}
       className={`flex w-full items-center gap-3 rounded-field px-3 py-3 text-left text-[15px] text-grafito transition-colors disabled:opacity-60 ${
-        elegida ? "bg-salvia-claro" : "hover:bg-hueso"
+        elegida ? "bg-marca-claro" : "hover:bg-velo"
       }`}
     >
       <span
         aria-hidden="true"
-        className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-salvia-claro font-[family-name:var(--font-display)] text-xs font-semibold text-salvia-oscuro"
+        className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-marca-claro font-[family-name:var(--font-display)] text-xs font-semibold text-marca"
       >
         {nombre === "Toda la clínica" || nombre === "Vista general" ? (
           <IconUsers className="h-[18px] w-[18px]" />
@@ -355,7 +366,7 @@ function ItemDeVista({
         </span>
       </span>
       {elegida && (
-        <span aria-hidden="true" className="text-salvia-oscuro">
+        <span aria-hidden="true" className="text-marca">
           ✓
         </span>
       )}

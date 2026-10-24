@@ -1,10 +1,10 @@
 "use client";
 
+import { Dialogo } from "@/components/dialogo";
 import { useState } from "react";
 import type { ConflictoPaciente, Paciente, TipoConsulta } from "@dental-mirage/shared-types";
 import { resolverConflictoPacienteAction } from "@/app/actions/pacientes";
 import { formatFechaHora } from "@/lib/turno-format";
-import { ModalPortal } from "./modal-portal";
 
 interface ResolverConflictoPacienteModalProps {
   conflicto: ConflictoPaciente;
@@ -26,6 +26,9 @@ interface ResolverConflictoPacienteModalProps {
 // en TurnoDetalle, cuyo aviso vive en el texto de arriba en vez de un
 // segundo modal).
 export function ResolverConflictoPacienteModal({ conflicto, tiposConsulta, onClose, onResuelto }: ResolverConflictoPacienteModalProps) {
+  // Sobre el Dialogo de todos: foco adentro, Tab atrapado, Escape (el de
+  // arriba si hay varios), el foco vuelve a quien lo abrió y la página de
+  // atrás no scrollea (correcciones generales, 2026-10-12).
   const [pending, setPending] = useState<"verificado" | "no-verificado" | null>(null);
   const [error, setError] = useState<string | null>(null);
   // yaResuelto — otro profesional lo resolvió mientras esta ventana estaba
@@ -73,114 +76,96 @@ export function ResolverConflictoPacienteModal({ conflicto, tiposConsulta, onClo
   }
 
   return (
-    <ModalPortal>
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Conflicto de pacientes"
-        className="fixed inset-0 z-50 flex items-center justify-center bg-grafito/50 p-4 backdrop-blur-sm"
-        onClick={(e) => {
-          if (e.target === e.currentTarget) onClose();
-        }}
-      >
-        <div className="w-full max-w-2xl max-md:max-h-[90vh] max-md:max-w-[95vw] max-md:overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
-          <div className="flex items-center justify-between border-b-[0.5px] border-arena px-6 py-4">
-            <h2 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">Conflicto de pacientes</h2>
-            <button type="button" onClick={onClose} aria-label="Cerrar" className="text-2xl leading-none text-grafito/50 hover:text-grafito">
-              ×
-            </button>
-          </div>
-          <div className="flex flex-col gap-5 p-6 text-sm">
-            <p className="text-grafito/70">{conflicto.motivo}</p>
+    <Dialogo titulo="Conflicto de pacientes" onCerrar={onClose} superficie="marfil" centrado ancho="medio">
+      <div className="flex flex-col gap-5 p-6 text-sm">
+        <p className="text-grafito/70">{conflicto.motivo}</p>
 
-            {ningunoVerificado && (
-              <p role="alert" className="rounded-field border-[0.5px] border-terracota bg-terracota-claro px-3 py-2 text-xs text-terracota-oscuro">
-                Ninguna de las dos fichas está verificada todavía — contactate con las dos personas para aclarar el malentendido antes
-                de resolver.
-                {comparteTelefono && " Como comparten el mismo teléfono, también podés llamar a ese número para resolverlo directamente."}
-              </p>
-            )}
+        {ningunoVerificado && (
+          <p role="alert" className="rounded-field border-[0.5px] border-terracota bg-terracota-claro px-3 py-2 text-xs text-terracota-oscuro">
+            Ninguna de las dos fichas está verificada todavía — contactate con las dos personas para aclarar el malentendido antes
+            de resolver.
+            {comparteTelefono && " Como comparten el mismo teléfono, también podés llamar a ese número para resolverlo directamente."}
+          </p>
+        )}
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <FichaPaciente
-                titulo={conflicto.pacienteVerificado.verificado ? "Ficha verificada" : "Ficha original (sin verificar)"}
-                paciente={conflicto.pacienteVerificado}
-              />
-              <FichaPaciente
-                titulo={conflicto.pacienteEnConflicto.verificado ? "Ficha verificada" : "Ficha nueva (en conflicto)"}
-                paciente={conflicto.pacienteEnConflicto}
-              />
-            </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FichaPaciente
+            titulo={conflicto.pacienteVerificado.verificado ? "Ficha verificada" : "Ficha original (sin verificar)"}
+            paciente={conflicto.pacienteVerificado}
+          />
+          <FichaPaciente
+            titulo={conflicto.pacienteEnConflicto.verificado ? "Ficha verificada" : "Ficha nueva (en conflicto)"}
+            paciente={conflicto.pacienteEnConflicto}
+          />
+        </div>
 
-            <div className="rounded-field border-[0.5px] border-arena bg-hueso p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-grafito/50">Turno en conflicto</p>
-              <p className="mt-1 text-grafito">
-                {nombreTipoConsulta(conflicto.turno.tipoConsultaId)} — {formatFechaHora(conflicto.turno.horaInicio)}
-              </p>
-            </div>
+        <div className="rounded-field border-[0.5px] border-arena bg-hueso p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-grafito/50">Turno en conflicto</p>
+          <p className="mt-1 text-grafito">
+            {nombreTipoConsulta(conflicto.turno.tipoConsultaId)} — {formatFechaHora(conflicto.turno.horaInicio)}
+          </p>
+        </div>
 
-            {/* Corrección de QA, pedido textual del cliente: si el
-                paciente verificado YA tiene un turno vigente de este
-                mismo tipo, "es la persona verificada" no migra el turno
-                nuevo — lo cancela y prevalece el que ya tenía. */}
-            {conflicto.turnoVigenteDelMismoTipo && (
-              <p role="alert" className="rounded-field border-[0.5px] border-terracota bg-terracota-claro px-3 py-2 text-xs text-terracota-oscuro">
-                El paciente verificado ya tiene un turno de{" "}
-                <span className="font-semibold">{nombreTipoConsulta(conflicto.turnoVigenteDelMismoTipo.tipoConsultaId)}</span> agendado
-                para el {formatFechaHora(conflicto.turnoVigenteDelMismoTipo.horaInicio)}. Si confirmás que es la persona verificada, el
-                turno nuevo se cancela y prevalece el que ya tenía — no se migra.
-              </p>
-            )}
+        {/* Corrección de QA, pedido textual del cliente: si el
+            paciente verificado YA tiene un turno vigente de este
+            mismo tipo, "es la persona verificada" no migra el turno
+            nuevo — lo cancela y prevalece el que ya tenía. */}
+        {conflicto.turnoVigenteDelMismoTipo && (
+          <p role="alert" className="rounded-field border-[0.5px] border-terracota bg-terracota-claro px-3 py-2 text-xs text-terracota-oscuro">
+            El paciente verificado ya tiene un turno de{" "}
+            <span className="font-semibold">{nombreTipoConsulta(conflicto.turnoVigenteDelMismoTipo.tipoConsultaId)}</span> agendado
+            para el {formatFechaHora(conflicto.turnoVigenteDelMismoTipo.horaInicio)}. Si confirmás que es la persona verificada, el
+            turno nuevo se cancela y prevalece el que ya tenía — no se migra.
+          </p>
+        )}
 
-            {/* El alcance real de resolver (Fase 3.2.5): la ficha que
-                pierde puede tener turnos con un colega, y resolver se los
-                va a tocar. No se restringe la acción —restringirla dejaría
-                conflictos que nadie puede resolver— se declara su
-                alcance. */}
-            {(conflicto.turnosDeOtrosProfesionales ?? 0) > 0 && (
-              <p role="alert" className="rounded-field border-[0.5px] border-terracota bg-terracota-claro px-3 py-2 text-xs text-terracota-oscuro">
-                Esta ficha tiene{" "}
-                <span className="font-semibold">
-                  {conflicto.turnosDeOtrosProfesionales}{" "}
-                  {conflicto.turnosDeOtrosProfesionales === 1 ? "turno" : "turnos"} de otros profesionales
-                </span>
-                . Resolver el conflicto también los alcanza: se cancelan o se migran junto con el resto.
-              </p>
-            )}
+        {/* El alcance real de resolver (Fase 3.2.5): la ficha que
+            pierde puede tener turnos con un colega, y resolver se los
+            va a tocar. No se restringe la acción —restringirla dejaría
+            conflictos que nadie puede resolver— se declara su
+            alcance. */}
+        {(conflicto.turnosDeOtrosProfesionales ?? 0) > 0 && (
+          <p role="alert" className="rounded-field border-[0.5px] border-terracota bg-terracota-claro px-3 py-2 text-xs text-terracota-oscuro">
+            Esta ficha tiene{" "}
+            <span className="font-semibold">
+              {conflicto.turnosDeOtrosProfesionales}{" "}
+              {conflicto.turnosDeOtrosProfesionales === 1 ? "turno" : "turnos"} de otros profesionales
+            </span>
+            . Resolver el conflicto también los alcanza: se cancelan o se migran junto con el resto.
+          </p>
+        )}
 
-            {yaResuelto && (
-              <p role="alert" className="rounded-field bg-salvia-claro px-3 py-2 text-sm font-medium text-salvia-oscuro">
-                Conflicto resuelto. Cerrá la ventana y refrescá la página.
-              </p>
-            )}
-            {error && !yaResuelto && (
-              <p role="alert" className="text-sm text-terracota-oscuro">
-                {error}
-              </p>
-            )}
+        {yaResuelto && (
+          <p role="alert" className="rounded-field bg-salvia-claro px-3 py-2 text-sm font-medium text-salvia-oscuro">
+            Conflicto resuelto. Cerrá la ventana y refrescá la página.
+          </p>
+        )}
+        {error && !yaResuelto && (
+          <p role="alert" className="text-sm text-terracota-oscuro">
+            {error}
+          </p>
+        )}
 
-            <div className="flex flex-col gap-2 border-t-[0.5px] border-arena pt-4 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                onClick={() => resolver(false)}
-                disabled={pending !== null || yaResuelto}
-                className="rounded-full border-[0.5px] border-arena px-5 py-2.5 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro disabled:opacity-60"
-              >
-                {pending === "no-verificado" ? "Resolviendo…" : "El mail no es del paciente verificado"}
-              </button>
-              <button
-                type="button"
-                onClick={() => resolver(true)}
-                disabled={pending !== null}
-                className="rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
-              >
-                {pending === "verificado" ? "Resolviendo…" : "El mail es de la persona verificada"}
-              </button>
-            </div>
-          </div>
+        <div className="flex flex-col gap-2 border-t-[0.5px] border-arena pt-4 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            onClick={() => resolver(false)}
+            disabled={pending !== null || yaResuelto}
+            className="rounded-control border-[0.5px] border-arena px-5 py-2.5 text-sm font-medium text-grafito hover:border-marca-medio hover:text-marca disabled:opacity-60"
+          >
+            {pending === "no-verificado" ? "Resolviendo…" : "El mail no es del paciente verificado"}
+          </button>
+          <button
+            type="button"
+            onClick={() => resolver(true)}
+            disabled={pending !== null}
+            className="rounded-control boton-primario px-5 py-2.5 text-sm font-semibold"
+          >
+            {pending === "verificado" ? "Resolviendo…" : "El mail es de la persona verificada"}
+          </button>
         </div>
       </div>
-    </ModalPortal>
+    </Dialogo>
   );
 }
 
@@ -188,7 +173,7 @@ function FichaPaciente({ titulo, paciente }: { titulo: string; paciente: Pacient
   return (
     <div className="flex flex-col gap-1.5 rounded-field border-[0.5px] border-arena bg-hueso p-4">
       <p className="text-xs font-semibold uppercase tracking-wide text-grafito/50">{titulo}</p>
-      <p className="font-[family-name:var(--font-display)] text-base font-medium text-grafito">
+      <p className="font-[family-name:var(--font-display)] text-base font-semibold text-grafito">
         {paciente.nombre} {paciente.apellido}
       </p>
       <p className="text-grafito/70">DNI {paciente.dni}</p>

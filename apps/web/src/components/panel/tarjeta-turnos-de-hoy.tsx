@@ -17,6 +17,7 @@ import { IconoReloj } from "./tarjeta-turnero-iconos";
 import { LinkConVista } from "./link-con-vista";
 import { BotonMantenerApretado } from "./boton-mantener-apretado";
 import { Despliegue } from "./despliegue";
+import { CLASE_CABECERA, CLASE_FILA } from "./tabla";
 
 // TarjetaTurnosDeHoy — la tarjeta principal del panel (2026-09-19,
 // rediseño pedido por el cliente).
@@ -81,17 +82,25 @@ const COL_PROFESIONAL = "w-[11rem]";
 
 const CELDA = "px-4 py-3 align-middle";
 
-// La cabecera se pega arriba celda por celda, no en el `<thead>` — ver
-// el comentario de la tabla. `bg-hueso` explícito: una celda sticky sin
-// fondo propio deja pasar las filas por debajo al scrollear.
-const TH_STICKY = "sticky top-0 z-10 bg-hueso px-4 py-2 align-middle";
+// La cabecera es la de todas las tablas del panel (CLASE_CABECERA,
+// correcciones generales, ítem 9): se pega arriba celda por celda, no en el
+// `<thead>`, con su fondo `hueso` y su línea inferior. El cuerpo de esta
+// tarjeta conserva la tipografía display del Turnero (pedido del cliente,
+// 2026-09-19): es la tarjeta de lo más urgente del día, no una lista de
+// gestión.
+const TH_STICKY = CLASE_CABECERA;
 
 export function TarjetaTurnosDeHoy({
   turnos,
   hrefCabecera,
   hrefPie,
+  ahoraDelServidor,
 }: {
   turnos: ResumenTurnoItem[];
+  /** La hora a la que el servidor armó la pantalla (ms). Se usa solo hasta
+   *  que el cliente tiene su propio reloj: así el estado de cada fila y los
+   *  botones de asistencia vienen en el HTML y no aparecen tarde. */
+  ahoraDelServidor?: number;
   // `profesional` viene solo en la vista general de recepción (ver
   // resumenTurnoItem en el backend). Con el dato presente la tabla suma
   // una columna; sin él queda igual que siempre, que es lo que ve un
@@ -105,11 +114,15 @@ export function TarjetaTurnosDeHoy({
   // En el celular, cuatro filas enteras antes del scroll (ver lib/alto-de-filas.ts).
   const cajaTabla = useRef<HTMLDivElement>(null);
   useAltoDeFilas(cajaTabla);
-  // `null` mientras se renderiza en el servidor, a propósito: ahí
-  // `Date.now()` es el reloj del contenedor, y si el estado de una fila
-  // saliera de esa hora el HTML del servidor podría discrepar del
-  // cliente justo en el minuto en que un turno arranca. Ver lib/reloj.ts.
-  const ahora = useAhora(INTERVALO_RELOJ_MS);
+  // `useAhora` es `null` en el servidor y durante la hidratación, a
+  // propósito (lib/reloj.ts). Hasta que llega el reloj del cliente se usa
+  // la hora que trae la página desde el servidor (2026-10-10): la misma en
+  // el HTML y en el render de hidratación, así que no hay discrepancia, y
+  // el estado de las filas y los botones de asistencia ya vienen en el
+  // HTML en vez de aparecer medio segundo después. Si el cliente ve otra
+  // hora (el minuto en que un turno arranca), se actualiza como cualquier
+  // tic del reloj.
+  const ahora = useAhora(INTERVALO_RELOJ_MS) ?? ahoraDelServidor ?? null;
   // Basta con que UN turno lo traiga: el backend lo manda para todos o
   // para ninguno, y mirar la lista entera evita depender de que el
   // primero exista.
@@ -135,58 +148,49 @@ export function TarjetaTurnosDeHoy({
     ahora === null ? turnos.length : turnos.filter((t) => estadoDelItem(t, ahora) === "pendiente").length;
 
   return (
-    <Despliegue forma="derecha" className="flex flex-col overflow-hidden rounded-card border-[0.5px] border-arena shadow-soft">
+    <Despliegue forma="derecha" className="vidrio flex flex-col overflow-hidden">
       {/* En mobile las dos partes se apilan; en escritorio el bloque de
           la izquierda es una columna fija y el cuerpo se queda con el
           resto. `items-stretch` para que el cuerpo tenga siempre el alto
           del bloque de la izquierda aunque tenga una sola fila — sin eso
-          el efecto vidrio dejaba de cubrir la tarjeta (mismo motivo que
-          el `flex-1` de TarjetaConLista). `min-w-0` en los dos: sin eso
+          quedaba un hueco abajo (mismo motivo que el `flex-1` de
+          TarjetaConLista). `min-w-0` en los dos: sin eso
           un hijo de flex no baja de su ancho de contenido, y el scroll
           horizontal del cuerpo no llegaba a activarse nunca en mobile. */}
       <div className="flex min-w-0 flex-col items-stretch md:flex-row">
-        <div className="relative flex shrink-0 flex-col justify-between gap-4 overflow-hidden bg-marfil p-6 md:w-60">
-          <IconoReloj className="pointer-events-none absolute right-2 -bottom-4 h-24 w-24 text-salvia/35" />
+        {/* La carátula de la tarjeta (`.vidrio-capa`, 2026-10-17): la
+            segunda capa del vidrio, con el número, a la misma curva que
+            las esquinas de la tarjeta. */}
+        <div className="vidrio-capa relative flex shrink-0 flex-col justify-between gap-4 overflow-hidden p-4.5 md:w-60">
+          <IconoReloj className="pointer-events-none absolute right-2 -bottom-4 h-24 w-24 opacity-60" />
           {/* El rótulo solo en su renglón y el link abajo (2026-09-26): los
               dos en la misma fila no entraban en los 240 px de la columna,
               y "TURNOS DE HOY" se partía en dos renglones. En mobile el
               bloque es ancho y vuelven a compartir la fila. */}
           <div className="relative z-10 flex items-baseline justify-between gap-3 md:flex-col md:gap-1">
-            <p className="font-[family-name:var(--font-mono)] text-xs tracking-widest whitespace-nowrap text-grafito/50 uppercase">
+            <p className="font-[family-name:var(--font-mono)] tabular-nums text-xs tracking-widest whitespace-nowrap text-grafito/75 uppercase">
               Turnos de hoy
             </p>
-            <Link href={hrefCabecera} className="text-sm font-medium whitespace-nowrap text-salvia-oscuro hover:text-grafito">
+            <Link href={hrefCabecera} className="text-sm font-medium whitespace-nowrap text-marca hover:text-grafito">
               Ver en calendario
             </Link>
           </div>
-          <p className="despliegue-cifra relative z-10 font-[family-name:var(--font-display)] text-6xl font-medium text-salvia-oscuro">
+          <p className="despliegue-cifra relative z-10 font-[family-name:var(--font-display)] tracking-tight text-5xl font-semibold text-marca">
             {turnos.length}
           </p>
         </div>
 
-        {/* DOS CAJAS, y esa es la corrección (2026-09-19, el scroll
-            horizontal no andaba ni siquiera en el emulador de Edge).
-            `.panel-card-vidrio` fuerza `overflow-x: hidden` —lo necesita
-            para recortar el `inset: -16px` del pseudo-elemento que pinta
-            la textura desenfocada—, y esa regla le gana a la utility
-            `overflow-auto` de Tailwind. O sea: la clase del efecto
-            vidrio y el scroll horizontal son incompatibles en el MISMO
-            elemento, por diseño de la clase.
-            Así que el vidrio queda afuera (recortando lo suyo) y el
-            scroll adentro. `min-w-0` en los dos, para que ninguno de los
-            dos hijos de flex se niegue a bajar de su ancho de contenido.
-
-            `overflow-y-hidden` en el de afuera no sobra: con `overflow-x:
-            hidden` y el eje Y sin declarar, el navegador computa
-            `overflow-y: auto` (la combinación hidden/visible no es
-            válida) — o sea, la caja de afuera se volvía un segundo
-            contenedor de scroll vertical, sin `.panel-card-scroll`, y
-            aparecía la barra gris predeterminada del navegador al lado
-            de la beige. Cerrando el eje Y acá queda UNA sola caja que
-            scrollea, la de adentro, que es la que tiene el estilo. */}
-        <div ref={cajaTabla} className="despliegue-cuerpo panel-card-vidrio flex max-h-64 min-h-[11rem] min-w-0 flex-1 overflow-y-hidden max-md:max-h-[var(--alto-mobile,16rem)]">
+        {/* DOS CAJAS (2026-09-19, el scroll horizontal no andaba ni
+            siquiera en el emulador de Edge): la de afuera recorta el
+            despliegue (`despliegue-cuerpo`, un `clip-path` que se abre
+            hacia la derecha) y la de adentro scrollea. `min-w-0` en las
+            dos, para que ninguno de los dos hijos de flex se niegue a
+            bajar de su ancho de contenido. La de afuera cierra los dos
+            ejes: con uno solo en `hidden`, el otro computa `auto` y sería
+            un segundo contenedor de scroll. */}
+        <div ref={cajaTabla} className="despliegue-cuerpo flex max-h-64 min-h-[11rem] min-w-0 flex-1 overflow-hidden max-md:max-h-[var(--alto-mobile,16rem)]">
           {turnos.length === 0 ? (
-            <p className="p-6 font-[family-name:var(--font-display)] text-base font-medium text-grafito/50">
+            <p className="p-6 font-[family-name:var(--font-display)] text-base font-semibold text-grafito/75">
               No hay turnos para hoy.
             </p>
           ) : (
@@ -194,12 +198,8 @@ export function TarjetaTurnosDeHoy({
             <table
               className={`w-full table-fixed border-collapse text-left ${conProfesional ? "min-w-[55rem]" : "min-w-[44rem]"}`}
             >
-              {/* La cabecera acompaña el scroll sin fondo propio: el
-                  cuerpo tiene el efecto vidrio de las tarjetas del
-                  Turnero y una banda opaca acá lo partía en dos. Los
-                  rótulos van en el verde de siempre y en la tipografía
-                  del nombre del paciente — son parte de la misma
-                  lectura, no etiquetas de sistema.
+              {/* La cabecera es la común de las tablas del panel (ver
+                  TH_STICKY).
 
                   El `sticky` va en cada `<th>` y no en el `<thead>`: es
                   la decisión que ya tomó el proyecto para las tres
@@ -207,7 +207,7 @@ export function TarjetaTurnosDeHoy({
                   globals.css), porque Safari de iOS despega un thead
                   sticky durante el rebote elástico. */}
               <thead>
-                <tr className="font-[family-name:var(--font-display)] text-sm font-bold tracking-wide text-salvia-oscuro uppercase">
+                <tr>
                   <th scope="col" className={`${TH_STICKY} ${COL_HORARIO}`}>
                     Horario
                   </th>
@@ -249,11 +249,11 @@ export function TarjetaTurnosDeHoy({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-1 border-t-[0.5px] border-arena bg-marfil px-6 py-3">
+      <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-1 border-t border-grafito/10 px-6 py-3">
         {/* Sin turnos por delante no se dice nada: era una frase para
             informar que no hay nada que informar. */}
         {restantes > 0 && <p className="mr-auto text-sm font-medium text-grafito">{textoRestantes(restantes)}</p>}
-        <Link href={hrefPie} className="text-sm font-medium text-salvia-oscuro hover:text-grafito">
+        <Link href={hrefPie} className="text-sm font-medium text-marca hover:text-grafito">
           Ver todos
         </Link>
       </div>
@@ -315,7 +315,7 @@ function FilaTurnoDeHoy({
 
   return (
     <>
-      <tr className="border-b-[0.5px] border-arena/60">
+      <tr className={CLASE_FILA}>
         {/* La hora y el nombre siguen llevando al turno en el
             calendario; los botones NO pueden ir adentro de ese link (un
             <button> dentro de un <a> no es HTML válido, y el click
@@ -327,7 +327,7 @@ function FilaTurnoDeHoy({
           <LinkConVista
             href={`/panel/calendario?vista=dia&fecha=${turno.fecha}&turno=${turno.id}`}
             userId={turno.profesionalId}
-            className="font-[family-name:var(--font-display)] text-lg leading-tight font-bold tabular-nums whitespace-nowrap text-salvia-oscuro hover:underline"
+            className="font-[family-name:var(--font-display)] text-lg leading-tight font-bold tabular-nums whitespace-nowrap text-marca hover:underline"
           >
             {turno.hora} a {turno.horaFin}
           </LinkConVista>
@@ -359,7 +359,7 @@ function FilaTurnoDeHoy({
                 de una fila entera en display se leía como si fuera de
                 otra pantalla. Lo que lo deja en segundo plano es el peso
                 y el tono, no una familia distinta. */}
-            <span className="block truncate font-[family-name:var(--font-display)] text-base leading-tight font-medium text-grafito/70">
+            <span className="block truncate font-[family-name:var(--font-display)] text-base leading-tight font-semibold text-grafito/75">
               {turno.profesional ?? "—"}
             </span>
           </td>
@@ -370,7 +370,7 @@ function FilaTurnoDeHoy({
             // cliente): la pastilla es parte de la misma lectura, no una
             // etiqueta de sistema al costado.
             <span
-              className={`inline-block rounded-full px-3 py-1 font-[family-name:var(--font-display)] text-base leading-tight font-bold whitespace-nowrap ${ESTADO_DERIVADO_PILL[estado]}`}
+              className={`inline-block rounded-pastilla px-3 py-1 font-[family-name:var(--font-display)] text-base leading-tight font-bold whitespace-nowrap ${ESTADO_DERIVADO_PILL[estado]}`}
             >
               {ESTADO_DERIVADO_LABEL[estado]}
             </span>
@@ -403,7 +403,7 @@ function FilaTurnoDeHoy({
           resolver, casi siempre. Sin esto el botón se llena, no pasa
           nada, y no hay forma de saber por qué. */}
       {error && (
-        <tr className="border-b-[0.5px] border-arena/60">
+        <tr className={CLASE_FILA}>
           <td colSpan={conProfesional ? 5 : 4} className="px-4 pb-3 text-xs text-terracota-oscuro">
             <span role="alert">{error}</span>
           </td>

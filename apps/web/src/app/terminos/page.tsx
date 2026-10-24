@@ -23,7 +23,7 @@ export default function TerminosPage() {
   return (
     <main className="flex flex-1 flex-col bg-hueso px-6 py-16 pt-[calc(var(--header-height)+2rem)]">
       <div className="mx-auto w-full max-w-2xl">
-        <h1 className="font-[family-name:var(--font-display)] text-4xl font-medium text-grafito sm:text-5xl">
+        <h1 className="font-[family-name:var(--font-display)] tracking-tight text-3xl font-semibold text-grafito sm:text-4xl">
           Términos y condiciones
         </h1>
         <p className="mt-2 text-sm text-grafito/60">Versión 1.0 — última actualización: agosto de 2026.</p>
@@ -36,7 +36,7 @@ export default function TerminosPage() {
           </p>
 
           <section className="flex flex-col gap-2">
-            <h2 className="font-[family-name:var(--font-display)] text-xl font-medium text-grafito">1. Tu cuenta</h2>
+            <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold text-grafito">1. Tu cuenta</h2>
             <p>
               Sos responsable de la información que cargás (datos personales, de tu clínica y de tus pacientes) y de
               mantener segura tu contraseña o tu acceso con Google. Podés dar de baja tu cuenta cuando quieras
@@ -49,7 +49,7 @@ export default function TerminosPage() {
           </section>
 
           <section className="flex flex-col gap-2">
-            <h2 className="font-[family-name:var(--font-display)] text-xl font-medium text-grafito">
+            <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold text-grafito">
               2. Qué ofrece la plataforma
             </h2>
             <p>
@@ -61,7 +61,7 @@ export default function TerminosPage() {
           </section>
 
           <section className="flex flex-col gap-2">
-            <h2 className="font-[family-name:var(--font-display)] text-xl font-medium text-grafito">
+            <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold text-grafito">
               3. Uso aceptable
             </h2>
             <p>
@@ -71,7 +71,7 @@ export default function TerminosPage() {
           </section>
 
           <section className="flex flex-col gap-2">
-            <h2 className="font-[family-name:var(--font-display)] text-xl font-medium text-grafito">
+            <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold text-grafito">
               4. Disponibilidad y cambios
             </h2>
             <p>
@@ -82,7 +82,7 @@ export default function TerminosPage() {
           </section>
 
           <section className="flex flex-col gap-2">
-            <h2 className="font-[family-name:var(--font-display)] text-xl font-medium text-grafito">
+            <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold text-grafito">
               5. Tus datos
             </h2>
             <p>
@@ -95,7 +95,7 @@ export default function TerminosPage() {
           </section>
 
           <section className="flex flex-col gap-2">
-            <h2 className="font-[family-name:var(--font-display)] text-xl font-medium text-grafito">
+            <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold text-grafito">
               6. Ley aplicable
             </h2>
             <p>Estos términos se rigen por las leyes de la República Argentina.</p>

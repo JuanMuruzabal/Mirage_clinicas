@@ -68,7 +68,7 @@ export function GaleriaPlantillas({
                 type="button"
                 aria-pressed={seleccionada.id === plantilla.id}
                 onClick={() => setSeleccionada(plantilla)}
-                className={`rounded-card border-[0.5px] p-3 text-left transition-colors ${seleccionada.id === plantilla.id ? "border-salvia-oscuro bg-salvia-claro" : "border-arena bg-marfil hover:border-salvia"}`}
+                className={`rounded-card border-[0.5px] p-3 text-left transition-colors ${seleccionada.id === plantilla.id ? "border-marca bg-marca-claro" : "border-arena bg-marfil hover:border-marca-medio"}`}
               >
                 <span className="block text-xs uppercase tracking-widest text-grafito/75">{plantilla.rubro} · {plantilla.estilo.replaceAll("-", " ")}</span>
                 <span className="mt-1 block text-sm font-semibold text-grafito">{plantilla.nombre}</span>
@@ -78,11 +78,11 @@ export function GaleriaPlantillas({
           </div>
 
           <div className="flex flex-col gap-2 rounded-card border-[0.5px] border-arena bg-marfil p-4">
-            <button type="button" onClick={() => aplicar("diseno")} className="min-h-11 rounded-full bg-salvia-oscuro px-4 text-sm font-semibold text-marfil hover:brightness-95">
+            <button type="button" onClick={() => aplicar("diseno")} className="min-h-11 rounded-control boton-primario px-4 text-sm font-semibold">
               Aplicar solo el diseño
             </button>
             <p className="text-xs text-grafito/80">Conserva tus textos y fotos; suma las secciones que falten.</p>
-            <button type="button" onClick={() => aplicar("reemplazar")} className="min-h-11 rounded-full border-[0.5px] border-terracota px-4 text-sm font-medium text-terracota-oscuro hover:bg-terracota-claro">
+            <button type="button" onClick={() => aplicar("reemplazar")} className="min-h-11 rounded-control border-[0.5px] border-terracota px-4 text-sm font-medium text-terracota-oscuro hover:bg-terracota-claro">
               Reemplazar todo el borrador
             </button>
             <p className="text-xs text-grafito/80">Cambia también textos y secciones. Lo podés deshacer, y tu página publicada no cambia hasta que publiques.</p>

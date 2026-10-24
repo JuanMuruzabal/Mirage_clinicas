@@ -1,12 +1,12 @@
 "use client";
 
+import { Dialogo } from "@/components/dialogo";
 import { useEffect, useState } from "react";
 import type { TipoConsulta, Turno } from "@dental-mirage/shared-types";
 import { reprogramarTurnoAction } from "@/app/actions/turnos";
 import { listDisponibilidadAction } from "@/app/actions/calendario-config";
 import { fechaISOLocal } from "@/lib/calendar-utils";
 import { HoraPicker } from "./hora-picker";
-import { ModalPortal } from "./modal-portal";
 
 interface EditarTurnoModalProps {
   turno: Turno;
@@ -40,28 +40,13 @@ function ModalShell({
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  // Sobre el Dialogo de todos: foco adentro, Tab atrapado, Escape (el de
+  // arriba si hay varios), el foco vuelve a quien lo abrió y la página de
+  // atrás no scrollea (correcciones generales, 2026-10-12).
   return (
-    <ModalPortal>
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={titulo}
-        className="fixed inset-0 z-50 flex items-center justify-center bg-grafito/50 p-4 backdrop-blur-sm"
-        onClick={(e) => {
-          if (e.target === e.currentTarget) onClose();
-        }}
-      >
-        <div className="flex max-h-[90vh] w-full max-w-lg max-md:max-w-[90vw] flex-col overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
-          <div className="flex items-center justify-between border-b-[0.5px] border-arena px-6 py-4">
-            <h2 className="font-[family-name:var(--font-display)] text-xl font-medium text-grafito">{titulo}</h2>
-            <button type="button" onClick={onClose} aria-label="Cerrar" className="text-2xl leading-none text-grafito/50 hover:text-grafito">
-              ×
-            </button>
-          </div>
-          {children}
-        </div>
-      </div>
-    </ModalPortal>
+    <Dialogo titulo={titulo} onCerrar={onClose} superficie="marfil" centrado ancho="mediano">
+      {children}
+    </Dialogo>
   );
 }
 
@@ -247,18 +232,11 @@ function EditarHoraForm({ turno, tiposConsulta, onClose, onSuccess }: EditarTurn
           </p>
         )}
 
-        <div className="flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full border-[0.5px] border-arena px-5 py-2.5 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
-          >
-            Cancelar
-          </button>
+        <div className="flex justify-end">
           <button
             type="submit"
             disabled={pending}
-            className="rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
+            className="rounded-control boton-primario px-5 py-2.5 text-sm font-semibold"
           >
             {pending ? "Guardando…" : "Guardar cambios"}
           </button>
@@ -268,7 +246,7 @@ function EditarHoraForm({ turno, tiposConsulta, onClose, onSuccess }: EditarTurn
   );
 }
 
-const inputClass = "rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-grafito outline-none focus:border-salvia";
+const inputClass = "rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-grafito outline-none focus:border-marca-medio";
 
 function Campo({ label, children }: { label: string; children: React.ReactNode }) {
   return (

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { IconSearch } from "@/components/icons";
+import { CampoDeBusqueda } from "./campo-de-busqueda";
 
 interface BuscadorEnVivoProps {
   q?: string;
@@ -53,17 +53,6 @@ export function BuscadorEnVivo({ q, hrefBase, placeholder }: BuscadorEnVivoProps
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [valor]);
 
-  return (
-    <div className="relative flex-1 min-w-[12rem]">
-      <IconSearch className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-grafito/40" />
-      <input
-        type="search"
-        value={valor}
-        onChange={(e) => setValor(e.target.value)}
-        placeholder={placeholder}
-        aria-label={placeholder}
-        className="w-full rounded-field border-[0.5px] border-arena bg-marfil py-2 pr-3 pl-9 text-sm text-grafito outline-none focus:border-salvia"
-      />
-    </div>
-  );
+  // El campo es el mismo de todas las listas del panel (ítem 6).
+  return <CampoDeBusqueda valor={valor} onCambio={setValor} placeholder={placeholder} />;
 }

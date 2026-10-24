@@ -132,9 +132,9 @@ const LEYENDAS = {
 
 type Simbolo = (typeof LEYENDAS)[Leyenda][number]["simbolo"];
 
-const PILDORA = `rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${CLASE_TACTIL}`;
+const PILDORA = `rounded-control border px-3 py-1.5 text-sm font-medium transition-colors ${CLASE_TACTIL}`;
 const claseDePildora = (elegida: boolean) =>
-  `${PILDORA} ${elegida ? "border-salvia-oscuro bg-salvia-oscuro text-marfil" : "border-linea bg-hueso text-grafito hover:border-salvia"}`;
+  `${PILDORA} ${elegida ? "border-marca-relleno bg-marca-relleno text-marfil" : "border-linea bg-hueso text-grafito hover:border-marca-medio"}`;
 
 // --- Una pieza ------------------------------------------------------------
 
@@ -254,8 +254,8 @@ function PiezaBoton({
       data-pieza={pieza}
       onClick={onTocar}
       onKeyDown={onTecla}
-      className={`relative flex w-(--lado) flex-col items-center gap-0.5 rounded-[4px] outline-none focus-visible:ring-2 focus-visible:ring-salvia-oscuro ${
-        esInicio || seleccionada ? "ring-2 ring-salvia-oscuro" : "hover:ring-1 hover:ring-salvia"
+      className={`relative flex w-(--lado) flex-col items-center gap-0.5 rounded-[4px] outline-none focus-visible:ring-2 focus-visible:ring-marca ${
+        esInicio || seleccionada ? "ring-2 ring-marca" : "hover:ring-1 hover:ring-marca-medio"
       }`}
     >
       <span id={idDescripcion} className="sr-only">
@@ -331,8 +331,8 @@ function CaraGrande({ pieza, cara, color, primera, onCara }: { pieza: string; ca
         e.preventDefault();
         onCara(cara);
       }}
-      className={`cursor-pointer outline-none [&:focus-visible>polygon]:stroke-salvia-oscuro [&:focus-visible>polygon]:stroke-[3] ${
-        color ? "" : "[&:hover>polygon]:fill-salvia-claro"
+      className={`cursor-pointer outline-none [&:focus-visible>polygon]:stroke-marca [&:focus-visible>polygon]:stroke-[3] ${
+        color ? "" : "[&:hover>polygon]:fill-marca-claro"
       }`}
     >
       <polygon
@@ -408,14 +408,14 @@ function DibujoGrande({
 const MARCA_EN_BOTON: Record<MarcaDePieza, string> = { x: "X", corona: "corona", sellador: "sellador", traumatizado: "T" };
 const LA_MARCA: Record<MarcaDePieza, string> = { x: "la X", corona: "la corona", sellador: "el sellador", traumatizado: "la T" };
 
-const BOTON_DE_ACCION = "min-h-11 self-start rounded-full bg-salvia-oscuro px-4 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-50";
+const BOTON_DE_ACCION = "min-h-11 self-start rounded-control boton-primario px-4 text-sm font-semibold";
 // Mismo alto y mismo relleno que el de acción: van de a pares (Guardar y
 // Cancelar, Sí y No) y uno más bajo al lado del otro se ve de otra familia.
-export const BOTON_SECUNDARIO = "min-h-11 rounded-full border border-linea bg-hueso px-4 text-sm font-medium hover:bg-arena disabled:opacity-50";
+export const BOTON_SECUNDARIO = "min-h-11 rounded-control border border-linea bg-hueso px-4 text-sm font-medium hover:bg-velo disabled:opacity-50";
 // La confirmación de algo que no se deshace, como "Confirmacion" con peligro.
-const BOTON_DE_PELIGRO = "min-h-11 rounded-full bg-terracota-oscuro px-4 text-sm font-semibold text-marfil hover:brightness-95";
+const BOTON_DE_PELIGRO = "min-h-11 rounded-control bg-terracota-oscuro px-4 text-sm font-semibold text-marfil hover:brightness-95";
 // Un campo de esta pantalla mide lo mismo que los botones de su fila.
-const CAMPO_CORTO = "min-h-11 w-20 rounded-field border border-linea bg-hueso px-3 py-2 text-[15px] text-grafito tabular-nums outline-none focus:border-salvia";
+const CAMPO_CORTO = "min-h-11 w-20 rounded-field border border-linea bg-hueso px-3 py-2 text-[15px] text-grafito tabular-nums outline-none focus:border-marca-medio";
 
 /** Poner o sacar una marca en la pieza. Si chocaría con lo que la pieza
  *  tiene, no se ofrece: se dice por qué (y, para la X, cómo hacerlo). */
@@ -500,7 +500,7 @@ function PanelDePieza({
       ref={panel}
       tabIndex={-1}
       aria-label={pieza ? `Pieza ${pieza} seleccionada` : "Pieza seleccionada"}
-      className="flex min-h-48 items-start gap-4 rounded-card border border-linea bg-marfil p-4 outline-none focus-visible:ring-2 focus-visible:ring-salvia-oscuro sm:min-h-52"
+      className="flex min-h-48 items-start gap-4 rounded-card border border-linea bg-marfil p-4 outline-none focus-visible:ring-2 focus-visible:ring-marca sm:min-h-52"
     >
       <DibujoGrande pieza={pieza} contenido={contenido} leyenda={leyenda} onCara={herramienta === "caras" ? onCara : undefined} />
       <div className="flex min-w-0 flex-1 flex-col gap-2 text-sm text-grafito">
@@ -751,7 +751,7 @@ export function BorrarTodo({
     <div
       ref={herramientas}
       tabIndex={-1}
-      className="flex w-fit max-w-full flex-wrap items-center gap-2 rounded-field outline-none focus-visible:ring-2 focus-visible:ring-salvia-oscuro focus-visible:ring-offset-2 focus-visible:ring-offset-marfil"
+      className="flex w-fit max-w-full flex-wrap items-center gap-2 rounded-field outline-none focus-visible:ring-2 focus-visible:ring-marca focus-visible:ring-offset-2 focus-visible:ring-offset-marfil"
     >
       {antes}
       <button
@@ -864,7 +864,7 @@ function ListaDeProtesis({ tramos, onQuitar }: { tramos: TramoDeProtesis[]; onQu
                 type="button"
                 aria-label={`Quitar: ${nombre}`}
                 onClick={() => onQuitar(i)}
-                className={`rounded-full px-3 py-1 text-sm font-medium text-terracota-oscuro hover:bg-arena ${CLASE_TACTIL}`}
+                className={`rounded-control px-3 py-1 text-sm font-medium text-terracota-oscuro hover:bg-velo ${CLASE_TACTIL}`}
               >
                 Quitar
               </button>
@@ -908,7 +908,7 @@ function DientesExistentes({
         type="button"
         onClick={() => onCambio(conExistentes(actual, sugerido))}
         disabled={actual.existentes === sugerido}
-        className={`${BOTON_SECUNDARIO} text-salvia-oscuro`}
+        className={`${BOTON_SECUNDARIO} text-marca`}
       >
         Usar
       </button>
@@ -1205,7 +1205,7 @@ export function CampoOdontograma({
         type="button"
         aria-describedby={idResumen}
         onClick={() => cambiarAbierto(true)}
-        className="min-h-11 rounded-full border border-salvia-oscuro bg-marfil px-4 text-sm font-medium text-salvia-oscuro hover:bg-salvia-claro"
+        className="min-h-11 rounded-control border border-marca bg-marfil px-4 text-sm font-medium text-marca hover:bg-velo"
       >
         Abrir odontograma
       </button>
@@ -1222,7 +1222,7 @@ export function CampoOdontograma({
             <button
               type="button"
               onClick={() => cambiarAbierto(false)}
-              className="min-h-11 rounded-full bg-salvia-oscuro px-6 text-sm font-semibold text-marfil hover:brightness-95"
+              className="min-h-11 rounded-control boton-primario px-6 text-sm font-semibold"
             >
               Listo
             </button>

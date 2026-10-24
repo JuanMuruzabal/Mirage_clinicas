@@ -27,7 +27,7 @@ export const ESTADO_LABEL: Record<Turno["estado"], string> = {
 // nunca el color solo.
 export const ESTADO_CLASS: Record<Turno["estado"], string> = {
   agendado: "font-semibold text-salvia-oscuro",
-  cancelada: "text-grafito/50",
+  cancelada: "text-grafito/75",
 };
 
 // EstadoDeTurno — el estado que VE el profesional, que no es la columna
@@ -77,19 +77,24 @@ export const ESTADO_DERIVADO_LABEL: Record<EstadoDeTurno, string> = {
 // pide mirar AHORA, y tener su propio color es lo que lo hace saltar
 // dentro de una lista donde todo lo demás está en verde. Ver el
 // comentario de `--color-acero` en globals.css.
+//
+// "Resuelto" y "Cancelada" van en `grafito/75` y no a la mitad (2026-10-17):
+// sobre el vidrio de las tablas, `grafito/50` daba 2,7:1 y `/60`, 3,5:1. Los
+// separa el peso (resuelto en semibold), el rótulo y el ícono de cuadrantes,
+// no un gris más claro.
 export const ESTADO_DERIVADO_CLASS: Record<EstadoDeTurno, string> = {
   pendiente: "font-semibold text-salvia-oscuro",
   en_proceso: "font-semibold text-acero-oscuro",
-  resuelto: "font-semibold text-grafito/60",
-  cancelada: "text-grafito/50",
+  resuelto: "font-semibold text-grafito/75",
+  cancelada: "text-grafito/75",
 };
 
 // La versión pastilla, para la tarjeta de "Turnos de hoy".
 export const ESTADO_DERIVADO_PILL: Record<EstadoDeTurno, string> = {
   pendiente: "bg-salvia-claro text-salvia-oscuro",
   en_proceso: "bg-acero-claro text-acero-oscuro",
-  resuelto: "bg-arena text-grafito/70",
-  cancelada: "bg-arena text-grafito/50",
+  resuelto: "bg-arena text-grafito/75",
+  cancelada: "bg-arena text-grafito/75",
 };
 
 export interface TemaTipoConsulta {
@@ -141,7 +146,10 @@ export interface TemaTipoConsulta {
 //
 // El texto se mezcla con negro y no con el color puro: tiene que seguir
 // leyéndose sobre cualquier color que el profesional elija, incluido uno
-// oscuro.
+// oscuro. Va al 40 % del color (correcciones generales, ítem 2, 2026-10-10):
+// al 72 % no llegaba a 4,5:1 sobre su propio relleno con casi ningún color
+// de la paleta (2,3:1 con el cascarón de "Consulta general"); al 40 % da
+// 5,6:1 o más con todos, sobre el relleno y sobre el postturno.
 export function temaTipoConsulta(tipo: Pick<TipoConsulta, "color"> | undefined): TemaTipoConsulta {
   if (!tipo?.color) {
     return {
@@ -156,7 +164,7 @@ export function temaTipoConsulta(tipo: Pick<TipoConsulta, "color"> | undefined):
     fondo: `color-mix(in srgb, ${tipo.color} 55%, white)`,
     fondoPost: `color-mix(in srgb, ${tipo.color} 24%, white)`,
     borde: `color-mix(in srgb, ${tipo.color} 78%, white)`,
-    texto: `color-mix(in srgb, ${tipo.color} 72%, black)`,
+    texto: `color-mix(in srgb, ${tipo.color} 40%, black)`,
     acento: tipo.color,
   };
 }

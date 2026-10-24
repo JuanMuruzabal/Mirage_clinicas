@@ -17,7 +17,7 @@ interface MenuMasProps {
   className?: string;
 }
 
-const CLASE_ITEM = "flex min-h-11 w-full items-center rounded-field px-3 text-left text-sm font-medium hover:bg-hueso disabled:cursor-not-allowed disabled:opacity-50";
+const CLASE_ITEM = "flex min-h-11 w-full items-center rounded-field px-3 text-left text-sm font-medium hover:bg-velo disabled:cursor-not-allowed disabled:opacity-50";
 
 // MenuMas (PP-5, H15) — en un celular la barra del editor tenía ~7 acciones
 // partidas en filas; debajo de `lg` quedan a la vista Guardar y Publicar y
@@ -57,7 +57,7 @@ export function MenuMas({ acciones, className }: MenuMasProps) {
         aria-expanded={abierto}
         aria-controls={id}
         onClick={() => setAbierto((a) => !a)}
-        className="min-h-11 rounded-full border-[0.5px] border-arena bg-marfil px-4 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
+        className="min-h-11 rounded-control border-[0.5px] border-arena bg-marfil px-4 text-sm font-medium text-grafito hover:border-marca-medio hover:text-marca"
       >
         Más
       </button>

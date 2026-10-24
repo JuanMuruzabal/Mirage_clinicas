@@ -14,7 +14,7 @@
 export function EstadoVerificadoBadge({ verificado }: { verificado?: boolean }) {
   return (
     <span
-      className={`inline-block rounded-full border-[0.5px] px-2.5 py-1 text-xs font-semibold whitespace-nowrap ${
+      className={`inline-block rounded-pastilla border-[0.5px] px-2.5 py-1 text-xs font-semibold whitespace-nowrap ${
         verificado ? "border-salvia bg-salvia-claro text-salvia-oscuro" : "border-terracota bg-terracota-claro text-terracota-oscuro"
       }`}
     >

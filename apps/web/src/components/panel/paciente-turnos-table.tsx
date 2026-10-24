@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useRef, useState, type ReactNode } from "react";
-import { useAltoDeFilas } from "@/lib/alto-de-filas";
+import { useMemo, useState, type ReactNode } from "react";
+import { CajaDeTabla } from "./caja-de-tabla";
 import { FechaHoraCelda } from "./fecha-hora-celda";
+import { CLASE_CABECERA, CLASE_CAJA_TABLA, CLASE_CAJA_VACIA, CLASE_CELDA, CLASE_CELDA_SECUNDARIA, CLASE_FILA, CLASE_FILA_CLICABLE, CLASE_MONO, CLASE_TABLA } from "./tabla";
 import type { TipoConsulta, Turno } from "@dental-mirage/shared-types";
 import {
   ESTADO_DERIVADO_CLASS,
@@ -146,9 +147,6 @@ function FilaSinAccion({
 }
 
 export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRangosRapidos = true }: PacienteTurnosTableProps) {
-  // En el celular, cuatro filas enteras antes del scroll (ver lib/alto-de-filas.ts).
-  const cajaTabla = useRef<HTMLDivElement>(null);
-  useAltoDeFilas(cajaTabla);
   // Confirmado — lo que de verdad filtra la tabla de abajo.
   const [tipoId, setTipoId] = useState("todos");
   const [desde, setDesde] = useState("");
@@ -244,7 +242,7 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
 
   if (turnos.length === 0) {
     return (
-      <p className="rounded-card border-[0.5px] border-arena bg-marfil p-8 text-center text-sm text-grafito/60 shadow-soft">{vacio}</p>
+      <p className={`${CLASE_CAJA_VACIA} p-8 text-center text-sm text-grafito/75`}>{vacio}</p>
     );
   }
 
@@ -285,7 +283,7 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
               <select
                 value={draftTipoId}
                 onChange={(e) => setDraftTipoId(e.target.value)}
-                className="rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-grafito outline-none focus:border-salvia"
+                className="rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-grafito outline-none focus:border-marca-medio"
               >
                 <option value="todos">Todos los tipos</option>
                 {tiposUsados.map((t) => (
@@ -315,7 +313,7 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
                       setDraftDesde(calculado.desde);
                       setDraftHasta(calculado.hasta);
                     }}
-                    className={`rounded-full bg-salvia-oscuro px-3 py-1.5 text-xs font-semibold text-marfil hover:brightness-95 whitespace-nowrap ${activo ? "ring-2 ring-offset-1 ring-salvia-oscuro" : ""}`}
+                    className={`rounded-control boton-primario px-3 py-1.5 text-xs font-semibold whitespace-nowrap ${activo ? "ring-2 ring-offset-1 ring-marca" : ""}`}
                   >
                     {r.label}
                   </button>
@@ -330,7 +328,7 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
                 type="date"
                 value={draftDesde}
                 onChange={(e) => setDraftDesde(e.target.value)}
-                className="rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-grafito outline-none focus:border-salvia"
+                className="rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-grafito outline-none focus:border-marca-medio"
               />
             </label>
             <label className="flex flex-col gap-1.5 text-sm">
@@ -339,7 +337,7 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
                 type="date"
                 value={draftHasta}
                 onChange={(e) => setDraftHasta(e.target.value)}
-                className="rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-grafito outline-none focus:border-salvia"
+                className="rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-grafito outline-none focus:border-marca-medio"
               />
             </label>
           </div>
@@ -348,46 +346,30 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
       </div>
 
       {filtrados.length === 0 ? (
-        <p className="rounded-card border-[0.5px] border-arena bg-marfil p-8 text-center text-sm text-grafito/60 shadow-soft">
+        <p className={`${CLASE_CAJA_VACIA} p-8 text-center text-sm text-grafito/75`}>
           Ningún turno coincide con el filtro.
         </p>
       ) : (
-        // Misma tabla en mobile y escritorio — Motivo pasa a
-        // `max-md:hidden` (columna menos esencial para un vistazo, sigue
-        // disponible al entrar al turno en la vista Turnos). `max-h-[400px]
-        // overflow-y-auto` en escritorio, `max-md:max-h-[18rem]
-        // max-md:overflow-x-hidden` en mobile (pedido explícito del
-        // cliente, 2026-08-27: "solo habrá 4 visibles a primera vista"/
-        // "que se pueda desplazar solo verticalmente") — esta caja saca
-        // su propia scrollbar vertical (`.panel-table-scroll`, ver
-        // globals.css) con un historial largo, en vez de alargar la
-        // página (mismo criterio que turnos-table.tsx/pacientes/page.tsx).
-        <div ref={cajaTabla} className="panel-table-scroll max-h-[400px] overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft max-md:max-h-[var(--alto-mobile,18rem)] max-md:overflow-x-hidden md:overflow-x-auto">
-          <table className="w-full text-left text-sm">
+        // La misma tabla en todos los anchos, con el sistema común de las
+        // tablas del panel (components/panel/tabla.ts). Hasta el 2026-10-12
+        // el celular escondía Profesional y Motivo y bajaba el profesional
+        // debajo del tipo; desde las correcciones generales (ítem 9, pedido
+        // de la persona) va completa y scrollea de costado adentro de su
+        // caja, que crece hasta el espacio libre de la pantalla sin bajar de
+        // cuatro filas en el celular (CajaDeTabla). Con un historial largo,
+        // es esta caja la que scrollea, no la página.
+        <CajaDeTabla llenaLaPantalla className={CLASE_CAJA_TABLA}>
+          <table className={CLASE_TABLA}>
             <thead>
-              {/* border-b (1px) en mobile — pedido explícito del cliente,
-                  2026-08-27: separadores más claros, el 0.5px de
-                  escritorio se pierde en algunos anchos de píxel de
-                  mobile. Sticky por `th` (`.panel-th-sticky`, ver
-                  globals.css), no en thead/tr — bug de Safari de iOS
-                  con rebote elástico (2026-08-28). */}
-              <tr className="border-b border-arena text-xs font-semibold uppercase tracking-wide text-grafito/60 md:border-b-[0.5px]">
-                <th className="panel-th-sticky w-8 px-4 py-3" aria-hidden="true" />
-                <th className="panel-th-sticky px-4 py-3">Tipo de consulta</th>
-                <th className="panel-th-sticky px-4 py-3">Fecha y hora</th>
-                <th className="panel-th-sticky px-4 py-3">Estado</th>
+              <tr>
+                <th className={CLASE_CABECERA}>Tipo de consulta</th>
+                <th className={CLASE_CABECERA}>Fecha y hora</th>
+                <th className={CLASE_CABECERA}>Estado</th>
                 {/* Con quién (Fase 3.2.5): la ficha muestra TODOS los
                     turnos del paciente —es de la clínica— así que sin esta
-                    columna el historial mezcla profesionales sin decirlo.
-
-                    `max-md:hidden` como Motivo (corrección del
-                    2026-09-15, con captura): esta tabla NO scrollea en
-                    horizontal en mobile (pedido explícito, ver el
-                    comentario del contenedor), así que una quinta columna
-                    no se acomoda — se corta. En pantalla angosta el dato
-                    no se pierde: baja debajo del tipo de consulta. */}
-                <th className="panel-th-sticky max-md:hidden px-4 py-3">Profesional</th>
-                <th className="panel-th-sticky max-md:hidden px-4 py-3">Motivo</th>
+                    columna el historial mezcla profesionales sin decirlo. */}
+                <th className={CLASE_CABECERA}>Profesional</th>
+                <th className={CLASE_CABECERA}>Motivo</th>
               </tr>
             </thead>
             <tbody>
@@ -417,15 +399,17 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
                 // lado es peor que no ofrecerlo.
                 const Fila = t.esMio === false ? FilaSinAccion : ClickableTableRow;
                 return (
-                  <Fila key={t.id} href={hrefVerTurno} className="border-b border-arena last:border-b-0 hover:bg-arena md:border-b-[0.5px]">
-                    <td className="px-4 py-3">
-                      <span
-                        aria-hidden="true"
-                        className="inline-block h-2.5 w-2.5 rounded-full"
-                        style={{ background: temaTipoConsulta(tipo).acento }}
-                      />
-                    </td>
-                    <td className="px-4 py-3 text-grafito">
+                  <Fila key={t.id} href={hrefVerTurno} className={t.esMio === false ? CLASE_FILA : CLASE_FILA_CLICABLE}>
+                    <td className={CLASE_CELDA}>
+                      {/* El punto de color del tipo va al lado del nombre,
+                          como en Turnos (hasta el 2026-10-12 tenía una
+                          columna propia, sin título). */}
+                      <span className="inline-flex items-center gap-1.5">
+                        <span
+                          aria-hidden="true"
+                          className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
+                          style={{ background: temaTipoConsulta(tipo).acento }}
+                        />
                       {/* Corrección de QA (pedido textual del cliente):
                           "si el tipo de consulta es muy largo... poner
                           un botón 'Ver tipo'" — mismo componente/umbral
@@ -433,26 +417,17 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
                           más largo que "Consulta general"). El punto de
                           color de la columna de al lado se sigue viendo
                           siempre, sea cual sea el nombre. */}
-                      {tipo && tipoConsultaNombreEsLargo(tipo.nombre) ? <VerTextoBoton titulo="Tipo" texto={tipo.nombre} /> : (tipo?.nombre ?? "—")}
-                      {/* El profesional, en mobile, debajo del tipo: la
-                          columna propia no entra sin scroll horizontal, y
-                          el dato no puede perderse — es lo que distingue
-                          un turno propio de uno de un colega. */}
-                      {t.atendidoPorNombre && (
-                        <span className="mt-0.5 block text-xs text-grafito/50 md:hidden">
-                          {t.atendidoPorNombre}
-                          {t.esMio === false && " · solo lectura"}
-                        </span>
-                      )}
+                        {tipo && tipoConsultaNombreEsLargo(tipo.nombre) ? <VerTextoBoton titulo="Tipo" texto={tipo.nombre} /> : (tipo?.nombre ?? "—")}
+                      </span>
                     </td>
-                    <td className="px-4 py-3 font-[family-name:var(--font-mono)] text-grafito">
+                    <td className={`${CLASE_CELDA} ${CLASE_MONO}`}>
                       <FechaHoraCelda iso={t.horaInicio} />
                     </td>
-                    <td className="px-4 py-3">
+                    <td className={CLASE_CELDA}>
                       {/* Mismo estado derivado que /panel/turnos: suma
                           "En proceso" y renombra "Confirmado" a
                           "Pendiente" (2026-09-19). */}
-                      <span className={`inline-flex flex-wrap items-center gap-2 text-xs ${ESTADO_DERIVADO_CLASS[estadoDeTurno(t)]}`}>
+                      <span className={`inline-flex items-center gap-2 text-xs ${ESTADO_DERIVADO_CLASS[estadoDeTurno(t)]}`}>
                         <QuadrantMark estado={t.estado} />
                         {ESTADO_DERIVADO_LABEL[estadoDeTurno(t)]}
                         {/* Corrección de QA: "en la ficha de pacientes en
@@ -462,7 +437,7 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
                             TurnosTable/TurnoDetalle/calendar-grid.tsx. */}
                         {resuelto && t.asistencia && (
                           <span
-                            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                            className={`rounded-pastilla px-2 py-0.5 text-[10px] font-semibold ${
                               t.asistencia === "asistio" ? "bg-salvia-oscuro text-marfil" : "bg-terracota-oscuro text-marfil"
                             }`}
                           >
@@ -471,15 +446,15 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
                         )}
                       </span>
                     </td>
-                    <td className="max-md:hidden px-4 py-3 text-grafito/70">
+                    <td className={CLASE_CELDA_SECUNDARIA}>
                       {t.atendidoPorNombre ?? "—"}
                       {t.esMio === false && (
-                        <span className="ml-2 rounded-full bg-hueso px-2 py-0.5 text-[11px] text-grafito/50">
+                        <span className="ml-2 rounded-pastilla bg-hueso px-2 py-0.5 text-[11px] text-grafito/75">
                           solo lectura
                         </span>
                       )}
                     </td>
-                    <td className="max-md:hidden px-4 py-3 text-grafito/60">
+                    <td className={CLASE_CELDA_SECUNDARIA}>
                       {/* Corrección de QA: mismo "Ver motivo" que ya
                           aplica en TurnosTable (Extra 2.3.3/E3.3) — acá
                           faltaba, tanto en "Turnos activos" como en
@@ -491,7 +466,7 @@ export function PacienteTurnosTable({ turnos, tiposConsulta, vacio, mostrarRango
               })}
             </tbody>
           </table>
-        </div>
+        </CajaDeTabla>
       )}
     </div>
   );

@@ -37,23 +37,23 @@ export function TarjetaOpcion({ seleccionada, onClick, icono, titulo, descripcio
       // separación parecía inconsistente y en realidad lo que variaba era
       // el ancho de las tarjetas.
       className={`flex h-full w-full flex-col gap-2 rounded-[10px] border p-4 text-left transition-colors ${
-        seleccionada ? "border-salvia-oscuro bg-salvia-claro" : "border-linea bg-marfil hover:border-salvia"
+        seleccionada ? "border-marca bg-marca-claro" : "border-linea bg-marfil hover:border-marca-medio"
       }`}
     >
       <span className="flex items-start justify-between">
-        <span className={seleccionada ? "text-salvia-oscuro" : "text-grafito/40"}>{icono}</span>
+        <span className={seleccionada ? "text-marca" : "text-grafito/40"}>{icono}</span>
         <span
           aria-hidden="true"
           className={`flex h-5 w-5 items-center justify-center rounded-full border ${
-            seleccionada ? "border-salvia-oscuro bg-salvia-oscuro text-marfil" : "border-linea"
+            seleccionada ? "border-marca-relleno bg-marca-relleno text-marfil" : "border-linea"
           }`}
         >
           {seleccionada && <IconCheck className="h-3.5 w-3.5" />}
         </span>
       </span>
       <span
-        className={`font-[family-name:var(--font-display)] text-lg font-medium ${
-          seleccionada ? "text-salvia-oscuro" : "text-grafito"
+        className={`font-[family-name:var(--font-display)] text-lg font-semibold ${
+          seleccionada ? "text-marca" : "text-grafito"
         }`}
       >
         {titulo}

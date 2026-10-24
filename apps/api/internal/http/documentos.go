@@ -152,6 +152,10 @@ type documentoVinculadoResponse struct {
 	// Continuacion — en un anexo de continuación, su sección y su número: en
 	// una historia, cuáles de sus secciones ya tienen el suyo.
 	Continuacion *continuacionResponse `json:"continuacion,omitempty"`
+	// TienePDF — en un anexo de la lista `anexos`, si tiene PDF (el criterio
+	// del resumen): la web cuenta cuántos entran en el PDF de la historia con
+	// sus anexos. La historia de `anexoDe` no lo trae.
+	TienePDF bool `json:"tienePDF,omitempty"`
 }
 
 type firmaResponse struct {
@@ -275,8 +279,10 @@ func cargarVinculosDeAnexos(tx *gorm.DB, r *http.Request, docs []db.DocumentoCli
 		}
 	}
 	if len(historias) > 0 {
+		// Los anexos traen también su contenido congelado, que mira TienePDF
+		// (completar): en uno de continuación es chico.
 		var filas []db.DocumentoClinico
-		if err := tx.Scopes(documentosQueVeo(r, clinicID)).Select(columnas).
+		if err := tx.Scopes(documentosQueVeo(r, clinicID)).Select(columnas+", documentos_clinicos.contenido_canonico").
 			Where("documentos_clinicos.clinic_id = ? AND documentos_clinicos.anexo_de IN ?", clinicID, historias).
 			Order("documentos_clinicos.created_at").Find(&filas).Error; err != nil {
 			return v, err
@@ -357,6 +363,14 @@ func (v vinculosDeAnexos) vinculado(d db.DocumentoClinico, folioDeLaHistoria *in
 	}
 }
 
+// tienePDFSegunSuPlantilla — documentos.TienePDF con la plantilla del
+// documento; sin ella (una versión que la API ya no tiene), no, como en el
+// resumen.
+func tienePDFSegunSuPlantilla(d db.DocumentoClinico) bool {
+	p, ok := documentos.PorID(d.PlantillaID, d.PlantillaVersion)
+	return ok && documentos.TienePDF(d, p)
+}
+
 // completar — el vínculo de un documento de la lista, y la fecha de su
 // último asiento si es un anexo de continuación.
 func (v vinculosDeAnexos) completar(out *documentoResumenResponse, d db.DocumentoClinico) {
@@ -369,7 +383,9 @@ func (v vinculosDeAnexos) completar(out *documentoResumenResponse, d db.Document
 		out.HistoriaNoVisible = !ok
 	}
 	for _, a := range v.anexos[d.ID] {
-		out.Anexos = append(out.Anexos, v.vinculado(a, d.Folio))
+		vinculo := v.vinculado(a, d.Folio)
+		vinculo.TienePDF = tienePDFSegunSuPlantilla(a)
+		out.Anexos = append(out.Anexos, vinculo)
 	}
 	if t, ok := v.ultimoAsiento[d.ID]; ok {
 		out.UltimoAsientoEn = fechaHoraPtr(&t)
@@ -489,6 +505,13 @@ func detalleDeDocumento(tx *gorm.DB, r *http.Request, d db.DocumentoClinico) (do
 
 // registrarEvento — la auditoría de un documento (solo INSERT, TR-186).
 func registrarEvento(tx *gorm.DB, r *http.Request, d db.DocumentoClinico, tipo, detalle string) error {
+	evento := eventoDelDocumento(r, d, tipo, detalle)
+	return tx.Create(&evento).Error
+}
+
+// eventoDelDocumento — un evento de la auditoría de d: quién (la sesión) y
+// desde dónde (la IP).
+func eventoDelDocumento(r *http.Request, d db.DocumentoClinico, tipo, detalle string) db.DocumentoEvento {
 	evento := db.DocumentoEvento{DocumentoID: d.ID, ClinicID: d.ClinicID, Tipo: tipo}
 	if session, ok := sessionFromContext(r); ok {
 		evento.UserID = &session.UserID
@@ -499,7 +522,7 @@ func registrarEvento(tx *gorm.DB, r *http.Request, d db.DocumentoClinico, tipo, 
 	if ip := clientIP(r); ip != "" {
 		evento.IP = &ip
 	}
-	return tx.Create(&evento).Error
+	return evento
 }
 
 func errorDeValidacion(w http.ResponseWriter, errores []documentos.ErrorDeCampo) {

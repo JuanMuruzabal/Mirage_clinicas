@@ -14,35 +14,24 @@ const ETIQUETA_ROL: Record<string, string> = {
   recepcion: "Recepción",
 };
 
-// Selector de clínica — rediseño del 2026-09-14.
+// Selector de clínica del topbar de /panel/** (Fase 3.2.5): punto + nombre
+// + chevron, y el popover alineado a la izquierda, porque el control vive
+// pegado al logo. El nombre de la clínica con su punto dice dónde se está, y
+// el nombre accesible del botón ("Cambiar de clínica") dice para qué sirve.
 //
-// Reemplaza a la línea "Estás en [píldora] Cambiar de clínica", que eran
-// **tres tratamientos visuales para una sola idea** apretados abajo del
-// saludo: un texto, una píldora y un enlace, para decir dónde estás y
-// cómo cambiarlo. Acá es un control único, a la derecha del título.
-//
-// Que además llene ese costado no es decoración: el encabezado tenía todo
-// el peso a la izquierda y la mitad derecha vacía.
-//
-// Desde la Fase 3.2.5 tiene una segunda vida en el topbar de /panel/**,
-// donde el espacio es otro: ahí va la variante `compacto` (punto + nombre
-// + chevron, sin el rótulo "Estás en") y el popover se alinea a la
-// izquierda, porque el control vive pegado al logo y no al borde derecho.
-// Es el mismo componente y no una copia: lo que cambia es la caja, no lo
-// que hace ni lo que sabe.
+// Hasta el 2026-10-19 tuvo además una variante grande en "¿Qué necesitás
+// hoy?"; la persona la sacó de ahí (para cambiar de clínica se vuelve a
+// /clinicas) y con ella se fueron `variante` y `alineacion`. El archivo
+// sigue en esta carpeta por historia: lo importa `panel-topbar.tsx`.
 export function SelectorClinica({
   clinicas,
   nombreActual,
-  variante = "tarjeta",
-  alineacion = "derecha",
   quedarseAca = false,
   onCambiada,
   bloqueado = false,
 }: {
   clinicas: ClinicaDelUsuario[];
   nombreActual: string;
-  variante?: "tarjeta" | "compacto";
-  alineacion?: "izquierda" | "derecha";
   /** En el topbar del panel, cambiar de clínica NO saca de la pantalla:
    *  deja al profesional en el panel de la otra clínica. */
   quedarseAca?: boolean;
@@ -53,7 +42,6 @@ export function SelectorClinica({
    *  está abierto: el popover quedaría tapado por el drawer, o tapándolo. */
   bloqueado?: boolean;
 }) {
-  const compacto = variante === "compacto";
   const [abierto, setAbierto] = useState(false);
   const [entrando, setEntrando] = useState<string | null>(null);
   const contenedor = useRef<HTMLDivElement>(null);
@@ -105,40 +93,23 @@ export function SelectorClinica({
         aria-label="Cambiar de clínica"
         disabled={bloqueado}
         onClick={() => setAbierto((a) => !a)}
-        className={`flex items-center border border-linea bg-marfil text-left transition-colors hover:border-salvia ${
-          // Compacto: ancho completo en mobile —donde es el elemento
-          // principal del renglón— y al tamaño de su contenido en
-          // escritorio, donde convive con el logo y el resto del header.
-          compacto ? "w-full gap-2 rounded-full px-3 py-1.5 md:w-auto" : "gap-3 rounded-[12px] px-4 py-2.5"
-        }`}
+        // Ancho completo en mobile —donde es el elemento principal del
+        // renglón— y al tamaño de su contenido en escritorio, donde convive
+        // con el logo y el resto del header.
+        className="flex w-full items-center gap-2 rounded-control border border-linea bg-marfil px-3 py-1.5 text-left transition-colors hover:border-marca-medio md:w-auto"
       >
-        <span aria-hidden="true" className="h-[9px] w-[9px] flex-shrink-0 rounded-full bg-salvia-oscuro" />
-        {compacto ? (
-          <span className="min-w-0 flex-1 truncate text-sm font-medium text-grafito md:max-w-[14rem] md:flex-none">
-            {nombreActual}
-          </span>
-        ) : (
-          <span className="flex flex-col">
-            <span className="font-[family-name:var(--font-mono)] text-[11.5px] uppercase tracking-[0.16em] text-grafito/45">
-              Estás en
-            </span>
-            <span className="font-[family-name:var(--font-display)] text-[17px] font-semibold text-grafito">
-              {nombreActual}
-            </span>
-          </span>
-        )}
+        <span aria-hidden="true" className="h-[9px] w-[9px] flex-shrink-0 rounded-full bg-marca-relleno" />
+        <span className="min-w-0 flex-1 truncate text-sm font-medium text-grafito md:max-w-[14rem] md:flex-none">
+          {nombreActual}
+        </span>
         <IconChevronDown className={`h-4 w-4 flex-shrink-0 text-grafito/40 ${abierto ? "rotate-180" : ""}`} />
       </button>
 
       {/* `max-w-[calc(100vw-3rem)]`: en un teléfono angosto, 288px fijos
           se salen igual aunque el ancla esté a la derecha. */}
       {abierto && !bloqueado && (
-        <div
-          className={`absolute top-[calc(100%+0.5rem)] z-20 flex w-72 max-w-[calc(100vw-3rem)] flex-col rounded-card border border-linea bg-marfil p-2 shadow-soft ${
-            alineacion === "izquierda" ? "left-0" : "right-0"
-          }`}
-        >
-          <p className="px-3 py-2 font-[family-name:var(--font-mono)] text-[11.5px] uppercase tracking-[0.16em] text-grafito/45">
+        <div className="absolute top-[calc(100%+0.5rem)] left-0 z-20 flex w-72 max-w-[calc(100vw-3rem)] flex-col rounded-card border border-linea bg-marfil p-2 shadow-soft">
+          <p className="px-3 py-2 font-[family-name:var(--font-mono)] tabular-nums text-[11.5px] uppercase tracking-[0.16em] text-grafito/45">
             Cambiar de clínica
           </p>
           <ul className="flex flex-col gap-0.5">
@@ -149,7 +120,7 @@ export function SelectorClinica({
                   disabled={entrando !== null}
                   onClick={() => (clinica.activa ? setAbierto(false) : cambiarA(clinica.id))}
                   className={`flex w-full items-center gap-2 rounded-field px-3 py-2.5 text-left transition-colors disabled:opacity-60 ${
-                    clinica.activa ? "bg-salvia-claro" : "hover:bg-hueso"
+                    clinica.activa ? "bg-marca-claro" : "hover:bg-velo"
                   }`}
                 >
                   <span className="flex min-w-0 flex-col">
@@ -158,7 +129,7 @@ export function SelectorClinica({
                       {ETIQUETA_ROL[clinica.rolPrincipal] ?? clinica.rolPrincipal}
                     </span>
                   </span>
-                  {clinica.activa && <IconCheck className="ml-auto h-4 w-4 flex-shrink-0 text-salvia-oscuro" />}
+                  {clinica.activa && <IconCheck className="ml-auto h-4 w-4 flex-shrink-0 text-marca" />}
                 </button>
               </li>
             ))}
@@ -166,7 +137,7 @@ export function SelectorClinica({
           <Link
             href="/clinicas"
             onClick={() => setAbierto(false)}
-            className="mt-1 border-t border-linea px-3 pb-1 pt-3 text-sm font-medium text-salvia-oscuro hover:text-grafito"
+            className="mt-1 border-t border-linea px-3 pb-1 pt-3 text-sm font-medium text-marca hover:text-grafito"
           >
             Ver todas las clínicas
           </Link>

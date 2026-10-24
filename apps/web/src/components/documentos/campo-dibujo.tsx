@@ -94,7 +94,7 @@ export function CampoDibujo({
         type="button"
         aria-describedby={idResumen}
         onClick={() => cambiarAbierto(true)}
-        className="min-h-11 rounded-full border border-salvia-oscuro bg-marfil px-4 text-sm font-medium text-salvia-oscuro hover:bg-salvia-claro"
+        className="min-h-11 rounded-control border border-marca bg-marfil px-4 text-sm font-medium text-marca hover:bg-velo"
       >
         Abrir {campo.etiqueta.toLowerCase()}
       </button>
@@ -111,7 +111,7 @@ export function CampoDibujo({
             <button
               type="button"
               onClick={cerrar}
-              className="min-h-11 rounded-full bg-salvia-oscuro px-6 text-sm font-semibold text-marfil hover:brightness-95"
+              className="min-h-11 rounded-control boton-primario px-6 text-sm font-semibold"
             >
               Listo
             </button>

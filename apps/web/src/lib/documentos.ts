@@ -238,7 +238,12 @@ export function filasDeHistorias(documentos: DocumentoResumen[]): FilaDeHistoria
   for (const d of documentos) {
     if (d.tipo === "anexo") continue;
     filas.push({ documento: d, nivel: "documento" });
-    for (const anexo of anexosDe.get(d.id) ?? []) filas.push({ documento: anexo, nivel: "anexo" });
+    // Debajo de su historia, los anexos van por su número (Nº 1, 2, 3), en
+    // el orden en que se lee la historia, aunque la lista venga de la más
+    // nueva a la más vieja (correcciones generales, ítem 8). Sin número, en
+    // el orden en que vinieron (el sort es estable).
+    const anexos = [...(anexosDe.get(d.id) ?? [])].sort((a, b) => (a.anexoNumero ?? Infinity) - (b.anexoNumero ?? Infinity));
+    for (const anexo of anexos) filas.push({ documento: anexo, nivel: "anexo" });
   }
   return [...filas, ...deHistoriaOculta, ...sueltos];
 }

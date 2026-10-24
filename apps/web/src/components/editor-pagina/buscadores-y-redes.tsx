@@ -89,7 +89,7 @@ export function BuscadoresYRedes({ slug, urlSitio, seoTitulo, seoDescripcion, ti
 
       <p className={CLASE_AYUDA}>
         La imagen que acompaña el link se arma sola con los colores y la tipografía de tu tema publicado.{" "}
-        <a href={`/${slug}/opengraph-image`} target="_blank" rel="noopener noreferrer" className="underline hover:text-salvia-oscuro">
+        <a href={`/${slug}/opengraph-image`} target="_blank" rel="noopener noreferrer" className="underline hover:text-marca">
           Ver la imagen actual
         </a>
       </p>

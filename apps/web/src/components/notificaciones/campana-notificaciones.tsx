@@ -71,13 +71,13 @@ export function CampanaNotificaciones() {
         aria-expanded={abierto}
         aria-controls="panel-notificaciones"
         aria-label={nuevas > 0 ? `Notificaciones: ${nuevas} sin leer` : "Notificaciones"}
-        className="relative flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-current transition-colors hover:bg-current/10"
+        className="relative flex h-10 w-10 flex-shrink-0 pointer-coarse:h-11 pointer-coarse:w-11 items-center justify-center rounded-full text-current transition-colors hover:bg-current/10"
       >
         <IconBell className="h-[22px] w-[22px]" />
         {numero && (
           <span
             aria-hidden="true"
-            className="absolute right-0.5 top-0.5 flex h-[1.15rem] min-w-[1.15rem] items-center justify-center rounded-full bg-terracota-oscuro px-1 font-[family-name:var(--font-mono)] text-[10px] font-semibold leading-none text-marfil ring-2 ring-marfil"
+            className="absolute right-0.5 top-0.5 flex h-[1.15rem] min-w-[1.15rem] items-center justify-center rounded-full bg-terracota-oscuro px-1 font-[family-name:var(--font-mono)] tabular-nums text-[10px] font-semibold leading-none text-marfil ring-2 ring-marfil"
           >
             {numero}
           </span>

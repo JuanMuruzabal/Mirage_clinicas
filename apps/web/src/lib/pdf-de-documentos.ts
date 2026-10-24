@@ -6,8 +6,15 @@ import { esAnexoSinFolio, nombreConTipo } from "@/lib/documentos";
 // dónde corre la página. Todo puro, para poder probarlo sin un navegador;
 // lo usa `BotonDescargarPDF` (components/documentos/descargar-pdf.tsx).
 
-export function rutaDelPDF(id: string, paraImprimir = false): string {
-  return `/panel/documentos/${id}/pdf${paraImprimir ? "?para=imprimir" : ""}`;
+/** La ruta del BFF que sirve el PDF: con `paraImprimir`, inline (para abrirlo
+ *  en una pestaña e imprimirlo); con `conAnexos`, el de una historia seguida
+ *  de sus anexos. */
+export function rutaDelPDF(id: string, paraImprimir = false, conAnexos = false): string {
+  const consulta = new URLSearchParams();
+  if (paraImprimir) consulta.set("para", "imprimir");
+  if (conAnexos) consulta.set("con", "anexos");
+  const query = consulta.toString();
+  return `/panel/documentos/${id}/pdf${query ? `?${query}` : ""}`;
 }
 
 // Las mismas letras que reemplaza `sinAcentos` en la API
@@ -22,17 +29,21 @@ const SIN_ACENTOS: Record<string, string> = {
  *  calco de `nombreDeArchivoDelPDF` de la API —el documento con su tipo, en
  *  ASCII, sin datos del paciente; un anexo, con el "x.y" de su historia
  *  ("…-folio-3.1.pdf") o, mientras la historia no tiene folio, con su número
- *  ("…-anexo-1-sin-folio.pdf")—.
+ *  ("…-anexo-1-sin-folio.pdf")—. Con `conAnexos`, el de una historia con sus
+ *  anexos: "-con-anexos" antes de la extensión (`conSusAnexos` de la API).
  *  Hace falta ANTES de pedir el PDF: el selector de "Guardar como" de la app
  *  instalada se abre dentro del clic, antes de que llegue la respuesta con su
  *  Content-Disposition. */
-export function nombreDeArchivoDelPDF(d: Pick<DocumentoResumen, "tipo" | "plantillaNombre" | "folioMostrado" | "anexoNumero">): string {
+export function nombreDeArchivoDelPDF(
+  d: Pick<DocumentoResumen, "tipo" | "plantillaNombre" | "folioMostrado" | "anexoNumero">,
+  conAnexos = false,
+): string {
   const sinAcentos = [...nombreConTipo(d)].map((c) => SIN_ACENTOS[c] ?? c).join("");
   const base = sinAcentos
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
-  return `${base || "documento"}${sufijoDeFolio(d)}.pdf`;
+  return `${base || "documento"}${sufijoDeFolio(d)}${conAnexos ? "-con-anexos" : ""}.pdf`;
 }
 
 function sufijoDeFolio(d: Pick<DocumentoResumen, "folioMostrado" | "anexoNumero">): string {

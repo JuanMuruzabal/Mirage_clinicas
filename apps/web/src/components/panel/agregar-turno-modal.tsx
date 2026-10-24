@@ -1,5 +1,6 @@
 "use client";
 
+import { Dialogo } from "@/components/dialogo";
 import { useEffect, useState } from "react";
 import type {
   PacienteConocido,
@@ -14,7 +15,6 @@ import {
 } from "@/app/actions/calendario-config";
 import { fechaISOLocal } from "@/lib/calendar-utils";
 import { HoraPicker } from "./hora-picker";
-import { ModalPortal } from "./modal-portal";
 import { CompartirLinkTurno } from "./compartir-link-turno";
 import { SelectorDeAgenda } from "./selector-de-agenda";
 
@@ -83,6 +83,9 @@ export function AgregarTurnoModal({
   onClose,
   onSuccess,
 }: AgregarTurnoModalProps) {
+  // Sobre el Dialogo de todos: foco adentro, Tab atrapado, Escape (el de
+  // arriba si hay varios), el foco vuelve a quien lo abrió y la página de
+  // atrás no scrollea (correcciones generales, 2026-10-12).
   const [paso, setPaso] = useState<Paso>("paciente");
   const [origen, setOrigen] = useState<Origen>("conocido");
   // EN QUÉ AGENDA ENTRA ESTE TURNO (QA de la Fase 3.2.6).
@@ -471,427 +474,402 @@ export function AgregarTurnoModal({
     `${nuevoPaciente.nombreContacto} ${nuevoPaciente.apellidoContacto}`.trim();
 
   return (
-    <ModalPortal>
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Agregar turno"
-        className="fixed inset-0 z-50 flex items-center justify-center bg-grafito/50 p-4 backdrop-blur-sm"
-        onClick={(e) => {
-          if (e.target === e.currentTarget) onClose();
-        }}
-      >
-        <div className="flex max-h-[90vh] w-full max-w-lg max-md:max-w-[90vw] flex-col overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
-          <div className="flex items-center justify-between border-b-[0.5px] border-arena px-6 py-4">
-            <h2 className="font-[family-name:var(--font-display)] text-xl font-medium text-grafito">
-              Agregar turno
-            </h2>
+    <Dialogo titulo="Agregar turno" onCerrar={onClose} superficie="marfil" centrado ancho="mediano">
+
+      {paso === "paciente" && (
+        <div className="flex flex-col gap-4 p-6">
+          <div className="flex gap-1 rounded-control border-[0.5px] border-arena p-1">
             <button
               type="button"
-              onClick={onClose}
-              aria-label="Cerrar"
-              className="text-2xl leading-none text-grafito/50 hover:text-grafito"
+              onClick={abrirPestañaConocido}
+              className={`flex-1 rounded-pastilla py-2 text-sm font-medium ${origen === "conocido" ? "bg-marca-relleno text-marfil" : "text-grafito hover:bg-velo"}`}
             >
-              ×
+              Paciente conocido
+            </button>
+            <button
+              type="button"
+              onClick={abrirPestañaNuevo}
+              className={`flex-1 rounded-pastilla py-2 text-sm font-medium ${origen === "nuevo" ? "bg-marca-relleno text-marfil" : "text-grafito hover:bg-velo"}`}
+            >
+              Paciente nuevo
+            </button>
+            <button
+              type="button"
+              onClick={() => setOrigen("compartir")}
+              className={`flex-1 rounded-pastilla py-2 text-sm font-medium ${origen === "compartir" ? "bg-marca-relleno text-marfil" : "text-grafito hover:bg-velo"}`}
+            >
+              Compartir link
             </button>
           </div>
+          {/* El texto de la pestaña "Compartir link" explica de qué va
+            todo lo de abajo, y estaba en el mismo gris chico que una
+            nota al pie (2026-09-19). Los otros dos sí son notas. */}
+          <p
+            className={
+              origen === "compartir"
+                ? "text-sm text-grafito"
+                : "text-xs text-grafito/60"
+            }
+          >
+            {DESCRIPCION_ORIGEN[origen]}
+          </p>
 
-          {paso === "paciente" && (
-            <div className="flex flex-col gap-4 p-6">
-              <div className="flex gap-1 rounded-full border-[0.5px] border-arena p-1">
-                <button
-                  type="button"
-                  onClick={abrirPestañaConocido}
-                  className={`flex-1 rounded-full py-2 text-sm font-medium ${origen === "conocido" ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"}`}
-                >
-                  Paciente conocido
-                </button>
-                <button
-                  type="button"
-                  onClick={abrirPestañaNuevo}
-                  className={`flex-1 rounded-full py-2 text-sm font-medium ${origen === "nuevo" ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"}`}
-                >
-                  Paciente nuevo
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setOrigen("compartir")}
-                  className={`flex-1 rounded-full py-2 text-sm font-medium ${origen === "compartir" ? "bg-salvia-oscuro text-marfil" : "text-grafito hover:bg-arena"}`}
-                >
-                  Compartir link
-                </button>
-              </div>
-              {/* El texto de la pestaña "Compartir link" explica de qué va
-                todo lo de abajo, y estaba en el mismo gris chico que una
-                nota al pie (2026-09-19). Los otros dos sí son notas. */}
-              <p
-                className={
-                  origen === "compartir"
-                    ? "text-sm text-grafito"
-                    : "text-xs text-grafito/60"
-                }
+          {origen === "compartir" && <CompartirLinkTurno />}
+
+          {origen === "conocido" && (
+            <div className="flex flex-col gap-3">
+              <form
+                onSubmit={buscarPacientesConocidos}
+                className="flex gap-2"
               >
-                {DESCRIPCION_ORIGEN[origen]}
-              </p>
-
-              {origen === "compartir" && <CompartirLinkTurno />}
-
-              {origen === "conocido" && (
-                <div className="flex flex-col gap-3">
-                  <form
-                    onSubmit={buscarPacientesConocidos}
-                    className="flex gap-2"
-                  >
-                    <input
-                      type="search"
-                      value={buscarPaciente}
-                      onChange={(e) => setBuscarPaciente(e.target.value)}
-                      placeholder="Nombre, apellido o DNI…"
-                      aria-label="Buscar paciente"
-                      className={`flex-1 ${inputClass}`}
-                    />
-                    <button
-                      type="submit"
-                      className="rounded-full border-[0.5px] border-arena px-4 py-2 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
-                    >
-                      Buscar
-                    </button>
-                  </form>
-                  {/* max-h + overflow-y-auto (corrección de QA): "a medida
-                    que se van acumulando pacientes conocidos... se
-                    agranda la pestaña, organizar esto con un scrollbar"
-                    — el buscador de arriba queda fijo, solo scrollean
-                    los resultados. */}
-                  <div className="flex max-h-72 flex-col gap-2 overflow-y-auto pr-1">
-                    {cargandoPacientes && (
-                      <p className="text-sm text-grafito/60">Cargando…</p>
-                    )}
-                    {!cargandoPacientes && pacientesConocidos?.length === 0 && (
-                      <p className="text-sm text-grafito/60">
-                        No encontramos pacientes para esa búsqueda.
-                      </p>
-                    )}
-                    {!cargandoPacientes &&
-                      pacientesConocidos?.map((p) => (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onClick={() => elegirConocido(p)}
-                          className="flex flex-shrink-0 flex-col gap-0.5 rounded-field border-[0.5px] border-arena bg-hueso px-4 py-3 text-left hover:border-salvia"
-                        >
-                          <span className="text-sm font-semibold text-grafito">
-                            {p.nombre} {p.apellido}
-                          </span>
-                          <span className="font-[family-name:var(--font-mono)] text-xs text-grafito/60">
-                            DNI {p.dni}
-                          </span>
-                        </button>
-                      ))}
-                  </div>
-                </div>
-              )}
-
-              {origen === "nuevo" && (
-                <form
-                  onSubmit={continuarConNuevo}
-                  className="flex flex-col gap-4"
+                <input
+                  type="search"
+                  value={buscarPaciente}
+                  onChange={(e) => setBuscarPaciente(e.target.value)}
+                  placeholder="Nombre, apellido o DNI…"
+                  aria-label="Buscar paciente"
+                  className={`flex-1 ${inputClass}`}
+                />
+                <button
+                  type="submit"
+                  className="rounded-control border-[0.5px] border-arena px-4 py-2 text-sm font-medium text-grafito hover:border-marca-medio hover:text-marca"
                 >
-                  <Campo label="Nombre">
-                    <input
-                      value={nuevoPaciente.nombreContacto}
-                      onChange={(e) =>
-                        setNuevoPaciente((p) => ({
-                          ...p,
-                          nombreContacto: e.target.value,
-                        }))
-                      }
-                      className={inputClass}
-                    />
-                  </Campo>
-                  <Campo label="Apellido">
-                    <input
-                      value={nuevoPaciente.apellidoContacto}
-                      onChange={(e) =>
-                        setNuevoPaciente((p) => ({
-                          ...p,
-                          apellidoContacto: e.target.value,
-                        }))
-                      }
-                      className={inputClass}
-                    />
-                  </Campo>
-                  <Campo label="DNI">
-                    <input
-                      value={nuevoPaciente.dniContacto}
-                      onChange={(e) =>
-                        setNuevoPaciente((p) => ({
-                          ...p,
-                          dniContacto: e.target.value,
-                        }))
-                      }
-                      className={inputClass}
-                    />
-                  </Campo>
-                  <Campo
-                    label={tutor.conTutor ? "Teléfono (opcional)" : "Teléfono"}
-                  >
-                    <input
-                      value={nuevoPaciente.telefonoContacto}
-                      onChange={(e) =>
-                        setNuevoPaciente((p) => ({
-                          ...p,
-                          telefonoContacto: e.target.value,
-                        }))
-                      }
-                      className={inputClass}
-                    />
-                  </Campo>
-                  <Campo label={tutor.conTutor ? "Email (opcional)" : "Email"}>
-                    <input
-                      type="email"
-                      value={nuevoPaciente.emailContacto}
-                      onChange={(e) =>
-                        setNuevoPaciente((p) => ({
-                          ...p,
-                          emailContacto: e.target.value,
-                        }))
-                      }
-                      className={inputClass}
-                    />
-                  </Campo>
-                  <Campo label="Motivo de consulta (opcional)">
-                    <input
-                      value={nuevoPaciente.motivo}
-                      onChange={(e) =>
-                        setNuevoPaciente((p) => ({
-                          ...p,
-                          motivo: e.target.value,
-                        }))
-                      }
-                      className={inputClass}
-                    />
-                  </Campo>
-
-                  {/* Con tutor (Fase 2.4.2) — mismo criterio que
-                    AgregarPacienteModal/pedir-turno-form.tsx: el turno lo
-                    gestiona otra persona (ej. madre/padre de un paciente
-                    menor). */}
-                  <label className="flex items-center gap-2 text-sm font-medium text-grafito">
-                    <input
-                      type="checkbox"
-                      checked={tutor.conTutor}
-                      onChange={(e) =>
-                        setTutor((t) => ({ ...t, conTutor: e.target.checked }))
-                      }
-                      className="h-4 w-4 rounded border-arena accent-salvia-oscuro"
-                    />
-                    Con tutor (el turno lo gestiona otra persona, ej.
-                    madre/padre)
-                  </label>
-
-                  {tutor.conTutor && (
-                    <div className="flex flex-col gap-4 rounded-field border-[0.5px] border-arena bg-hueso p-4">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-grafito/50">
-                        Datos del tutor
-                      </p>
-                      <Campo label="Relación con el paciente">
-                        <select
-                          value={tutor.tutorRelacion}
-                          onChange={(e) =>
-                            setTutor((t) => ({
-                              ...t,
-                              tutorRelacion: e.target.value,
-                            }))
-                          }
-                          className={inputClass}
-                        >
-                          <option value="">Elegir…</option>
-                          <option value="familiar">Familiar</option>
-                          <option value="amigo">Amigo/a</option>
-                          <option value="otro">Otro</option>
-                        </select>
-                      </Campo>
-                      <Campo label="Nombre completo">
-                        <input
-                          value={tutor.tutorNombre}
-                          onChange={(e) =>
-                            setTutor((t) => ({
-                              ...t,
-                              tutorNombre: e.target.value,
-                            }))
-                          }
-                          className={inputClass}
-                        />
-                      </Campo>
-                      <Campo label="Teléfono">
-                        <input
-                          value={tutor.tutorTelefono}
-                          onChange={(e) =>
-                            setTutor((t) => ({
-                              ...t,
-                              tutorTelefono: e.target.value,
-                            }))
-                          }
-                          className={inputClass}
-                        />
-                      </Campo>
-                      <Campo label="Email">
-                        <input
-                          type="email"
-                          value={tutor.tutorEmail}
-                          onChange={(e) =>
-                            setTutor((t) => ({
-                              ...t,
-                              tutorEmail: e.target.value,
-                            }))
-                          }
-                          className={inputClass}
-                        />
-                      </Campo>
-                    </div>
-                  )}
-
-                  {error && <ErrorMsg>{error}</ErrorMsg>}
-
-                  <div className="flex items-center justify-end gap-3">
-                    {duplicadoDni && (
-                      <button
-                        type="button"
-                        onClick={() => elegirConocido(duplicadoDni)}
-                        className="rounded-full border-[0.5px] border-arena px-5 py-2.5 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
-                      >
-                        Usar este paciente
-                      </button>
-                    )}
+                  Buscar
+                </button>
+              </form>
+              {/* max-h + overflow-y-auto (corrección de QA): "a medida
+                que se van acumulando pacientes conocidos... se
+                agranda la pestaña, organizar esto con un scrollbar"
+                — el buscador de arriba queda fijo, solo scrollean
+                los resultados. */}
+              <div className="flex max-h-72 flex-col gap-2 overflow-y-auto pr-1">
+                {cargandoPacientes && (
+                  <p className="text-sm text-grafito/60">Cargando…</p>
+                )}
+                {!cargandoPacientes && pacientesConocidos?.length === 0 && (
+                  <p className="text-sm text-grafito/60">
+                    No encontramos pacientes para esa búsqueda.
+                  </p>
+                )}
+                {!cargandoPacientes &&
+                  pacientesConocidos?.map((p) => (
                     <button
-                      type="submit"
-                      disabled={verificandoDni}
-                      className="rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
+                      key={p.id}
+                      type="button"
+                      onClick={() => elegirConocido(p)}
+                      className="flex flex-shrink-0 flex-col gap-0.5 rounded-field border-[0.5px] border-arena bg-hueso px-4 py-3 text-left hover:border-marca-medio"
                     >
-                      {verificandoDni ? "Verificando…" : "Continuar"}
+                      <span className="text-sm font-semibold text-grafito">
+                        {p.nombre} {p.apellido}
+                      </span>
+                      <span className="font-[family-name:var(--font-mono)] tabular-nums text-xs text-grafito/60">
+                        DNI {p.dni}
+                      </span>
                     </button>
-                  </div>
-                </form>
-              )}
+                  ))}
+              </div>
             </div>
           )}
 
-          {paso === "detalle" && (
-            // noValidate: el input de fecha tiene `min` como ayuda nativa del
-            // date picker, pero la validación real (con el mensaje en
-            // español, mismo estilo que el resto de la app) la maneja
-            // confirmar() — sin esto, el navegador bloquea el submit en
-            // silencio cuando el valor queda por debajo de `min`, y el
-            // mensaje propio nunca llega a mostrarse.
+          {origen === "nuevo" && (
             <form
-              onSubmit={confirmar}
-              noValidate
-              className="flex flex-col gap-5 p-6"
+              onSubmit={continuarConNuevo}
+              className="flex flex-col gap-4"
             >
-              <div className="rounded-field border-[0.5px] border-arena bg-hueso p-3 text-sm">
-                <span className="text-grafito/60">Paciente: </span>
-                <span className="font-semibold text-grafito">
-                  {nombrePaciente}
-                </span>
-              </div>
-
-              {/* Arriba de todo lo demás: de qué agenda se está hablando
-                cambia qué horarios están libres, así que leerlo después
-                de elegir la hora sería leerlo tarde. */}
-              <SelectorDeAgenda
-                valor={agenda}
-                onElegir={setAgenda}
-                etiqueta="¿En qué agenda?"
-              />
-
-              <Campo label="Tipo de consulta">
-                <select
-                  value={tipoConsultaId}
-                  onChange={(e) => {
-                    setTipoConsultaId(e.target.value);
-                    setCargandoSlots(true);
-                  }}
+              <Campo label="Nombre">
+                <input
+                  value={nuevoPaciente.nombreContacto}
+                  onChange={(e) =>
+                    setNuevoPaciente((p) => ({
+                      ...p,
+                      nombreContacto: e.target.value,
+                    }))
+                  }
                   className={inputClass}
-                >
-                  {tipos.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.nombre}
-                    </option>
-                  ))}
-                </select>
+                />
               </Campo>
-
-              <div className="grid grid-cols-2 gap-4">
-                <Campo label="Fecha">
-                  <input
-                    type="date"
-                    value={fecha}
-                    min={hoyISO}
-                    onChange={(e) => {
-                      setFecha(e.target.value);
-                      setCargandoSlots(true);
-                    }}
-                    className={inputClass}
-                  />
-                </Campo>
-                {/* Sin <Campo> acá a propósito: ese helper envuelve todo en
-                  un <label>, y un <label> le pega su propio texto como
-                  nombre accesible a CUALQUIER elemento etiquetable que
-                  contenga (button incluido) — cada opción del HoraPicker
-                  terminaba anunciándose como "Hora" en vez de "09:00",
-                  "09:15"... (encontrado depurando el error de hidratación
-                  de /panel/calendario, 2026-08-30: un test con
-                  getByRole("option", {name:"10:00"}) no encontraba nada,
-                  ver hora-picker.test.tsx). El <span> de acá abajo es
-                  puramente visual; HoraPicker ya trae su propio
-                  aria-label="Hora" en el contenedor. */}
-                <div className="flex flex-col gap-1.5 text-sm">
-                  <span className="font-medium text-grafito">Hora</span>
-                  <HoraPicker
-                    slots={slots}
-                    value={hora}
-                    onChange={setHora}
-                    cargando={cargandoSlots}
-                  />
-                </div>
-              </div>
-
+              <Campo label="Apellido">
+                <input
+                  value={nuevoPaciente.apellidoContacto}
+                  onChange={(e) =>
+                    setNuevoPaciente((p) => ({
+                      ...p,
+                      apellidoContacto: e.target.value,
+                    }))
+                  }
+                  className={inputClass}
+                />
+              </Campo>
+              <Campo label="DNI">
+                <input
+                  value={nuevoPaciente.dniContacto}
+                  onChange={(e) =>
+                    setNuevoPaciente((p) => ({
+                      ...p,
+                      dniContacto: e.target.value,
+                    }))
+                  }
+                  className={inputClass}
+                />
+              </Campo>
+              <Campo
+                label={tutor.conTutor ? "Teléfono (opcional)" : "Teléfono"}
+              >
+                <input
+                  value={nuevoPaciente.telefonoContacto}
+                  onChange={(e) =>
+                    setNuevoPaciente((p) => ({
+                      ...p,
+                      telefonoContacto: e.target.value,
+                    }))
+                  }
+                  className={inputClass}
+                />
+              </Campo>
+              <Campo label={tutor.conTutor ? "Email (opcional)" : "Email"}>
+                <input
+                  type="email"
+                  value={nuevoPaciente.emailContacto}
+                  onChange={(e) =>
+                    setNuevoPaciente((p) => ({
+                      ...p,
+                      emailContacto: e.target.value,
+                    }))
+                  }
+                  className={inputClass}
+                />
+              </Campo>
               <Campo label="Motivo de consulta (opcional)">
                 <input
-                  value={motivoDetalle}
-                  onChange={(e) => setMotivoDetalle(e.target.value)}
+                  value={nuevoPaciente.motivo}
+                  onChange={(e) =>
+                    setNuevoPaciente((p) => ({
+                      ...p,
+                      motivo: e.target.value,
+                    }))
+                  }
                   className={inputClass}
                 />
               </Campo>
 
+              {/* Con tutor (Fase 2.4.2) — mismo criterio que
+                AgregarPacienteModal/pedir-turno-form.tsx: el turno lo
+                gestiona otra persona (ej. madre/padre de un paciente
+                menor). */}
+              <label className="flex items-center gap-2 text-sm font-medium text-grafito">
+                <input
+                  type="checkbox"
+                  checked={tutor.conTutor}
+                  onChange={(e) =>
+                    setTutor((t) => ({ ...t, conTutor: e.target.checked }))
+                  }
+                  className="h-4 w-4 rounded border-arena accent-marca"
+                />
+                Con tutor (el turno lo gestiona otra persona, ej.
+                madre/padre)
+              </label>
+
+              {tutor.conTutor && (
+                <div className="flex flex-col gap-4 rounded-field border-[0.5px] border-arena bg-hueso p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-grafito/50">
+                    Datos del tutor
+                  </p>
+                  <Campo label="Relación con el paciente">
+                    <select
+                      value={tutor.tutorRelacion}
+                      onChange={(e) =>
+                        setTutor((t) => ({
+                          ...t,
+                          tutorRelacion: e.target.value,
+                        }))
+                      }
+                      className={inputClass}
+                    >
+                      <option value="">Elegir…</option>
+                      <option value="familiar">Familiar</option>
+                      <option value="amigo">Amigo/a</option>
+                      <option value="otro">Otro</option>
+                    </select>
+                  </Campo>
+                  <Campo label="Nombre completo">
+                    <input
+                      value={tutor.tutorNombre}
+                      onChange={(e) =>
+                        setTutor((t) => ({
+                          ...t,
+                          tutorNombre: e.target.value,
+                        }))
+                      }
+                      className={inputClass}
+                    />
+                  </Campo>
+                  <Campo label="Teléfono">
+                    <input
+                      value={tutor.tutorTelefono}
+                      onChange={(e) =>
+                        setTutor((t) => ({
+                          ...t,
+                          tutorTelefono: e.target.value,
+                        }))
+                      }
+                      className={inputClass}
+                    />
+                  </Campo>
+                  <Campo label="Email">
+                    <input
+                      type="email"
+                      value={tutor.tutorEmail}
+                      onChange={(e) =>
+                        setTutor((t) => ({
+                          ...t,
+                          tutorEmail: e.target.value,
+                        }))
+                      }
+                      className={inputClass}
+                    />
+                  </Campo>
+                </div>
+              )}
+
               {error && <ErrorMsg>{error}</ErrorMsg>}
 
-              <div className="flex justify-between">
-                <button
-                  type="button"
-                  onClick={() => setPaso("paciente")}
-                  className="rounded-full border-[0.5px] border-arena px-5 py-2.5 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
-                >
-                  Atrás
-                </button>
+              <div className="flex items-center justify-end gap-3">
+                {duplicadoDni && (
+                  <button
+                    type="button"
+                    onClick={() => elegirConocido(duplicadoDni)}
+                    className="rounded-control border-[0.5px] border-arena px-5 py-2.5 text-sm font-medium text-grafito hover:border-marca-medio hover:text-marca"
+                  >
+                    Usar este paciente
+                  </button>
+                )}
                 <button
                   type="submit"
-                  disabled={pending}
-                  className="rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
+                  disabled={verificandoDni}
+                  className="rounded-control boton-primario px-5 py-2.5 text-sm font-semibold"
                 >
-                  {pending ? "Confirmando…" : "Confirmar"}
+                  {verificandoDni ? "Verificando…" : "Continuar"}
                 </button>
               </div>
             </form>
           )}
         </div>
-      </div>
-    </ModalPortal>
+      )}
+
+      {paso === "detalle" && (
+        // noValidate: el input de fecha tiene `min` como ayuda nativa del
+        // date picker, pero la validación real (con el mensaje en
+        // español, mismo estilo que el resto de la app) la maneja
+        // confirmar() — sin esto, el navegador bloquea el submit en
+        // silencio cuando el valor queda por debajo de `min`, y el
+        // mensaje propio nunca llega a mostrarse.
+        <form
+          onSubmit={confirmar}
+          noValidate
+          className="flex flex-col gap-5 p-6"
+        >
+          <div className="rounded-field border-[0.5px] border-arena bg-hueso p-3 text-sm">
+            <span className="text-grafito/60">Paciente: </span>
+            <span className="font-semibold text-grafito">
+              {nombrePaciente}
+            </span>
+          </div>
+
+          {/* Arriba de todo lo demás: de qué agenda se está hablando
+            cambia qué horarios están libres, así que leerlo después
+            de elegir la hora sería leerlo tarde. */}
+          <SelectorDeAgenda
+            valor={agenda}
+            onElegir={setAgenda}
+            etiqueta="¿En qué agenda?"
+          />
+
+          <Campo label="Tipo de consulta">
+            <select
+              value={tipoConsultaId}
+              onChange={(e) => {
+                setTipoConsultaId(e.target.value);
+                setCargandoSlots(true);
+              }}
+              className={inputClass}
+            >
+              {tipos.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.nombre}
+                </option>
+              ))}
+            </select>
+          </Campo>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Campo label="Fecha">
+              <input
+                type="date"
+                value={fecha}
+                min={hoyISO}
+                onChange={(e) => {
+                  setFecha(e.target.value);
+                  setCargandoSlots(true);
+                }}
+                className={inputClass}
+              />
+            </Campo>
+            {/* Sin <Campo> acá a propósito: ese helper envuelve todo en
+              un <label>, y un <label> le pega su propio texto como
+              nombre accesible a CUALQUIER elemento etiquetable que
+              contenga (button incluido) — cada opción del HoraPicker
+              terminaba anunciándose como "Hora" en vez de "09:00",
+              "09:15"... (encontrado depurando el error de hidratación
+              de /panel/calendario, 2026-08-30: un test con
+              getByRole("option", {name:"10:00"}) no encontraba nada,
+              ver hora-picker.test.tsx). El <span> de acá abajo es
+              puramente visual; HoraPicker ya trae su propio
+              aria-label="Hora" en el contenedor. */}
+            <div className="flex flex-col gap-1.5 text-sm">
+              <span className="font-medium text-grafito">Hora</span>
+              <HoraPicker
+                slots={slots}
+                value={hora}
+                onChange={setHora}
+                cargando={cargandoSlots}
+              />
+            </div>
+          </div>
+
+          <Campo label="Motivo de consulta (opcional)">
+            <input
+              value={motivoDetalle}
+              onChange={(e) => setMotivoDetalle(e.target.value)}
+              className={inputClass}
+            />
+          </Campo>
+
+          {error && <ErrorMsg>{error}</ErrorMsg>}
+
+          <div className="flex justify-between">
+            <button
+              type="button"
+              onClick={() => setPaso("paciente")}
+              className="rounded-control border-[0.5px] border-arena px-5 py-2.5 text-sm font-medium text-grafito hover:border-marca-medio hover:text-marca"
+            >
+              Atrás
+            </button>
+            <button
+              type="submit"
+              disabled={pending}
+              className="rounded-control boton-primario px-5 py-2.5 text-sm font-semibold"
+            >
+              {pending ? "Confirmando…" : "Confirmar"}
+            </button>
+          </div>
+        </form>
+      )}
+    </Dialogo>
   );
 }
 
 const inputClass =
-  "rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-grafito outline-none focus:border-salvia";
+  "rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-grafito outline-none focus:border-marca-medio";
 
 function Campo({
   label,

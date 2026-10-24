@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { IconChevronDown, IconCheckBadge, IconX } from "@/components/icons";
+import { IconChevronDown, IconCheckBadge } from "@/components/icons";
+import { BotonCerrar } from "@/components/boton-cerrar";
 
 /**
  * Componentes compartidos del rediseño del wizard público "Pedir turno"
@@ -118,14 +119,7 @@ export function ModalShell({ title, subtitle, onClose, contextBar, maxWidthClass
             <h2 className="font-display text-[26px] leading-tight font-semibold text-grafito">{title}</h2>
             {subtitle && <p className="text-sm text-grafito/70">{subtitle}</p>}
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Cerrar"
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-grafito/50 hover:text-grafito"
-          >
-            <IconX className="h-[18px] w-[18px]" />
-          </button>
+          <BotonCerrar onClick={onClose} />
         </div>
 
         {contextBar && <div className="mt-5">{contextBar}</div>}
@@ -193,7 +187,7 @@ export function ModalFooter({ onBack, backLabel = "Atrás", paso, total, actionL
           form={actionType === "submit" ? formId : undefined}
           onClick={onAction}
           disabled={actionDisabled}
-          className="h-10 rounded-lg bg-salvia-oscuro px-6 text-sm font-semibold text-marfil disabled:opacity-45"
+          className="boton-primario h-10 rounded-lg px-6 text-sm font-semibold"
         >
           {actionLabel}
         </button>
@@ -217,10 +211,10 @@ interface CampoTextoProps {
 
 // baseCampoClass — mismo estilo para <input>, <textarea> y <select> (3.4
 // reutiliza esto). Borde transparente en reposo (evita que el layout
-// salte al enfocar, ver doc) que pasa a salvia-oscuro + fondo más claro
+// salte al enfocar, ver doc) que pasa a `marca` + fondo más claro
 // en foco.
 export const baseCampoClass =
-  "h-11 w-full rounded-field border-[1.5px] border-transparent bg-hueso px-3 text-[15px] text-grafito outline-none placeholder:text-grafito/50 focus:border-salvia-oscuro focus:bg-marfil";
+  "h-11 w-full rounded-field border-[1.5px] border-transparent bg-hueso px-3 text-[15px] text-grafito outline-none placeholder:text-grafito/50 focus:border-marca focus:bg-marfil";
 
 // El hint va FUERA del <label> (asociado por aria-describedby, no
 // anidado adentro): un <label> anidando texto extra hace que ese texto
@@ -351,11 +345,11 @@ export function TarjetaOpcion({ icon, titulo, descripcion, selected, onSelect }:
       onClick={onSelect}
       onKeyDown={activarConTeclado(onSelect)}
       className={`relative flex flex-col items-start gap-3 rounded-field border-2 p-4 text-left transition-colors ${
-        selected ? "border-salvia-oscuro bg-arena" : "border-transparent bg-hueso hover:border-arena"
+        selected ? "border-marca bg-arena" : "border-transparent bg-hueso hover:border-arena"
       }`}
     >
       <IconCheckBadge
-        className={`absolute top-3 right-3 h-5 w-5 text-salvia-oscuro transition-opacity ${selected ? "opacity-100" : "opacity-0"}`}
+        className={`absolute top-3 right-3 h-5 w-5 text-marca transition-opacity ${selected ? "opacity-100" : "opacity-0"}`}
       />
       <span className="flex h-[38px] w-[38px] items-center justify-center rounded-full bg-arena text-salvia-oscuro">
         <span className="h-5 w-5 [&>svg]:h-5 [&>svg]:w-5">{icon}</span>
@@ -401,7 +395,7 @@ export function FilaPersona({ nombre, secundaria, badge, selected, onSelect }: F
       onClick={onSelect}
       onKeyDown={activarConTeclado(onSelect)}
       className={`relative flex items-center gap-3 rounded-field border-2 px-3.5 py-3 text-left transition-colors ${
-        selected ? "border-salvia-oscuro bg-arena" : "border-transparent bg-hueso hover:border-arena"
+        selected ? "border-marca bg-arena" : "border-transparent bg-hueso hover:border-arena"
       }`}
     >
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-arena text-sm font-semibold text-salvia-oscuro">
@@ -414,7 +408,7 @@ export function FilaPersona({ nombre, secundaria, badge, selected, onSelect }: F
         </span>
         {secundaria && <span className="truncate text-[13px] text-grafito/70">{secundaria}</span>}
       </span>
-      <IconCheckBadge className={`h-5 w-5 shrink-0 text-salvia-oscuro transition-opacity ${selected ? "opacity-100" : "opacity-0"}`} />
+      <IconCheckBadge className={`h-5 w-5 shrink-0 text-marca transition-opacity ${selected ? "opacity-100" : "opacity-0"}`} />
     </div>
   );
 }

@@ -32,7 +32,7 @@ export function CalendarMonthGrid({ dias, mesReferencia, turnos, tiposConsulta, 
       {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map((d) => (
         <div
           key={d}
-          className="border-b border-r border-arena bg-marfil py-2 text-center font-[family-name:var(--font-mono)] text-xs uppercase tracking-wide text-grafito/60"
+          className="border-b border-r border-arena bg-marfil py-2 text-center font-[family-name:var(--font-mono)] tabular-nums text-xs uppercase tracking-wide text-grafito/60"
         >
           {d}
         </div>
@@ -48,11 +48,11 @@ export function CalendarMonthGrid({ dias, mesReferencia, turnos, tiposConsulta, 
             key={dia.toISOString()}
             type="button"
             onClick={() => onDiaClick(dia)}
-            className={`flex h-24 flex-col items-start gap-1 border-b border-r border-arena p-2 text-left hover:bg-arena ${
+            className={`flex h-24 flex-col items-start gap-1 border-b border-r border-arena p-2 text-left hover:bg-velo ${
               fueraDeMes ? "bg-arena/20 text-grafito/50" : "bg-marfil text-grafito"
             }`}
           >
-            <span className={`text-sm ${esHoy ? "rounded-full border border-salvia bg-salvia-claro px-1.5 font-semibold text-salvia-oscuro" : ""}`}>
+            <span className={`text-sm ${esHoy ? "rounded-full border border-marca-medio bg-marca-claro px-1.5 font-semibold text-marca" : ""}`}>
               {dia.getDate()}
             </span>
             <div className="flex flex-wrap gap-1">

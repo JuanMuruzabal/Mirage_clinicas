@@ -6,6 +6,7 @@ import { Historia } from "@/components/home/historia";
 import { Ventajas } from "@/components/home/ventajas";
 import { LlamadoFinal, ParaPacientes } from "@/components/home/cierre";
 import { Revelar } from "@/components/home/revelar";
+import { FondoOndas } from "@/components/fondo-ondas";
 
 // La home pública (TR-181). Segunda versión, 2026-09-27 — pedido del
 // cliente: "le falta animaciones, dibujos agradables, simplicidad; ahora está
@@ -40,7 +41,10 @@ const ESCENAS = [
 
 export default function Home() {
   return (
-    <main className="flex flex-1 flex-col">
+    <main className="paleta-cascaron flex flex-1 flex-col">
+      {/* El fondo de ondas (correcciones generales, ítem 1) asoma en las
+          secciones sin fondo propio; las de marfil lo tapan. */}
+      <FondoOndas />
       <section
         aria-labelledby="home-titulo"
         className="bg-marfil px-6 pb-20 pt-[calc(var(--header-height)+3rem)] sm:px-10 lg:pb-28 lg:pt-[calc(var(--header-height)+4.5rem)]"
@@ -75,7 +79,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="home-fondo px-6 py-20 sm:px-10 sm:py-24">
+      <section className="px-6 py-20 sm:px-10 sm:py-24">
         <Revelar className="rv mx-auto max-w-4xl rounded-[28px] border-[0.5px] border-arena bg-marfil px-6 py-10 shadow-soft sm:px-12 sm:py-14">
           <Historia escenas={ESCENAS} />
         </Revelar>

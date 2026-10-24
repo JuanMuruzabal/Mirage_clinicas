@@ -121,7 +121,7 @@ export function EncabezadoEquipo({ puedeInvitar, children }: { puedeInvitar: boo
           <button
             type="button"
             onClick={() => setInvitando(true)}
-            className="flex flex-shrink-0 items-center gap-2 self-start rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95 sm:self-auto"
+            className="flex flex-shrink-0 items-center gap-2 self-start rounded-control boton-primario px-5 py-2.5 text-sm font-semibold sm:self-auto"
           >
             <IconUserPlus className="h-[18px] w-[18px]" />
             Invitar colaborador
@@ -139,7 +139,7 @@ function Grupo({ titulo, cuantos, children }: { titulo: string; cuantos?: number
       {/* El conteo va AL LADO del título, no empujado al extremo
           derecho: pertenece al título, no a la fila. */}
       <h2 className="flex items-baseline gap-3">
-        <span className="font-[family-name:var(--font-mono)] text-sm uppercase tracking-[0.15em] text-grafito/60">
+        <span className="font-[family-name:var(--font-mono)] tabular-nums text-sm uppercase tracking-[0.15em] text-grafito/80">
           {titulo}
         </span>
         {cuantos !== undefined && (
@@ -159,7 +159,7 @@ function Vacio({ children, onInvitar }: { children: React.ReactNode; onInvitar?:
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-dashed border-linea bg-marfil px-5 py-3.5">
       <span className="text-sm text-grafito/60">{children}</span>
       {onInvitar && (
-        <button type="button" onClick={onInvitar} className="text-sm font-medium text-salvia-oscuro hover:underline">
+        <button type="button" onClick={onInvitar} className="text-sm font-medium text-marca hover:underline">
           Invitar a alguien
         </button>
       )}
@@ -204,12 +204,12 @@ function TarjetaMiembro({
             capa que no se distinguía del fondo. */}
         <span
           aria-hidden="true"
-          className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-salvia-oscuro text-base font-semibold text-marfil"
+          className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-marca-relleno text-base font-semibold text-marfil"
         >
           {iniciales(miembro.nombre)}
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="truncate font-[family-name:var(--font-display)] text-[22px] font-medium text-grafito">
+          <h3 className="truncate font-[family-name:var(--font-display)] text-[22px] font-semibold text-grafito">
             {miembro.nombre}
           </h3>
           <p className="truncate text-[15.5px] text-grafito/60">{miembro.email}</p>
@@ -232,7 +232,7 @@ function TarjetaMiembro({
           especialidades. El propio va a /perfil, que además edita. */}
       <Link
         href={miembro.esVos ? "/perfil" : `/colaboradores/${miembro.userId}`}
-        className="self-start text-sm font-medium text-salvia-oscuro hover:underline"
+        className="self-start text-sm font-medium text-marca hover:underline"
       >
         Ver perfil <span aria-hidden="true">&rarr;</span>
       </Link>
@@ -287,7 +287,7 @@ function TarjetaPendiente({
           {invitacion.email.slice(0, 2).toUpperCase()}
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="truncate font-[family-name:var(--font-display)] text-[22px] font-medium text-grafito">
+          <h3 className="truncate font-[family-name:var(--font-display)] text-[22px] font-semibold text-grafito">
             {invitacion.email}
           </h3>
           <p className="text-[15.5px] text-grafito/60">

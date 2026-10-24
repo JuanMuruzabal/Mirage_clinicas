@@ -319,7 +319,7 @@ export function EditorDeDocumento({
       )}
       {/* En el celular, una cosa por vez (TR-172). Todo es CSS: el HTML del
           servidor y el del cliente son el mismo. */}
-      <div role="tablist" aria-label="Qué mostrar" className="grid grid-cols-2 gap-1 rounded-full border border-linea bg-marfil p-1 shadow-soft lg:hidden">
+      <div role="tablist" aria-label="Qué mostrar" className="grid grid-cols-2 gap-1 rounded-control border border-linea bg-marfil p-1 shadow-soft lg:hidden">
         {(["completar", "documento"] as const).map((v) => (
           <button
             key={v}
@@ -327,7 +327,7 @@ export function EditorDeDocumento({
             role="tab"
             aria-selected={vista === v}
             onClick={() => setVista(v)}
-            className={`rounded-full py-2 text-sm font-medium transition-colors ${vista === v ? "bg-salvia-oscuro text-marfil" : "text-grafito"}`}
+            className={`rounded-pastilla py-2 text-sm font-medium transition-colors ${vista === v ? "bg-marca-relleno text-marfil" : "text-grafito"}`}
           >
             {v === "completar" ? "Completar" : "Ver documento"}
           </button>
@@ -377,7 +377,7 @@ export function EditorDeDocumento({
                     onClick={() => setSeccionAbierta(abierta ? "" : seccion.id)}
                     className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
                   >
-                    <span className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">{seccion.titulo}</span>
+                    <span className="font-[family-name:var(--font-display)] text-lg font-semibold text-grafito">{seccion.titulo}</span>
                     <span className="flex flex-shrink-0 items-center gap-2">
                       <span className={`text-xs font-medium ${conError ? "text-terracota-oscuro" : "text-grafito/75"}`}>
                         {conError
@@ -453,7 +453,7 @@ export function EditorDeDocumento({
               type="button"
               onClick={pedirTerminar}
               disabled={terminando}
-              className="min-h-11 rounded-full bg-salvia-oscuro px-5 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
+              className="min-h-11 rounded-control boton-primario px-5 text-sm font-semibold"
             >
               {terminando ? "Terminando…" : enPapel ? "Terminar documento" : "Terminar y pasar a firmas"}
             </button>
@@ -465,7 +465,7 @@ export function EditorDeDocumento({
             <button
               type="button"
               onClick={() => setConfirmarDescarte(true)}
-              className="min-h-11 self-start rounded-full px-3 text-sm font-medium text-terracota-oscuro hover:bg-arena"
+              className="min-h-11 self-start rounded-control px-3 text-sm font-medium text-terracota-oscuro hover:bg-velo"
             >
               Descartar borrador
             </button>
@@ -510,14 +510,14 @@ export function EditorDeDocumento({
               type="button"
               data-autofocus
               onClick={() => setConfirmarTerminar(false)}
-              className="min-h-11 rounded-full px-4 text-sm font-medium text-grafito hover:bg-arena"
+              className="min-h-11 rounded-control px-4 text-sm font-medium text-grafito hover:bg-velo"
             >
               Seguir revisando
             </button>
             <button
               type="button"
               onClick={() => void terminar()}
-              className="min-h-11 rounded-full bg-salvia-oscuro px-4 text-sm font-semibold text-marfil hover:brightness-95"
+              className="min-h-11 rounded-control boton-primario px-4 text-sm font-semibold"
             >
               {enPapel ? "Sí, terminar" : "Sí, terminar y pasar a firmas"}
             </button>
@@ -542,7 +542,7 @@ export function EditorDeDocumento({
             </p>
           )}
           <div className="flex justify-end gap-2 p-4 sm:p-6">
-            <button type="button" onClick={() => { setConfirmarDescarte(false); setErrorAlDescartar(null); }} className="min-h-11 rounded-full px-4 text-sm font-medium text-grafito hover:bg-arena">
+            <button type="button" onClick={() => { setConfirmarDescarte(false); setErrorAlDescartar(null); }} className="min-h-11 rounded-control px-4 text-sm font-medium text-grafito hover:bg-velo">
               Seguir editando
             </button>
             <button
@@ -553,7 +553,7 @@ export function EditorDeDocumento({
                 const res = await descartarBorradorAction(documento.id, documento.paciente.id);
                 if (res?.error) setErrorAlDescartar(res.error);
               }}
-              className="min-h-11 rounded-full bg-terracota-oscuro px-4 text-sm font-semibold text-marfil hover:brightness-95"
+              className="min-h-11 rounded-control bg-terracota-oscuro px-4 text-sm font-semibold text-marfil hover:brightness-95"
             >
               Descartar
             </button>

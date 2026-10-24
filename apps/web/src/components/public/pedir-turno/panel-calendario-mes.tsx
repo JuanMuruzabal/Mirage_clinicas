@@ -149,7 +149,7 @@ export function PanelCalendarioMes({
               aria-pressed={c.seleccionado}
               className={`relative flex h-[38px] items-center justify-center rounded-lg text-sm ${
                 c.seleccionado
-                  ? "bg-salvia-oscuro font-semibold text-marfil"
+                  ? "bg-marca-relleno font-semibold text-marfil"
                   : deshabilitado
                     ? "cursor-not-allowed text-[#BDB3A5]"
                     : "text-grafito hover:bg-arena"
@@ -157,7 +157,7 @@ export function PanelCalendarioMes({
               style={c.hoy && !c.seleccionado ? { boxShadow: "inset 0 0 0 1.5px #C9BDAE" } : undefined}
             >
               {c.dia}
-              {c.conTurnos && !c.seleccionado && <span className="absolute bottom-1 h-1 w-1 rounded-full bg-salvia-oscuro" aria-hidden="true" />}
+              {c.conTurnos && !c.seleccionado && <span className="absolute bottom-1 h-1 w-1 rounded-full bg-marca-relleno" aria-hidden="true" />}
             </button>
           );
         })}
@@ -165,9 +165,9 @@ export function PanelCalendarioMes({
 
       <div className="mt-3 flex items-center justify-between border-t border-arena pt-2.5 text-xs">
         <span className="flex items-center gap-1.5 text-grafito/70">
-          <span className="h-[5px] w-[5px] rounded-full bg-salvia-oscuro" aria-hidden="true" /> con turnos
+          <span className="h-[5px] w-[5px] rounded-full bg-marca-relleno" aria-hidden="true" /> con turnos
         </span>
-        <button type="button" onClick={onVolverAHoy} className="font-medium text-salvia-oscuro hover:underline">
+        <button type="button" onClick={onVolverAHoy} className="font-medium text-marca hover:underline">
           Volver a hoy
         </button>
       </div>

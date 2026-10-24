@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { CLASE_PANTALLA_CON_ENCABEZADO, EncabezadoDeSeccion } from "@/components/panel/encabezado-de-seccion";
 import { plantillasDelSelector } from "@dental-mirage/documentos-clinicos";
 import { apiDocumentosEnCurso, apiGetPaciente, apiPacientesConDocumentos } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
@@ -35,10 +36,9 @@ export default async function DocumentosPage({ searchParams }: PageProps<"/panel
   ]);
 
   return (
-    <div className="flex flex-col gap-8 p-8 max-md:px-[clamp(1rem,4vw,2rem)] max-md:pt-3 max-md:pb-[clamp(1rem,4vw,2rem)]">
-      <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito max-md:text-[clamp(1.25rem,6vw,1.875rem)]">
-        Documentos clínicos
-      </h1>
+    <div className={CLASE_PANTALLA_CON_ENCABEZADO}>
+      {/* Encabezado de sección (correcciones generales, ítem 2). */}
+      <EncabezadoDeSeccion seccion="documentos" titulo="Documentos clínicos" />
 
       <ModuloDocumentos
         plantillas={plantillas}
@@ -54,14 +54,14 @@ export default async function DocumentosPage({ searchParams }: PageProps<"/panel
         enCurso={
           enCurso.ok && enCurso.data.length > 0 ? (
             <section key="en-curso" className="flex flex-col gap-3">
-              <h2 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">Tus documentos en curso</h2>
-              <TablaDeDocumentos documentos={enCurso.data} conPaciente compacta vacio="" />
+              <h2 className="font-[family-name:var(--font-display)] text-lg font-semibold text-grafito">Tus documentos en curso</h2>
+              <TablaDeDocumentos documentos={enCurso.data} conPaciente vacio="" />
             </section>
           ) : undefined
         }
         abajo={
           <section key="pacientes-con-documentos" className="flex flex-col gap-3">
-            <h2 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">Pacientes con documentos clínicos</h2>
+            <h2 className="font-[family-name:var(--font-display)] text-lg font-semibold text-grafito">Pacientes con documentos clínicos</h2>
             {pacientes.ok ? (
               <TablaPacientesConDocumentos pacientes={pacientes.data} />
             ) : (

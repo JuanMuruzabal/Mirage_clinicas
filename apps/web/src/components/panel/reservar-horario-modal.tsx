@@ -1,9 +1,9 @@
 "use client";
 
+import { Dialogo } from "@/components/dialogo";
 import { useState } from "react";
 import type { BloqueoHorario } from "@dental-mirage/shared-types";
 import { AgregarReglaModal } from "./agregar-regla-modal";
-import { ModalPortal } from "./modal-portal";
 import { SelectorDeAgenda } from "./selector-de-agenda";
 
 interface ReservarHorarioModalProps {
@@ -35,6 +35,9 @@ export function ReservarHorarioModal({
   onClose,
   onGuardada,
 }: ReservarHorarioModalProps) {
+  // Sobre el Dialogo de todos: foco adentro, Tab atrapado, Escape (el de
+  // arriba si hay varios), el foco vuelve a quien lo abrió y la página de
+  // atrás no scrollea (correcciones generales, 2026-10-12).
   const [tipoElegido, setTipoElegido] = useState<
     "general" | "especifica" | null
   >(null);
@@ -60,55 +63,32 @@ export function ReservarHorarioModal({
   }
 
   return (
-    <ModalPortal>
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Reservar horario"
-        className="fixed inset-0 z-50 flex items-center justify-center bg-grafito/50 p-4 backdrop-blur-sm"
-        onClick={(e) => {
-          if (e.target === e.currentTarget) onClose();
-        }}
-      >
-        <div className="flex w-full max-w-lg flex-col gap-4 rounded-card border-[0.5px] border-arena bg-marfil p-6 shadow-soft">
-          <div className="flex items-center justify-between">
-            <h2 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">
-              Reservar horario
-            </h2>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Cerrar"
-              className="text-2xl leading-none text-grafito/50 hover:text-grafito"
-            >
-              ×
-            </button>
-          </div>
-          <SelectorDeAgenda
-            valor={agenda}
-            onElegir={setAgenda}
-            etiqueta="¿En qué agenda?"
+    <Dialogo titulo="Reservar horario" onCerrar={onClose} superficie="marfil" centrado ancho="mediano">
+      <div className="flex flex-col gap-4 px-6 pt-4 pb-6">
+        <SelectorDeAgenda
+          valor={agenda}
+          onElegir={setAgenda}
+          etiqueta="¿En qué agenda?"
+        />
+
+        <p className="text-sm text-grafito/60">
+          Elegí qué tipo de horario reservado querés agregar:
+        </p>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <TarjetaTipo
+            titulo="General"
+            descripcion="Se repite: elegís un día de la semana y por cuánto tiempo (esta semana, todos los meses, etc.). Sirve para compromisos recurrentes, como una limpieza semanal o una reunión fija los martes."
+            onAgregar={() => setTipoElegido("general")}
           />
-
-          <p className="text-sm text-grafito/60">
-            Elegí qué tipo de horario reservado querés agregar:
-          </p>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <TarjetaTipo
-              titulo="General"
-              descripcion="Se repite: elegís un día de la semana y por cuánto tiempo (esta semana, todos los meses, etc.). Sirve para compromisos recurrentes, como una limpieza semanal o una reunión fija los martes."
-              onAgregar={() => setTipoElegido("general")}
-            />
-            <TarjetaTipo
-              titulo="Específica"
-              descripcion="Una sola fecha puntual. Sirve para imprevistos de una sola vez, como una reunión de último momento un día en particular."
-              onAgregar={() => setTipoElegido("especifica")}
-            />
-          </div>
+          <TarjetaTipo
+            titulo="Específica"
+            descripcion="Una sola fecha puntual. Sirve para imprevistos de una sola vez, como una reunión de último momento un día en particular."
+            onAgregar={() => setTipoElegido("especifica")}
+          />
         </div>
       </div>
-    </ModalPortal>
+    </Dialogo>
   );
 }
 
@@ -123,14 +103,14 @@ function TarjetaTipo({
 }) {
   return (
     <div className="flex flex-col gap-3 rounded-field border-[0.5px] border-arena bg-hueso p-4">
-      <p className="font-[family-name:var(--font-display)] text-base font-medium text-grafito">
+      <p className="font-[family-name:var(--font-display)] text-base font-semibold text-grafito">
         {titulo}
       </p>
       <p className="flex-1 text-xs text-grafito/70">{descripcion}</p>
       <button
         type="button"
         onClick={onAgregar}
-        className="self-start rounded-full bg-salvia-oscuro px-4 py-2 text-sm font-semibold text-marfil hover:brightness-95"
+        className="self-start rounded-control boton-primario px-4 py-2 text-sm font-semibold"
       >
         Agregar {titulo.toLowerCase()}
       </button>

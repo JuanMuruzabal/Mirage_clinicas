@@ -18,7 +18,7 @@ import { SLOTS_CONTACTO } from "../../efectos/slots";
 
 // `inline-flex min-h-6`: 24 px de alto como mínimo para el dedo (WCAG 2.2
 // 2.5.8, PP-1 H14) sin agrandar la letra — "Cómo llegar" medía 15 px.
-const CLASE_LINK = "inline-flex min-h-6 items-center font-medium text-[var(--pp-acento-texto,var(--color-salvia-oscuro))] underline underline-offset-2";
+const CLASE_LINK = "inline-flex min-h-6 items-center font-medium text-[var(--pp-acento-texto,var(--color-marca))] underline underline-offset-2";
 
 
 function Contacto({ modulo, contexto }: { modulo: ModuloBorrador; contexto: ContextoPublico }): ReactNode {
@@ -72,7 +72,7 @@ function Contacto({ modulo, contexto }: { modulo: ModuloBorrador; contexto: Cont
                 href={r.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`${CLASE_CHIP} px-3 py-1.5 text-xs font-medium hover:border-[var(--pp-acento,var(--color-salvia))]`}
+                className={`${CLASE_CHIP} px-3 py-1.5 text-xs font-medium hover:border-[var(--pp-acento,var(--color-marca-relleno))]`}
               >
                 {r.etiqueta}
               </a>)}

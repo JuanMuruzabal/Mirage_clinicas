@@ -1073,6 +1073,10 @@ export interface DocumentoVinculado {
   /** En un anexo de continuación, su sección y su número: en una historia,
    *  dice qué secciones ya tienen el suyo. */
   continuacion?: ContinuacionDeDocumento;
+  /** En un anexo de la lista `anexos` de una historia, si tiene PDF (el mismo
+   *  criterio que `DocumentoResumen.tienePDF`): cuántos entran en el PDF de la
+   *  historia con sus anexos. La historia de `anexoDe` no lo trae. */
+  tienePDF?: boolean;
 }
 
 export interface DocumentoDetalle extends DocumentoResumen {

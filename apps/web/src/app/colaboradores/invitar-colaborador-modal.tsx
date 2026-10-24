@@ -242,8 +242,8 @@ function BotonMetodo({
       role="tab"
       aria-selected={activo}
       onClick={onClick}
-      className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-        activo ? "bg-salvia-claro text-salvia-oscuro" : "text-grafito/60 hover:bg-hueso"
+      className={`rounded-control px-4 py-2 text-sm font-medium transition-colors ${
+        activo ? "bg-marca-claro text-marca" : "text-grafito/60 hover:bg-velo"
       }`}
     >
       {children}

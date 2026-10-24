@@ -33,7 +33,7 @@ export function RecuperarPasswordForm() {
     return (
       <div className="flex flex-col items-center gap-2 text-center">
         <p className={authSuccessClass}>{mensaje}</p>
-        <Link href="/ingresar" className="text-sm font-medium text-salvia-oscuro hover:text-grafito">
+        <Link href="/ingresar" className="text-sm font-medium text-marca hover:text-grafito">
           Volver a ingresar
         </Link>
       </div>
@@ -59,7 +59,7 @@ export function RecuperarPasswordForm() {
       </button>
 
       <p className="text-center text-sm text-grafito/60">
-        <Link href="/ingresar" className="font-medium text-salvia-oscuro hover:text-grafito">
+        <Link href="/ingresar" className="font-medium text-marca hover:text-grafito">
           Volver a ingresar
         </Link>
       </p>

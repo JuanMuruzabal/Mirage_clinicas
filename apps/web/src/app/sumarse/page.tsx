@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getMe, redirectSiEmailVerificado } from "@/lib/session";
 import { SumarseWizard } from "./sumarse-wizard";
+import { FondoOndas } from "@/components/fondo-ondas";
 
 export const metadata: Metadata = { title: "Sumate — PRISMA" };
 
@@ -17,12 +18,14 @@ export default async function SumarsePage() {
   await redirectSiEmailVerificado(me);
 
   return (
-    // panel-texture (TR-073 en docs/Arquitectura y base/tradeoffs.md, 2026-08-27, pedido
-    // explícito del cliente): mismo fondo texturizado que /panel — antes
-    // reservado solo a gestión de clínica (TR-013), ahora también en
-    // ingresar/sumarse.
-    <main className="panel-texture flex flex-1 flex-col items-center gap-8 px-6 py-16">
-      <SumarseWizard me={me} />
-    </main>
+    <>
+      {/* FondoOndas (correcciones generales, ítem 1, 2026-10-10): el fondo
+          de ondas de toda la app, en lugar de las crucecitas y del hueso
+          plano. Va afuera de <main>, fijo y detrás del contenido. */}
+      <FondoOndas />
+      <main className="flex flex-1 flex-col items-center gap-8 px-6 py-16">
+        <SumarseWizard me={me} />
+      </main>
+    </>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { Dialogo } from "@/components/dialogo";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { AutoreservarResultadoItem, BloqueoHorario, TipoConsulta, Turno } from "@dental-mirage/shared-types";
 import { eliminarBloqueoAction } from "@/app/actions/calendario-config";
@@ -7,7 +8,6 @@ import { autoreservarTurnosAction } from "@/app/actions/turnos";
 import { fechaISOLocal, formatHora, horaISOLocal, hoyEnCordoba } from "@/lib/calendar-utils";
 import { formatFechaHora, temaTipoConsulta } from "@/lib/turno-format";
 import { esExcepcionSintetica } from "./calendar-grid";
-import { ModalPortal } from "./modal-portal";
 
 interface BloqueoDetalleModalProps {
   // `reglas` siempre es una lista (corrección de QA, 2026-08-31): un
@@ -117,6 +117,9 @@ export function BloqueoDetalleModal({
   onEliminada,
   onReprogramados,
 }: BloqueoDetalleModalProps) {
+  // Sobre el Dialogo de todos: foco adentro, Tab atrapado, Escape (el de
+  // arriba si hay varios), el foco vuelve a quien lo abrió y la página de
+  // atrás no scrollea (correcciones generales, 2026-10-12).
   // Con uno o más turnos en conflicto, SIEMPRE se usa la vista de lista
   // (aunque haya una sola regla) — es un cluster igual, solo que además
   // de una regla combina un turno; el detalle simple queda reservado a
@@ -177,207 +180,182 @@ export function BloqueoDetalleModal({
   }
 
   return (
-    <ModalPortal>
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={titulo}
-        className="fixed inset-0 z-50 flex items-center justify-center bg-grafito/50 p-4 backdrop-blur-sm"
-        onClick={(e) => {
-          if (e.target === e.currentTarget) onClose();
-        }}
-      >
-        {/* max-h-[90vh] + overflow-y-auto en el contenedor ENTERO
-            (corrección de QA, 2026-09-08, foto "solapamiento_+3horarios"):
-            las listas de adentro (reglas/turnos en conflicto/resueltos) ya
-            tenían su propio scroll acotado (max-h-72 cada una), pero la
-            ventana en sí no tenía ningún techo — con 3+ turnos en
-            conflicto, título + reglas + aviso + las tres secciones
-            apiladas superaban el alto de la pantalla igual, sobre todo en
-            mobile. Mismo patrón ya usado en agregar-turno-modal.tsx/
-            editar-turno-modal.tsx/configuracion-calendario-modal.tsx. */}
-        <div className="flex max-h-[90vh] w-full max-w-sm max-md:max-w-[90vw] flex-col gap-4 overflow-y-auto rounded-card border-[0.5px] border-arena bg-marfil p-6 shadow-soft">
-          <div className="flex items-center justify-between">
-            <h2 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">{titulo}</h2>
-            <button type="button" onClick={onClose} aria-label="Cerrar" className="text-2xl leading-none text-grafito/50 hover:text-grafito">
-              ×
-            </button>
-          </div>
+    <Dialogo titulo={titulo} onCerrar={onClose} superficie="marfil" centrado ancho="angosto">
+      <div className="flex flex-col gap-4 px-6 pt-4 pb-6">
 
-          {errorEliminar && (
-            <p role="alert" className="text-sm text-terracota-oscuro">
-              {errorEliminar}
+        {errorEliminar && (
+          <p role="alert" className="text-sm text-terracota-oscuro">
+            {errorEliminar}
+          </p>
+        )}
+
+        {resultadosAutoreserva ? (
+          <PantallaConfirmacionAutoreserva resultados={resultadosAutoreserva} />
+        ) : !combinado ? (
+          <>
+            <p className="font-[family-name:var(--font-mono)] tabular-nums text-3xl font-bold text-grafito">
+              {reglas[0].horaDesde} – {reglas[0].horaHasta}
             </p>
-          )}
+            {reglas[0].motivo && <p className="text-sm text-grafito/70">{reglas[0].motivo}</p>}
+            {/* Excepción de horario de atención sintética (nueva
+                función, corrección de QA 2026-09-08: "agregar botón de
+                ver excepción de horario al tocar la tarjeta de horario
+                de excepción en el calendario") — al hacer click en una
+                tarjeta "No trabajo en este período" sola (sin nada real
+                de por medio, ver calendar-grid.tsx), llega acá con una
+                única regla sintética. "Ver..." sigue funcionando
+                (onVerRegla ya sabe resolver el id sintético a la fila
+                real en Configuración de calendario, ver
+                calendar-view.tsx), solo cambia la etiqueta del botón;
+                "Eliminar" sí se oculta — una excepción se borra desde
+                Configuración de calendario, no hay un endpoint de
+                bloqueo real detrás de este id. */}
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => onVerRegla(reglas[0].id)}
+                className="self-start rounded-control border-[0.5px] border-arena px-4 py-2 text-sm font-medium text-grafito hover:border-marca-medio hover:text-marca"
+              >
+                {esExcepcionSintetica(reglas[0]) ? "Ver excepción de horario" : "Ver horario reservado"}
+              </button>
+              {!esExcepcionSintetica(reglas[0]) && (
+                <BotonEliminar
+                  regla={reglas[0]}
+                  confirmandoEliminarId={confirmandoEliminarId}
+                  pendingId={pendingId}
+                  onPedirConfirmar={setConfirmandoEliminarId}
+                  onCancelar={() => setConfirmandoEliminarId(null)}
+                  onConfirmar={eliminarRegla}
+                />
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-sm text-grafito/60">Estos horarios reservados se solapan entre sí:</p>
+            <ScrollDeUnaTarjeta
+              items={reglas.map((regla) => ({
+                id: regla.id,
+                contenido: (
+                  <div className="rounded-field border-[0.5px] border-arena bg-hueso p-3">
+                    <p className="font-[family-name:var(--font-mono)] tabular-nums text-lg font-bold text-grafito">
+                      {regla.horaDesde} – {regla.horaHasta}
+                    </p>
+                    {regla.motivo && <p className="text-xs text-grafito/70">{regla.motivo}</p>}
+                    {/* Excepción de horario de atención sintética
+                        (nueva función, corrección de QA 2026-09-08):
+                        "Ver..." sigue funcionando (resuelve la fila real
+                        en Configuración de calendario), solo cambia la
+                        etiqueta; "Eliminar" se oculta — no hay un
+                        bloqueo real detrás de este id. */}
+                    <button
+                      type="button"
+                      onClick={() => onVerRegla(regla.id)}
+                      className="mt-2 rounded-control border-[0.5px] border-arena bg-marfil px-3 py-1 text-xs font-medium text-grafito hover:border-marca-medio hover:text-marca"
+                    >
+                      {esExcepcionSintetica(regla) ? "Ver excepción de horario" : "Ver este horario reservado"}
+                    </button>
+                    {!esExcepcionSintetica(regla) && (
+                      <BotonEliminar
+                        regla={regla}
+                        confirmandoEliminarId={confirmandoEliminarId}
+                        pendingId={pendingId}
+                        onPedirConfirmar={setConfirmandoEliminarId}
+                        onCancelar={() => setConfirmandoEliminarId(null)}
+                        onConfirmar={eliminarRegla}
+                      />
+                    )}
+                  </div>
+                ),
+              }))}
+            />
 
-          {resultadosAutoreserva ? (
-            <PantallaConfirmacionAutoreserva resultados={resultadosAutoreserva} />
-          ) : !combinado ? (
-            <>
-              <p className="font-[family-name:var(--font-mono)] text-3xl font-bold text-grafito">
-                {reglas[0].horaDesde} – {reglas[0].horaHasta}
-              </p>
-              {reglas[0].motivo && <p className="text-sm text-grafito/70">{reglas[0].motivo}</p>}
-              {/* Excepción de horario de atención sintética (nueva
-                  función, corrección de QA 2026-09-08: "agregar botón de
-                  ver excepción de horario al tocar la tarjeta de horario
-                  de excepción en el calendario") — al hacer click en una
-                  tarjeta "No trabajo en este período" sola (sin nada real
-                  de por medio, ver calendar-grid.tsx), llega acá con una
-                  única regla sintética. "Ver..." sigue funcionando
-                  (onVerRegla ya sabe resolver el id sintético a la fila
-                  real en Configuración de calendario, ver
-                  calendar-view.tsx), solo cambia la etiqueta del botón;
-                  "Eliminar" sí se oculta — una excepción se borra desde
-                  Configuración de calendario, no hay un endpoint de
-                  bloqueo real detrás de este id. */}
-              <div className="flex flex-wrap items-center gap-2">
+            {/* Turnos en conflicto (paso 2, 2026-09-04) — solo los que
+                TODAVÍA no pasaron; sección APARTE, con su propio título
+                y su propio scroll (mismo criterio que la lista de
+                reglas de arriba): "un horario reservado que se solapa
+                con el turno o más... mostrará la tarjeta... con la
+                pista en el cuerpo x turnos en conflicto". Cada tarjeta
+                replica el formato de TurnoDetalle (hora grande,
+                paciente, tipo de consulta). El aviso fijo pedido por el
+                cliente ("turno en conflicto con un horario reservado,
+                hablar con el paciente para acordar otro horario") va UNA
+                sola vez debajo del título, no repetido en cada tarjeta
+                — corrección de QA, 2026-09-08: "así no se hace tan
+                grande la ventana". */}
+            {turnosEnConflicto.length > 0 && (
+              <>
+                <p className="text-sm font-medium text-grafito">Turnos en conflicto</p>
+                <p className="rounded-field border-[0.5px] border-terracota bg-terracota-claro px-2 py-1.5 text-xs text-terracota-oscuro">
+                  Turno en conflicto con un horario reservado. Hablar con el paciente para acordar otro horario.
+                </p>
+                {/* Autoreservar turnos (nueva función, pedido textual
+                    del cliente, 2026-09-08): mueve cada turno afectado
+                    al próximo horario libre, por orden de prioridad
+                    (quien tenía el turno antes, primero) — calculado
+                    del lado del backend (autoreservarTurnosHandler),
+                    no necesariamente el mismo día. Reemplaza el cuerpo
+                    del modal por la pantalla "horario viejo → horario
+                    nuevo" al terminar. */}
+                {errorAutoreservar && (
+                  <p role="alert" className="text-sm text-terracota-oscuro">
+                    {errorAutoreservar}
+                  </p>
+                )}
                 <button
                   type="button"
-                  onClick={() => onVerRegla(reglas[0].id)}
-                  className="self-start rounded-full border-[0.5px] border-arena px-4 py-2 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
+                  onClick={autoreservarTurnos}
+                  disabled={autoreservando}
+                  className="self-start rounded-control boton-primario px-4 py-2 text-sm font-medium"
                 >
-                  {esExcepcionSintetica(reglas[0]) ? "Ver excepción de horario" : "Ver horario reservado"}
+                  {autoreservando ? "Autoreservando…" : "Autoreservar turnos"}
                 </button>
-                {!esExcepcionSintetica(reglas[0]) && (
-                  <BotonEliminar
-                    regla={reglas[0]}
-                    confirmandoEliminarId={confirmandoEliminarId}
-                    pendingId={pendingId}
-                    onPedirConfirmar={setConfirmandoEliminarId}
-                    onCancelar={() => setConfirmandoEliminarId(null)}
-                    onConfirmar={eliminarRegla}
-                  />
-                )}
-              </div>
-            </>
-          ) : (
-            <>
-              <p className="text-sm text-grafito/60">Estos horarios reservados se solapan entre sí:</p>
-              <ScrollDeUnaTarjeta
-                items={reglas.map((regla) => ({
-                  id: regla.id,
-                  contenido: (
-                    <div className="rounded-field border-[0.5px] border-arena bg-hueso p-3">
-                      <p className="font-[family-name:var(--font-mono)] text-lg font-bold text-grafito">
-                        {regla.horaDesde} – {regla.horaHasta}
-                      </p>
-                      {regla.motivo && <p className="text-xs text-grafito/70">{regla.motivo}</p>}
-                      {/* Excepción de horario de atención sintética
-                          (nueva función, corrección de QA 2026-09-08):
-                          "Ver..." sigue funcionando (resuelve la fila real
-                          en Configuración de calendario), solo cambia la
-                          etiqueta; "Eliminar" se oculta — no hay un
-                          bloqueo real detrás de este id. */}
-                      <button
-                        type="button"
-                        onClick={() => onVerRegla(regla.id)}
-                        className="mt-2 rounded-full border-[0.5px] border-arena bg-marfil px-3 py-1 text-xs font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
-                      >
-                        {esExcepcionSintetica(regla) ? "Ver excepción de horario" : "Ver este horario reservado"}
-                      </button>
-                      {!esExcepcionSintetica(regla) && (
-                        <BotonEliminar
-                          regla={regla}
-                          confirmandoEliminarId={confirmandoEliminarId}
-                          pendingId={pendingId}
-                          onPedirConfirmar={setConfirmandoEliminarId}
-                          onCancelar={() => setConfirmandoEliminarId(null)}
-                          onConfirmar={eliminarRegla}
-                        />
-                      )}
-                    </div>
-                  ),
-                }))}
-              />
+                <ScrollDeUnaTarjeta
+                  items={turnosEnConflicto.map((turno) => ({
+                    id: turno.id,
+                    contenido: (
+                      <TarjetaTurno turno={turno} tipo={turno.tipoConsultaId ? tipoPorId.get(turno.tipoConsultaId) : undefined} onVerTurno={onVerTurno} />
+                    ),
+                  }))}
+                />
+              </>
+            )}
 
-              {/* Turnos en conflicto (paso 2, 2026-09-04) — solo los que
-                  TODAVÍA no pasaron; sección APARTE, con su propio título
-                  y su propio scroll (mismo criterio que la lista de
-                  reglas de arriba): "un horario reservado que se solapa
-                  con el turno o más... mostrará la tarjeta... con la
-                  pista en el cuerpo x turnos en conflicto". Cada tarjeta
-                  replica el formato de TurnoDetalle (hora grande,
-                  paciente, tipo de consulta). El aviso fijo pedido por el
-                  cliente ("turno en conflicto con un horario reservado,
-                  hablar con el paciente para acordar otro horario") va UNA
-                  sola vez debajo del título, no repetido en cada tarjeta
-                  — corrección de QA, 2026-09-08: "así no se hace tan
-                  grande la ventana". */}
-              {turnosEnConflicto.length > 0 && (
-                <>
-                  <p className="text-sm font-medium text-grafito">Turnos en conflicto</p>
-                  <p className="rounded-field border-[0.5px] border-terracota bg-terracota-claro px-2 py-1.5 text-xs text-terracota-oscuro">
-                    Turno en conflicto con un horario reservado. Hablar con el paciente para acordar otro horario.
-                  </p>
-                  {/* Autoreservar turnos (nueva función, pedido textual
-                      del cliente, 2026-09-08): mueve cada turno afectado
-                      al próximo horario libre, por orden de prioridad
-                      (quien tenía el turno antes, primero) — calculado
-                      del lado del backend (autoreservarTurnosHandler),
-                      no necesariamente el mismo día. Reemplaza el cuerpo
-                      del modal por la pantalla "horario viejo → horario
-                      nuevo" al terminar. */}
-                  {errorAutoreservar && (
-                    <p role="alert" className="text-sm text-terracota-oscuro">
-                      {errorAutoreservar}
-                    </p>
-                  )}
-                  <button
-                    type="button"
-                    onClick={autoreservarTurnos}
-                    disabled={autoreservando}
-                    className="self-start rounded-full bg-salvia-oscuro px-4 py-2 text-sm font-medium text-marfil hover:brightness-95 disabled:opacity-60"
-                  >
-                    {autoreservando ? "Autoreservando…" : "Autoreservar turnos"}
-                  </button>
-                  <ScrollDeUnaTarjeta
-                    items={turnosEnConflicto.map((turno) => ({
-                      id: turno.id,
-                      contenido: (
-                        <TarjetaTurno turno={turno} tipo={turno.tipoConsultaId ? tipoPorId.get(turno.tipoConsultaId) : undefined} onVerTurno={onVerTurno} />
-                      ),
-                    }))}
-                  />
-                </>
-              )}
-
-              {/* Turnos resueltos (2026-09-04, pedido explícito del
-                  cliente): "que los turnos en conflicto con un horario
-                  reservado pasen a resueltos... dado el caso de agendar
-                  algo con reserva y al final no hacer nada con eso" — ya
-                  no hay nada urgente que resolver, así que sin el aviso
-                  de conflicto; el botón "Ver turno" sigue sirviendo para
-                  consultar el detalle desde ahí.
-                  Corrección de QA (2026-09-05): "si en la tarjeta de
-                  solapamiento hay turnos en conflicto, solo mostrar los
-                  turnos en conflicto y el horario reservado... excluir...
-                  las tarjetas de los turnos resueltos, ya que esto lo
-                  hace poco intuitivo" — con al menos un turno EN
-                  CONFLICTO en el mismo cluster, esta sección se oculta
-                  del todo (mezclar lo urgente con lo histórico confundía
-                  más de lo que informaba). Sigue apareciendo tal cual
-                  cuando el cluster es SOLO de turnos resueltos, sin
-                  ningún conflicto activo — ahí sí sigue siendo la única
-                  información relevante para mostrar. */}
-              {turnosResueltos.length > 0 && turnosEnConflicto.length === 0 && (
-                <>
-                  <p className="text-sm font-medium text-grafito">Turnos resueltos</p>
-                  <ScrollDeUnaTarjeta
-                    items={turnosResueltos.map((turno) => ({
-                      id: turno.id,
-                      contenido: (
-                        <TarjetaTurno turno={turno} tipo={turno.tipoConsultaId ? tipoPorId.get(turno.tipoConsultaId) : undefined} onVerTurno={onVerTurno} />
-                      ),
-                    }))}
-                  />
-                </>
-              )}
-            </>
-          )}
-        </div>
+            {/* Turnos resueltos (2026-09-04, pedido explícito del
+                cliente): "que los turnos en conflicto con un horario
+                reservado pasen a resueltos... dado el caso de agendar
+                algo con reserva y al final no hacer nada con eso" — ya
+                no hay nada urgente que resolver, así que sin el aviso
+                de conflicto; el botón "Ver turno" sigue sirviendo para
+                consultar el detalle desde ahí.
+                Corrección de QA (2026-09-05): "si en la tarjeta de
+                solapamiento hay turnos en conflicto, solo mostrar los
+                turnos en conflicto y el horario reservado... excluir...
+                las tarjetas de los turnos resueltos, ya que esto lo
+                hace poco intuitivo" — con al menos un turno EN
+                CONFLICTO en el mismo cluster, esta sección se oculta
+                del todo (mezclar lo urgente con lo histórico confundía
+                más de lo que informaba). Sigue apareciendo tal cual
+                cuando el cluster es SOLO de turnos resueltos, sin
+                ningún conflicto activo — ahí sí sigue siendo la única
+                información relevante para mostrar. */}
+            {turnosResueltos.length > 0 && turnosEnConflicto.length === 0 && (
+              <>
+                <p className="text-sm font-medium text-grafito">Turnos resueltos</p>
+                <ScrollDeUnaTarjeta
+                  items={turnosResueltos.map((turno) => ({
+                    id: turno.id,
+                    contenido: (
+                      <TarjetaTurno turno={turno} tipo={turno.tipoConsultaId ? tipoPorId.get(turno.tipoConsultaId) : undefined} onVerTurno={onVerTurno} />
+                    ),
+                  }))}
+                />
+              </>
+            )}
+          </>
+        )}
       </div>
-    </ModalPortal>
+    </Dialogo>
   );
 }
 
@@ -471,9 +449,9 @@ function PantallaConfirmacionAutoreserva({ resultados }: { resultados: Autoreser
             <div className="rounded-field border-[0.5px] border-arena bg-hueso p-3">
               <p className="text-sm font-bold text-grafito">{r.nombre}</p>
               {r.reprogramado ? (
-                <p className="mt-1 font-[family-name:var(--font-mono)] text-sm text-grafito">
+                <p className="mt-1 font-[family-name:var(--font-mono)] tabular-nums text-sm text-grafito">
                   {formatFechaHora(r.horaInicioAnterior)} <span className="text-grafito/40">→</span>{" "}
-                  <span className="font-bold text-salvia-oscuro">{formatFechaHora(r.horaInicioNueva ?? undefined)}</span>
+                  <span className="font-bold text-marca">{formatFechaHora(r.horaInicioNueva ?? undefined)}</span>
                 </p>
               ) : (
                 <p className="mt-1 text-sm text-terracota-oscuro">No se encontró un horario libre — sigue como estaba.</p>
@@ -495,7 +473,7 @@ function PantallaConfirmacionAutoreserva({ resultados }: { resultados: Autoreser
         // cliente, "que por el momento no hará nada") — queda como stub
         // a propósito para la futura integración de notificación real.
         onClick={() => {}}
-        className="self-start rounded-full border-[0.5px] border-arena px-4 py-2 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
+        className="self-start rounded-control border-[0.5px] border-arena px-4 py-2 text-sm font-medium text-grafito hover:border-marca-medio hover:text-marca"
       >
         Informar afectados
       </button>
@@ -516,7 +494,7 @@ function TarjetaTurno({
   const fin = turno.horaFin ? new Date(turno.horaFin) : null;
   return (
     <div className="rounded-field border-[0.5px] border-arena bg-hueso p-3">
-      <p className="font-[family-name:var(--font-mono)] text-lg font-bold text-grafito">
+      <p className="font-[family-name:var(--font-mono)] tabular-nums text-lg font-bold text-grafito">
         {inicio && fin ? `${formatHora(inicio)} – ${formatHora(fin)}` : "—"}
       </p>
       <p className="text-xs text-grafito/70">
@@ -531,7 +509,7 @@ function TarjetaTurno({
       <button
         type="button"
         onClick={() => onVerTurno?.(turno)}
-        className="mt-2 rounded-full border-[0.5px] border-arena bg-marfil px-3 py-1 text-xs font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
+        className="mt-2 rounded-control border-[0.5px] border-arena bg-marfil px-3 py-1 text-xs font-medium text-grafito hover:border-marca-medio hover:text-marca"
       >
         Ver turno
       </button>
@@ -571,14 +549,14 @@ function BotonEliminar({
           type="button"
           onClick={() => onConfirmar(regla.id)}
           disabled={pendingId === regla.id}
-          className="rounded-full bg-terracota-oscuro px-3 py-1 text-xs font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
+          className="rounded-control bg-terracota-oscuro px-3 py-1 text-xs font-semibold text-marfil hover:brightness-95 disabled:opacity-60"
         >
           {pendingId === regla.id ? "Eliminando…" : "Sí, eliminar"}
         </button>
         <button
           type="button"
           onClick={onCancelar}
-          className="rounded-full border-[0.5px] border-arena px-3 py-1 text-xs font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro"
+          className="rounded-control border-[0.5px] border-arena px-3 py-1 text-xs font-medium text-grafito hover:border-marca-medio hover:text-marca"
         >
           Cancelar
         </button>
@@ -589,7 +567,7 @@ function BotonEliminar({
     <button
       type="button"
       onClick={() => onPedirConfirmar(regla.id)}
-      className="mt-2 ml-2 rounded-full border-[0.5px] border-terracota bg-marfil px-3 py-1 text-xs font-medium text-terracota-oscuro hover:bg-terracota-claro"
+      className="mt-2 ml-2 rounded-control border-[0.5px] border-terracota bg-marfil px-3 py-1 text-xs font-medium text-terracota-oscuro hover:bg-terracota-claro"
     >
       Eliminar
     </button>

@@ -107,6 +107,9 @@ export function TurnosFiltros({ tab, q, tiposConsulta, desde, hasta, tipoConsult
       onAplicar={aplicarFiltros}
       onLimpiar={limpiarBorrador}
       onAbrir={abrirFiltros}
+      // Comparte la fila con las pestañas de estado: en el celular, solo
+      // el ícono (correcciones generales, ítem 6).
+      soloIconoEnCelular
     >
       {tiposConsulta.length > 0 && (
         <label className="flex flex-col gap-1.5 text-sm">
@@ -114,7 +117,7 @@ export function TurnosFiltros({ tab, q, tiposConsulta, desde, hasta, tipoConsult
           <select
             value={draftTipoConsultaId}
             onChange={(e) => setDraftTipoConsultaId(e.target.value)}
-            className="rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-grafito outline-none focus:border-salvia"
+            className="rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-grafito outline-none focus:border-marca-medio"
           >
             <option value="">Todos los tipos</option>
             {tiposConsulta.map((t) => (
@@ -135,7 +138,7 @@ export function TurnosFiltros({ tab, q, tiposConsulta, desde, hasta, tipoConsult
         <select
           value={draftVerificacion}
           onChange={(e) => setDraftVerificacion(e.target.value as "" | "verificado" | "sin_verificar")}
-          className="rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-grafito outline-none focus:border-salvia"
+          className="rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-grafito outline-none focus:border-marca-medio"
         >
           <option value="">Todos</option>
           <option value="sin_verificar">Sin verificar</option>
@@ -155,7 +158,7 @@ export function TurnosFiltros({ tab, q, tiposConsulta, desde, hasta, tipoConsult
                 setDraftDesde(calculado.desde);
                 setDraftHasta(calculado.hasta);
               }}
-              className={`rounded-full bg-salvia-oscuro px-3 py-1.5 text-xs font-semibold text-marfil hover:brightness-95 whitespace-nowrap ${activo ? "ring-2 ring-offset-1 ring-salvia-oscuro" : ""}`}
+              className={`rounded-control boton-primario px-3 py-1.5 text-xs font-semibold whitespace-nowrap ${activo ? "ring-2 ring-offset-1 ring-marca" : ""}`}
             >
               {r.label}
             </button>
@@ -170,7 +173,7 @@ export function TurnosFiltros({ tab, q, tiposConsulta, desde, hasta, tipoConsult
             type="date"
             value={draftDesde}
             onChange={(e) => setDraftDesde(e.target.value)}
-            className="rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-grafito outline-none focus:border-salvia"
+            className="rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-grafito outline-none focus:border-marca-medio"
           />
         </label>
         <label className="flex flex-col gap-1.5 text-sm">
@@ -179,7 +182,7 @@ export function TurnosFiltros({ tab, q, tiposConsulta, desde, hasta, tipoConsult
             type="date"
             value={draftHasta}
             onChange={(e) => setDraftHasta(e.target.value)}
-            className="rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-grafito outline-none focus:border-salvia"
+            className="rounded-field border-[0.5px] border-arena bg-hueso px-3 py-2 text-grafito outline-none focus:border-marca-medio"
           />
         </label>
       </div>

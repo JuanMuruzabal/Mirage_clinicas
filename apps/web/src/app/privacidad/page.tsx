@@ -15,7 +15,7 @@ export default function PrivacidadPage() {
   return (
     <main className="flex flex-1 flex-col bg-hueso px-6 py-16 pt-[calc(var(--header-height)+2rem)]">
       <div className="mx-auto w-full max-w-2xl">
-        <h1 className="font-[family-name:var(--font-display)] text-4xl font-medium text-grafito sm:text-5xl">
+        <h1 className="font-[family-name:var(--font-display)] tracking-tight text-3xl font-semibold text-grafito sm:text-4xl">
           Política de privacidad
         </h1>
         <p className="mt-2 text-sm text-grafito/60">Versión 1.0 — última actualización: agosto de 2026.</p>
@@ -28,7 +28,7 @@ export default function PrivacidadPage() {
           </p>
 
           <section className="flex flex-col gap-2">
-            <h2 className="font-[family-name:var(--font-display)] text-xl font-medium text-grafito">
+            <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold text-grafito">
               1. Qué datos recolectamos
             </h2>
             <ul className="list-disc pl-5">
@@ -58,7 +58,7 @@ export default function PrivacidadPage() {
           </section>
 
           <section className="flex flex-col gap-2">
-            <h2 className="font-[family-name:var(--font-display)] text-xl font-medium text-grafito">
+            <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold text-grafito">
               2. Para qué los usamos
             </h2>
             <p>
@@ -69,7 +69,7 @@ export default function PrivacidadPage() {
           </section>
 
           <section className="flex flex-col gap-2">
-            <h2 className="font-[family-name:var(--font-display)] text-xl font-medium text-grafito">
+            <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold text-grafito">
               3. Con quién los compartimos
             </h2>
             <p>Solo con los proveedores estrictamente necesarios para que la plataforma funcione:</p>
@@ -82,7 +82,7 @@ export default function PrivacidadPage() {
           </section>
 
           <section className="flex flex-col gap-2">
-            <h2 className="font-[family-name:var(--font-display)] text-xl font-medium text-grafito">
+            <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold text-grafito">
               4. Cómo los protegemos
             </h2>
             <p>
@@ -93,7 +93,7 @@ export default function PrivacidadPage() {
           </section>
 
           <section className="flex flex-col gap-2">
-            <h2 className="font-[family-name:var(--font-display)] text-xl font-medium text-grafito">
+            <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold text-grafito">
               5. Tus derechos
             </h2>
             <p>
@@ -110,7 +110,7 @@ export default function PrivacidadPage() {
           </section>
 
           <section className="flex flex-col gap-2">
-            <h2 className="font-[family-name:var(--font-display)] text-xl font-medium text-grafito">
+            <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold text-grafito">
               6. Cookies
             </h2>
             <p>

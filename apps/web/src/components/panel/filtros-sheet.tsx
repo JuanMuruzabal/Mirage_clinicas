@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { IconFilter } from "@/components/icons";
-import { ModalPortal } from "./modal-portal";
+import { Dialogo } from "@/components/dialogo";
 
 interface FiltrosSheetProps {
   // activo — pinta el botón disparador distinto (mismo criterio visual
@@ -31,6 +31,13 @@ interface FiltrosSheetProps {
   onAbrir?: () => void;
   children: React.ReactNode;
   triggerLabel?: string;
+  /** En el celular y hasta `lg`, solo el ícono (el rótulo queda para el
+   *  lector de pantalla). Para Turnos, donde el botón comparte la fila con
+   *  las cuatro pestañas de estado y con el rótulo no entraban: en el
+   *  celular, y entre 768 y 1023 px con el menú lateral (correcciones
+   *  generales, ítem 6). También los documentos de la ficha, para que el
+   *  buscador y el botón entren en una línea (2026-10-17). */
+  soloIconoEnCelular?: boolean;
 }
 
 // FiltrosSheet — corrección de QA (2026-09-06), pedido textual del
@@ -53,7 +60,7 @@ interface FiltrosSheetProps {
 // propio string de conteo — así sirve igual para Turnos (conteo pedido al
 // backend, debounced) y para la ficha de paciente (conteo síncrono, ya
 // tiene todos los turnos en memoria).
-export function FiltrosSheet({ activo, activeCount, aplicarLabel, onAplicar, onLimpiar, onAbrir, children, triggerLabel = "Filtros" }: FiltrosSheetProps) {
+export function FiltrosSheet({ activo, activeCount, aplicarLabel, onAplicar, onLimpiar, onAbrir, children, triggerLabel = "Filtros", soloIconoEnCelular = false }: FiltrosSheetProps) {
   const [abierto, setAbierto] = useState(false);
 
   return (
@@ -75,71 +82,62 @@ export function FiltrosSheet({ activo, activeCount, aplicarLabel, onAplicar, onL
           onAbrir?.();
           setAbierto(true);
         }}
-        className="inline-flex items-center gap-2 rounded-full border-[0.5px] border-arena bg-marfil px-4 py-2 text-sm font-semibold text-salvia-oscuro hover:border-salvia whitespace-nowrap"
+        // 44 px de alto, el mismo de los buscadores y de las pestañas de
+        // al lado (correcciones generales, ítem 6). Con solo el ícono en el
+        // celular es un círculo de 44 × 44, y la cantidad de filtros va
+        // en una pastilla sobre su borde.
+        className={`relative inline-flex h-11 flex-none items-center justify-center gap-2 rounded-control border-[0.5px] border-arena bg-marfil px-4 text-sm font-semibold whitespace-nowrap text-marca hover:border-marca-medio ${soloIconoEnCelular ? "max-lg:w-11 max-lg:px-0" : ""}`}
       >
-        <IconFilter className="h-4 w-4" />
-        {triggerLabel}
+        <IconFilter className="h-4 w-4 flex-shrink-0" />
+        <span className={soloIconoEnCelular ? "max-lg:sr-only" : undefined}>{triggerLabel}</span>
         {activo &&
           (activeCount && activeCount > 0 ? (
             <span
               aria-hidden="true"
-              className="flex h-4 min-w-4 items-center justify-center rounded-full bg-salvia-oscuro px-1 text-[10px] font-bold text-marfil"
+              className={`flex h-4 min-w-4 items-center justify-center rounded-full bg-marca-relleno px-1 text-[10px] font-bold text-marfil ${soloIconoEnCelular ? "max-lg:absolute max-lg:-top-1 max-lg:-right-1" : ""}`}
             >
               {activeCount}
             </span>
           ) : (
-            <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-salvia-oscuro" />
+            <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full bg-marca-relleno ${soloIconoEnCelular ? "max-lg:absolute max-lg:top-1.5 max-lg:right-1.5" : ""}`} />
           ))}
       </button>
 
+      {/* Sobre el Dialogo de todos (foco adentro, Tab atrapado, Escape, el
+          foco vuelve al botón): en el celular, una hoja que sube desde
+          abajo; desde `md`, centrado. El pie, fijo, con "Limpiar" a la
+          izquierda y la acción a la derecha. */}
       {abierto && (
-        <ModalPortal>
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label={triggerLabel}
-            className="fixed inset-0 z-50 flex items-end justify-center bg-grafito/50 backdrop-blur-sm md:items-center md:p-4"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) setAbierto(false);
-            }}
-          >
-            <div className="flex max-h-[85vh] w-full flex-col overflow-y-auto rounded-t-card border-t-[0.5px] border-arena bg-marfil shadow-soft md:max-h-[90vh] md:max-w-md md:rounded-card md:border-[0.5px]">
-              <div className="flex items-center justify-between border-b-[0.5px] border-arena px-6 py-4">
-                <h2 className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">{triggerLabel}</h2>
-                <button
-                  type="button"
-                  onClick={() => setAbierto(false)}
-                  aria-label="Cerrar"
-                  className="text-2xl leading-none text-grafito/50 hover:text-grafito"
-                >
-                  ×
+        <Dialogo
+          titulo={triggerLabel}
+          onCerrar={() => setAbierto(false)}
+          superficie="marfil"
+          centrado
+          hoja
+          pie={
+            <div className="flex w-full items-center justify-between gap-3">
+              {onLimpiar ? (
+                <button type="button" onClick={onLimpiar} className="text-sm font-medium text-marca hover:text-grafito">
+                  Limpiar filtros
                 </button>
-              </div>
-
-              <div className="flex flex-col gap-4 p-6">{children}</div>
-
-              <div className="flex items-center justify-between gap-3 border-t-[0.5px] border-arena px-6 py-4">
-                {onLimpiar ? (
-                  <button type="button" onClick={onLimpiar} className="text-sm font-medium text-salvia-oscuro hover:text-grafito">
-                    Limpiar filtros
-                  </button>
-                ) : (
-                  <span />
-                )}
-                <button
-                  type="button"
-                  onClick={() => {
-                    onAplicar();
-                    setAbierto(false);
-                  }}
-                  className="rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95"
-                >
-                  {aplicarLabel}
-                </button>
-              </div>
+              ) : (
+                <span />
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  onAplicar();
+                  setAbierto(false);
+                }}
+                className="rounded-control boton-primario px-5 py-2.5 text-sm font-semibold"
+              >
+                {aplicarLabel}
+              </button>
             </div>
-          </div>
-        </ModalPortal>
+          }
+        >
+          <div className="flex flex-col gap-4 p-6">{children}</div>
+        </Dialogo>
       )}
     </>
   );

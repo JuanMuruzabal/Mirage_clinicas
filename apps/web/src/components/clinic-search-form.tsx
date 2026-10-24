@@ -47,7 +47,7 @@ export function ClinicSearchForm({ especialidades, defaultQ, defaultEspecialidad
 
       <button
         type="submit"
-        className="rounded-full bg-salvia-oscuro px-8 py-3 text-sm font-semibold text-marfil hover:brightness-95"
+        className="boton-primario rounded-control px-8 py-3 text-sm font-semibold"
       >
         Buscar
       </button>

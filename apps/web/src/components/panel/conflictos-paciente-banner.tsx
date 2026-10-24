@@ -28,8 +28,10 @@ export function ConflictosPacienteBanner({ conflictos, tiposConsulta }: Conflict
   return (
     <>
       <div
-        className={`grid transition-[grid-template-rows] duration-500 ease-out ${
-          conflictos.length > 0 ? "grid-rows-[1fr] mb-2" : "grid-rows-[0fr]"
+        // La distancia al encabezado (`mt-6`, la misma del `gap` de la
+        // pantalla) va solo cuando se ve: plegado, no suma ningún hueco.
+        className={`grid transition-[grid-template-rows,margin-top] duration-500 ease-out ${
+          conflictos.length > 0 ? "mt-6 grid-rows-[1fr]" : "mt-0 grid-rows-[0fr]"
         }`}
       >
         <div className="overflow-hidden">

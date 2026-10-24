@@ -8,7 +8,9 @@ import {
   bandejaDeNotificacionesAction,
   leerNotificacionAction,
 } from "@/app/actions/notificaciones";
-import { IconBell, IconX } from "@/components/icons";
+import { IconBell } from "@/components/icons";
+import { BotonCerrar } from "@/components/boton-cerrar";
+import { bloquearScrollDeLaPagina } from "@/lib/dialogo-abierto";
 import { ModalPortal } from "@/components/panel/modal-portal";
 import { usePanelSidebar } from "@/lib/panel-sidebar-context";
 import { useAhora } from "@/lib/reloj";
@@ -76,11 +78,20 @@ export function PanelNotificaciones({ onCerrar, onLeida }: PanelNotificacionesPr
       if (e.key === "Escape") onCerrar();
     };
     document.addEventListener("keydown", alTeclear);
-    const overflowAnterior = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    // El scroll se bloquea en <html>, no en <body> (bug del 2026-10-10: al
+    // abrir la bandeja en la computadora el sidebar desaparecía). <html>
+    // tiene `overflow-y: scroll` propio (TR-034), así que un `overflow:
+    // hidden` en <body> ya no se propaga a la ventana: convertía al body en
+    // un contenedor de scroll y el sidebar, que es `sticky` contra la
+    // ventana, pasaba a pegarse al body y se iba hacia arriba tanto como
+    // estuviera scrolleada la página. `scrollbar-gutter: stable` conserva el
+    // lugar de la barra, así no salta el ancho al abrir. Es el mismo bloqueo
+    // de los diálogos (`bloquearScrollDeLaPagina`), con su contador: si se
+    // abre uno encima, cerrar ese no libera la página.
+    const liberar = bloquearScrollDeLaPagina();
     return () => {
       document.removeEventListener("keydown", alTeclear);
-      document.body.style.overflow = overflowAnterior;
+      liberar();
     };
   }, [onCerrar]);
 
@@ -151,7 +162,7 @@ export function PanelNotificaciones({ onCerrar, onLeida }: PanelNotificacionesPr
 
         <aside
           id="panel-notificaciones"
-          className="absolute inset-y-0 right-0 flex w-full max-w-[26rem] flex-col border-l-[0.5px] border-arena bg-hueso shadow-[0_0_40px_-8px_rgb(53_49_43/0.35)] motion-safe:animate-[notificaciones-entrar_280ms_cubic-bezier(0.2,0.8,0.2,1)]"
+          className="absolute inset-y-0 right-0 flex w-full max-w-[26rem] flex-col border-l-[0.5px] border-arena bg-marfil shadow-[0_0_40px_-8px_rgb(53_49_43/0.35)] motion-safe:animate-[notificaciones-entrar_280ms_cubic-bezier(0.2,0.8,0.2,1)]"
         >
           <header className="flex flex-col gap-5 px-6 pb-4 pt-6">
             <div className="flex items-start justify-between gap-4">
@@ -164,18 +175,10 @@ export function PanelNotificaciones({ onCerrar, onLeida }: PanelNotificacionesPr
                   Notificaciones
                 </h2>
               </div>
-              <button
-                ref={botonCerrar}
-                type="button"
-                onClick={onCerrar}
-                aria-label="Cerrar"
-                className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-grafito/60 transition-colors hover:bg-arena hover:text-grafito"
-              >
-                <IconX className="h-5 w-5" />
-              </button>
+              <BotonCerrar ref={botonCerrar} onClick={onCerrar} />
             </div>
 
-            <div role="tablist" aria-label="Notificaciones" className="grid grid-cols-2 gap-1 rounded-full bg-arena/70 p-1">
+            <div role="tablist" aria-label="Notificaciones" className="grid grid-cols-2 gap-1 rounded-control bg-hueso p-1">
               <Pestana activa={pestania === "nuevas"} onClick={() => cambiarPestania("nuevas")} numero={nuevasSinLeer}>
                 Nuevas
               </Pestana>
@@ -194,7 +197,7 @@ export function PanelNotificaciones({ onCerrar, onLeida }: PanelNotificacionesPr
                 <button
                   type="button"
                   onClick={() => setIntento((i) => i + 1)}
-                  className="rounded-full border border-linea px-4 py-2 text-xs font-bold uppercase tracking-wider text-grafito hover:border-salvia"
+                  className="rounded-control border border-linea px-4 py-2 text-xs font-bold uppercase tracking-wider text-grafito hover:border-marca-medio"
                 >
                   Reintentar
                 </button>
@@ -265,14 +268,14 @@ function Pestana({
       role="tab"
       aria-selected={activa}
       onClick={onClick}
-      className={`flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+      className={`flex items-center justify-center gap-2 rounded-pastilla px-4 py-2 text-sm font-semibold transition-colors ${
         activa ? "bg-marfil text-grafito shadow-soft" : "text-grafito/60 hover:text-grafito"
       }`}
     >
       {children}
       {numero > 0 && (
         <span
-          className={`min-w-[1.4rem] rounded-full px-1.5 font-[family-name:var(--font-mono)] text-[11px] leading-5 ${
+          className={`min-w-[1.4rem] rounded-full px-1.5 font-[family-name:var(--font-mono)] tabular-nums text-[11px] leading-5 ${
             activa ? "bg-grafito text-marfil" : "bg-grafito/10 text-grafito/70"
           }`}
         >
@@ -287,7 +290,7 @@ function Esqueleto() {
   return (
     <ul aria-label="Cargando notificaciones" className="flex flex-col gap-3">
       {[0, 1, 2].map((i) => (
-        <li key={i} className="flex gap-4 rounded-card border-[0.5px] border-arena bg-marfil/70 p-4">
+        <li key={i} className="flex gap-4 rounded-card border-[0.5px] border-arena bg-hueso p-4">
           <span className="h-[4.5rem] w-14 rounded-field bg-arena motion-safe:animate-pulse" />
           <span className="flex flex-1 flex-col gap-2 pt-1">
             <span className="h-3 w-24 rounded-full bg-arena motion-safe:animate-pulse" />
@@ -303,7 +306,7 @@ function Esqueleto() {
 function Vacio({ pestania }: { pestania: Pestania }) {
   return (
     <div className="flex flex-col items-center gap-3 px-8 py-14 text-center">
-      <span className="flex h-14 w-14 items-center justify-center rounded-full bg-salvia-claro text-salvia-oscuro">
+      <span className="flex h-14 w-14 items-center justify-center rounded-full bg-marca-claro text-marca">
         <IconBell className="h-6 w-6" />
       </span>
       {pestania === "nuevas" ? (

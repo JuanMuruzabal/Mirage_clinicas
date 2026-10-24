@@ -70,7 +70,7 @@ export function BuscadorPacientes({
         onChange={(e) => setTermino(e.target.value)}
         placeholder={placeholder}
         aria-label="Buscar paciente"
-        className="w-full rounded-field border border-linea bg-hueso px-4 py-2.5 text-sm text-grafito outline-none focus:border-salvia"
+        className="w-full rounded-field border border-linea bg-hueso px-4 py-2.5 text-sm text-grafito outline-none focus:border-marca-medio"
       />
       {/* max-h + overflow-y-auto (corrección de QA de la Fase 2): "a
           medida que se van acumulando pacientes conocidos... se agranda
@@ -84,12 +84,12 @@ export function BuscadorPacientes({
             key={p.id}
             type="button"
             onClick={() => onElegir(p)}
-            className="flex flex-shrink-0 flex-col gap-0.5 rounded-field border-[0.5px] border-arena bg-hueso px-4 py-3 text-left hover:border-salvia"
+            className="flex flex-shrink-0 flex-col gap-0.5 rounded-field border-[0.5px] border-arena bg-hueso px-4 py-3 text-left hover:border-marca-medio"
           >
             <span className="text-sm font-semibold text-grafito">
               {p.nombre} {p.apellido}
             </span>
-            <span className="font-[family-name:var(--font-mono)] text-xs text-grafito/60">DNI {p.dni}</span>
+            <span className="font-[family-name:var(--font-mono)] tabular-nums text-xs text-grafito/60">DNI {p.dni}</span>
           </button>
         ))}
       </div>

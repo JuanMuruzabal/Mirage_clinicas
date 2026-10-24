@@ -6,9 +6,9 @@ import { anexosPorSeccion, esAnexoSinFolio, fechaYHora, nombreDeModelo, nombreDe
 import { EstadoEnTabla } from "./tablas-de-documentos";
 import { ContinuacionDeLaSeccion } from "./anexo-de-continuacion";
 
-const LINK = "font-semibold text-salvia-oscuro underline-offset-2 hover:text-grafito hover:underline";
+const LINK = "font-semibold text-marca underline-offset-2 hover:text-grafito hover:underline";
 const ROTULO = "text-xs font-semibold uppercase tracking-wide text-grafito/75";
-const MIGA = `inline-flex items-center rounded-sm text-salvia-oscuro underline-offset-2 hover:text-grafito hover:underline ${CLASE_TACTIL}`;
+const MIGA = `inline-flex items-center rounded-sm text-marca underline-offset-2 hover:text-grafito hover:underline ${CLASE_TACTIL}`;
 
 // MigaDelDocumento — de dónde cuelga el documento (2026-10-06): Documentos ›
 // el paciente (sus documentos) › la historia, si es un anexo, › este. Con los

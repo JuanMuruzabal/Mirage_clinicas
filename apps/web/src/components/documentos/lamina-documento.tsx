@@ -229,14 +229,14 @@ function BotonDeZona({
         width: porcentaje(caja.ancho, medidas.ancho),
         height: porcentaje(caja.alto, medidas.alto),
       }}
-      className={`absolute rounded-[2px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-salvia-oscuro ${
+      className={`absolute rounded-[2px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-marca ${
         estado.conError
           ? "bg-terracota/15 ring-1 ring-terracota-oscuro"
           : estado.activo
-            ? "bg-salvia/20 ring-1 ring-salvia-oscuro"
+            ? "bg-marca-medio/20 ring-1 ring-marca"
             : estado.vacia
-              ? "bg-salvia/15 hover:bg-salvia/25"
-              : "hover:bg-salvia/10"
+              ? "bg-marca-medio/15 hover:bg-marca-medio/25"
+              : "hover:bg-marca-medio/10"
       }`}
     />
   );

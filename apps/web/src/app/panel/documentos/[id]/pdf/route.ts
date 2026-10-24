@@ -7,7 +7,9 @@ import { getSessionToken } from "@/lib/session";
 // y lo devuelve tal cual, con el Content-Disposition (attachment para
 // descargar; inline con `?para=imprimir`, para abrirlo en una pestaña e
 // imprimirlo) y el Cache-Control de la API. El Content-Type va fijo en
-// application/pdf.
+// application/pdf. `?con=anexos` pide el de una historia seguida de sus
+// anexos; de `para` y `con` pasa solo esos valores, y cualquier otro se
+// ignora.
 //
 // Quién puede bajarlo lo decide la API, no esta ruta: solo profesionales
 // (403 para el resto), y solo un documento que veo (404 para lo demás). Un
@@ -22,8 +24,8 @@ export async function GET(request: Request, ctx: RouteContext<"/panel/documentos
     });
   }
   const { id } = await ctx.params;
-  const paraImprimir = new URL(request.url).searchParams.get("para") === "imprimir";
-  const res = await apiDescargarPDFDocumento(token, id, paraImprimir);
+  const consulta = new URL(request.url).searchParams;
+  const res = await apiDescargarPDFDocumento(token, id, consulta.get("para") === "imprimir", consulta.get("con") === "anexos");
   if (!res.ok) {
     return new Response(res.error, {
       status: res.status === 0 ? 502 : res.status,

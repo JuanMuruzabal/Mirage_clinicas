@@ -38,7 +38,7 @@ export function Pestanas<T extends string>({ etiqueta, pestanas, activa, onCambi
 
   return (
     <>
-      <div role="tablist" aria-label={etiqueta} className="flex gap-1 rounded-full bg-hueso p-1">
+      <div role="tablist" aria-label={etiqueta} className="flex gap-1 rounded-control bg-hueso p-1">
         {pestanas.map(([id, nombre], i) => {
           const esLaActiva = id === activa;
           return (
@@ -55,7 +55,7 @@ export function Pestanas<T extends string>({ etiqueta, pestanas, activa, onCambi
               tabIndex={esLaActiva ? 0 : -1}
               onClick={() => onCambio(id)}
               onKeyDown={(e) => alTeclear(e, i)}
-              className={`flex-1 rounded-full px-3 py-1.5 text-sm font-medium pointer-coarse:min-h-11 ${
+              className={`flex-1 rounded-pastilla px-3 py-1.5 text-sm font-medium pointer-coarse:min-h-11 ${
                 esLaActiva ? "bg-marfil text-grafito shadow-soft" : "text-grafito/75 hover:text-grafito"
               }`}
             >
@@ -66,7 +66,7 @@ export function Pestanas<T extends string>({ etiqueta, pestanas, activa, onCambi
       </div>
       {/* tabIndex=0: WAI-ARIA lo pide cuando el panel no empieza con algo
           enfocable, para que Tab desde la pestaña lleve al contenido. */}
-      <div role="tabpanel" id={idPanel(activa)} aria-labelledby={idPestana(activa)} tabIndex={0} className="flex flex-col gap-4 outline-none focus-visible:ring-2 focus-visible:ring-salvia">
+      <div role="tabpanel" id={idPanel(activa)} aria-labelledby={idPestana(activa)} tabIndex={0} className="flex flex-col gap-4 outline-none focus-visible:ring-2 focus-visible:ring-marca-medio">
         {children}
       </div>
     </>

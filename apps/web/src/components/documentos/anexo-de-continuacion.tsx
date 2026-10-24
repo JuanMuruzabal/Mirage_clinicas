@@ -19,13 +19,13 @@ import { fechaYHora, nombreDelAnexoDeLaSeccion, nombreDelDocumento, rotuloDeFoli
 const MAX_CARACTERES = 4000;
 
 const CLASE_CAMPO =
-  "w-full rounded-field border border-linea bg-hueso px-3 py-2 text-[15px] text-grafito outline-none focus:border-salvia disabled:opacity-70";
+  "w-full rounded-field border border-linea bg-hueso px-3 py-2 text-[15px] text-grafito outline-none focus:border-marca-medio disabled:opacity-70";
 // Mismos botones que el genograma (`campo-dibujo.tsx`) y que firmar
 // (`firmar-dialogo.tsx`), a 44 px: se tocan con el dedo.
-const BOTON_PRINCIPAL = "min-h-11 rounded-full bg-salvia-oscuro px-5 text-sm font-semibold text-marfil hover:brightness-95 disabled:opacity-60";
-const BOTON_CANCELAR = "min-h-11 rounded-full px-4 text-sm font-medium text-grafito hover:bg-arena disabled:opacity-60";
+const BOTON_PRINCIPAL = "min-h-11 rounded-control boton-primario px-5 text-sm font-semibold";
+const BOTON_CANCELAR = "min-h-11 rounded-control px-4 text-sm font-medium text-grafito hover:bg-velo disabled:opacity-60";
 const BOTON_ANEXO =
-  "min-h-11 rounded-full border border-salvia-oscuro bg-marfil px-4 text-sm font-medium text-salvia-oscuro hover:bg-salvia-claro disabled:opacity-60";
+  "min-h-11 rounded-control border border-marca bg-marfil px-4 text-sm font-medium text-marca hover:bg-velo disabled:opacity-60";
 
 function AsientosDelAnexo({ asientos }: { asientos: AsientoDeDocumento[] }) {
   if (asientos.length === 0) return <p className="text-sm text-grafito/75">Sin anotaciones todavía.</p>;
@@ -90,7 +90,7 @@ function NuevoAsiento({
 
   return (
     <section aria-labelledby={`${id}-titulo`} className="flex flex-col gap-3 rounded-card border border-linea bg-marfil p-4">
-      <h3 id={`${id}-titulo`} className="font-[family-name:var(--font-display)] text-lg font-medium text-grafito">
+      <h3 id={`${id}-titulo`} className="font-[family-name:var(--font-display)] text-lg font-semibold text-grafito">
         Agregar anotación
       </h3>
       <label className="flex flex-col gap-1.5 text-sm font-medium text-grafito">
@@ -207,7 +207,7 @@ export function DialogoDeAnexo({
       superficie="marfil"
     >
       <div className="flex flex-col gap-4 p-4 sm:p-6">
-        <Link href={`/panel/documentos/${anexoId}`} className="inline-flex min-h-11 items-center self-start text-sm font-medium text-salvia-oscuro hover:text-grafito hover:underline">
+        <Link href={`/panel/documentos/${anexoId}`} className="inline-flex min-h-11 items-center self-start text-sm font-medium text-marca hover:text-grafito hover:underline">
           Abrir en pantalla completa →
         </Link>
         {error && (

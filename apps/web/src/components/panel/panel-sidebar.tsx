@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { IconCalendario, IconDocumentos, IconGeneral, IconPacientes, IconPagina, IconSeguridad, IconTurnos } from "./sidebar-icons";
-import { QuadrantMark } from "../quadrant-mark";
+import { PrismaMark } from "../prisma-mark";
 import { IconChevronLeft } from "../icons";
 import { usePanelSidebar } from "@/lib/panel-sidebar-context";
 
@@ -100,9 +100,13 @@ export function PanelSidebar({ conDocumentos = false }: { conDocumentos?: boolea
           al backdrop. `height: auto` deja que `top`/`bottom` sean los
           que definan el alto real, no un `calc()` pensado para la
           versión `sticky` de escritorio. */}
+      {/* En la computadora el sidebar arranca 1px POR DEBAJO del header
+          (`-mt-px`, `top` y alto con 1px más; el header, `z-40`, lo tapa):
+          así ningún redondeo del alto del header deja asomar una línea del
+          fondo entre los dos, en ninguna posición del scroll (2026-10-10). */}
       <aside
         id="panel-sidebar-drawer"
-        className={`panel-sidebar-h max-md:h-auto! fixed left-0 top-[var(--header-height)] bottom-0 z-50 flex w-60 flex-shrink-0 flex-col border-r-[0.5px] border-arena bg-marfil transition-transform duration-300 md:sticky md:inset-y-auto md:top-[var(--header-height)] md:z-auto md:h-[calc(100vh-var(--header-height))] md:translate-x-0 md:transition-[width] ${
+        className={`panel-sidebar-h max-md:h-auto! fixed left-0 top-[var(--header-height)] bottom-0 z-50 flex w-60 flex-shrink-0 flex-col border-r-[0.5px] border-arena bg-marfil transition-transform duration-300 md:sticky md:inset-y-auto md:-mt-px md:top-[calc(var(--header-height)-1px)] md:z-auto md:h-[calc(100vh-var(--header-height)+1px)] md:translate-x-0 md:transition-[width] ${
           open ? "translate-x-0" : "-translate-x-full"
         } ${collapsed ? "md:w-[52px]" : "md:w-60"}`}
       >
@@ -122,7 +126,7 @@ export function PanelSidebar({ conDocumentos = false }: { conDocumentos?: boolea
         {/* "Panel" → /seleccionar-servicio (TR-075 en docs/Arquitectura y base/tradeoffs.md,
             pedido explícito del cliente: "agregar la opción para volver
             a seleccionar servicio, con un botón que diga panel") — el
-            mismo ícono (QuadrantMark) que usaba el logo que se sacó del
+            mismo ícono (hoy PrismaMark, antes QuadrantMark) que usaba el logo que se sacó del
             header en esta pantalla, ahora sirve de acceso para volver al
             centro de servicios en vez de a la home pública. Separado del
             resto de la navegación con su propio borde: no es una sección
@@ -140,11 +144,16 @@ export function PanelSidebar({ conDocumentos = false }: { conDocumentos?: boolea
           <Link
             href="/seleccionar-servicio"
             title={collapsed ? "Panel" : undefined}
-            className={`flex items-center gap-3 rounded-full px-3 py-2.5 text-sm font-medium text-grafito transition-colors hover:bg-arena ${
+            className={`flex items-center gap-3 rounded-control px-3 py-2.5 text-sm font-medium text-grafito transition-colors hover:bg-velo ${
               collapsed ? "justify-center" : ""
             }`}
           >
-            <QuadrantMark className="h-5 w-5 flex-shrink-0" />
+            {/* La marca mide 1em (14 px): va centrada en la misma caja de
+                20 px que los íconos, así la marca y "Panel" quedan en la
+                columna de los íconos y las etiquetas de abajo. */}
+            <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center">
+              <PrismaMark />
+            </span>
             {!collapsed && <span className="truncate">Panel</span>}
           </Link>
         </div>
@@ -158,9 +167,9 @@ export function PanelSidebar({ conDocumentos = false }: { conDocumentos?: boolea
                 href={href}
                 title={collapsed ? label : undefined}
                 aria-current={active ? "page" : undefined}
-                className={`group flex items-center gap-3 rounded-full px-3 py-2.5 text-sm font-medium transition-colors ${
+                className={`group flex items-center gap-3 rounded-control px-3 py-2.5 text-sm font-medium transition-colors ${
                   collapsed ? "justify-center" : ""
-                } ${active ? "bg-salvia-claro text-salvia-oscuro" : "text-grafito hover:bg-arena"}`}
+                } ${active ? "bg-marca-claro text-marca" : "text-grafito hover:bg-velo"}`}
               >
                 <Icon className="h-5 w-5 flex-shrink-0" activo={active} />
                 {!collapsed && <span className="truncate">{label}</span>}
@@ -176,7 +185,7 @@ export function PanelSidebar({ conDocumentos = false }: { conDocumentos?: boolea
           <Link
             href="/personalizar-pagina"
             title={collapsed ? "Tu página" : undefined}
-            className={`group flex items-center gap-3 rounded-full px-3 py-2 text-sm font-medium text-grafito/60 hover:bg-arena hover:text-grafito ${
+            className={`group flex items-center gap-3 rounded-control px-3 py-2 text-sm font-medium text-grafito/60 hover:bg-velo hover:text-grafito ${
               collapsed ? "justify-center" : ""
             }`}
           >
@@ -198,12 +207,12 @@ export function PanelSidebar({ conDocumentos = false }: { conDocumentos?: boolea
             href="/panel/seguridad"
             title={collapsed ? "Seguridad" : undefined}
             aria-current={esSeccionActiva(pathname, "/panel/seguridad") ? "page" : undefined}
-            className={`group flex items-center gap-3 rounded-full px-3 py-2 text-sm font-medium transition-colors ${
+            className={`group flex items-center gap-3 rounded-control px-3 py-2 text-sm font-medium transition-colors ${
               collapsed ? "justify-center" : ""
             } ${
               esSeccionActiva(pathname, "/panel/seguridad")
-                ? "bg-salvia-claro text-salvia-oscuro"
-                : "text-grafito/60 hover:bg-arena hover:text-grafito"
+                ? "bg-marca-claro text-marca"
+                : "text-grafito/60 hover:bg-velo hover:text-grafito"
             }`}
           >
             <IconSeguridad className="h-5 w-5 flex-shrink-0" activo={esSeccionActiva(pathname, "/panel/seguridad")} />

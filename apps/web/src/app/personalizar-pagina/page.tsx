@@ -3,6 +3,7 @@ import { apiGetPaginaPublica } from "@/lib/api";
 import { redirect } from "next/navigation";
 import { getSessionToken, requireOnboardingComplete } from "@/lib/session";
 import { PaginaEditor } from "@/components/pagina-editor";
+import { FondoOndas } from "@/components/fondo-ondas";
 import { urlDelSitio } from "@/lib/sitio";
 
 export const metadata: Metadata = { title: "Tu página — PRISMA" };
@@ -12,9 +13,11 @@ export const metadata: Metadata = { title: "Tu página — PRISMA" };
 // "personalizar pagina es una pagina aparte por fuera de gestiona
 // clinica... si doy click a tu pagina desde gestion clinica me lleva a
 // esta pagina de edicion"). No vive bajo /panel/** — sin el sidebar de
-// navegación de clínica ni la textura de fondo de esas 4 pantallas (esa
-// sigue acotada a General/Calendario/Turnos/Pacientes, ver
-// panel/layout.tsx), con más espacio propio para el editor. Requiere
+// navegación de clínica, con más espacio propio para el editor. Lleva el
+// fondo de ondas de toda la app con sesión (correcciones generales, ítem
+// 12, pedido de la persona, 2026-10-18): en agosto se había dejado sin la
+// textura de crucecitas, que distraía, pero las ondas son discretas, y la
+// barra, el panel y la vista previa son tarjetas blancas y opacas. Requiere
 // sesión igual que /panel — acá el guard es directo (`requireProfesional`)
 // en vez de heredarlo de un layout compartido.
 export default async function PersonalizarPaginaPage() {
@@ -51,9 +54,15 @@ export default async function PersonalizarPaginaPage() {
       };
 
   return (
-    <main className="flex flex-1 flex-col gap-6 bg-hueso px-4 py-10 sm:px-8 pt-[calc(var(--header-height)+2.5rem)]">
-      <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito">Tu página</h1>
-      <PaginaEditor sesion={sesion} paginaInicial={pagina} urlSitio={urlDelSitio()} />
-    </main>
+    <>
+      {/* FondoOndas (correcciones generales, ítem 1, 2026-10-10): el fondo
+          de ondas de toda la app con sesión. Va afuera de <main>, fijo y
+          detrás del contenido. */}
+      <FondoOndas />
+      <main className="flex flex-1 flex-col gap-6 px-4 py-10 sm:px-8 pt-[calc(var(--header-height)+2.5rem)]">
+        <h1 className="font-[family-name:var(--font-display)] tracking-tight text-3xl font-semibold text-grafito">Tu página</h1>
+        <PaginaEditor sesion={sesion} paginaInicial={pagina} urlSitio={urlDelSitio()} />
+      </main>
+    </>
   );
 }

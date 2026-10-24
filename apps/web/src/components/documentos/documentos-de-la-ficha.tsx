@@ -21,11 +21,11 @@ export function DocumentosDeLaFicha({
 }) {
   return (
     <div className="flex flex-col gap-3 rounded-card border-[0.5px] border-arena bg-marfil p-6 shadow-soft">
-      <h2 className="font-[family-name:var(--font-display)] text-base font-medium text-grafito">Documentos clínicos</h2>
+      <h2 className="font-[family-name:var(--font-display)] text-base font-semibold text-grafito">Documentos clínicos</h2>
       {esProfesional ? (
         <Link
           href={`/panel/pacientes/${pacienteId}/documentos`}
-          className="self-start rounded-full bg-salvia-oscuro px-5 py-2.5 text-sm font-semibold text-marfil hover:brightness-95"
+          className="self-start rounded-control boton-primario px-5 py-2.5 text-sm font-semibold"
         >
           Ver documentos clínicos
         </Link>

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Big_Shoulders, Public_Sans, IBM_Plex_Mono } from "next/font/google";
+import { Big_Shoulders, Figtree, Public_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { SiteHeader } from "@/components/site-header";
 import { SiteHeaderVisibility } from "@/components/site-header-visibility";
@@ -8,23 +8,34 @@ import { SiteFooterVisibility } from "@/components/site-footer-visibility";
 import { PanelScrollLock } from "@/components/panel-scroll-lock";
 import { PanelSidebarProvider } from "@/lib/panel-sidebar-context";
 
-// Sistema Cascarón (docs/Arquitectura y base/tradeoffs.md TR-010) — display condensada de alto
-// contraste, uso restringido a títulos/cifras/rótulos (spec §9.7).
+// Figtree — la letra de PRISMA (correcciones generales, 2026-10-17;
+// pedido de la persona: "como Mercado Pago", que usa Proxima Nova, paga y
+// fuera de Google Fonts). Una geométrica cálida, de la misma familia de
+// formas: va en el texto, en los títulos (en seminegrita) y en las cifras
+// (con `tabular-nums`: tiene `tnum`, cada dígito mide lo mismo). Variable,
+// así un solo archivo trae todos los pesos.
+const figtree = Figtree({
+  variable: "--font-figtree",
+  subsets: ["latin"],
+});
+
+// Las tres de antes (TR-010) quedan para la home y la página pública de
+// cada clínica sin tema (`.paleta-cascaron` y `.pp-raiz` las vuelven a
+// poner, globals.css) y, la mono, para los códigos (la huella, el código
+// de verificación y la IP). Siguen precargadas como antes: son el título
+// del primer render de la home y de la página pública.
 const bigShoulders = Big_Shoulders({
   variable: "--font-big-shoulders",
   subsets: ["latin"],
   weight: ["700", "800", "900"],
 });
 
-// Cuerpo — legibilidad institucional, coherente con "confianza clínica"
-// como historia de marca (TR-010).
 const publicSans = Public_Sans({
   variable: "--font-public-sans",
   subsets: ["latin"],
   weight: ["400", "500", "600"],
 });
 
-// Utilitaria — DNI, teléfono, horarios: cifras tabulares (TR-010).
 const plexMono = IBM_Plex_Mono({
   variable: "--font-plex-mono",
   subsets: ["latin"],
@@ -44,7 +55,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="es"
-      className={`${bigShoulders.variable} ${publicSans.variable} ${plexMono.variable} h-full antialiased`}
+      className={`${figtree.variable} ${bigShoulders.variable} ${publicSans.variable} ${plexMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
         {/* PanelSidebarProvider (TR-075 en docs/Arquitectura y base/tradeoffs.md) — sin nodo

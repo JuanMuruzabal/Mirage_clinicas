@@ -5,6 +5,7 @@ import { getSessionToken } from "@/lib/session";
 import { LogoutButton } from "@/components/logout-button";
 import { PerfilForm } from "./perfil-form";
 import { AvalPaginaPublica } from "./aval-pagina-publica";
+import { FondoOndas } from "@/components/fondo-ondas";
 
 export const metadata: Metadata = { title: "Tu perfil — PRISMA" };
 
@@ -23,13 +24,19 @@ export default async function PerfilPage() {
   const clinicasPaginaPublica = meResult?.ok ? meResult.data.clinicasPaginaPublica ?? [] : [];
 
   return (
-    <main className="flex flex-1 flex-col items-center gap-8 bg-hueso px-6 py-16 pt-[calc(var(--header-height)+2rem)]">
-      <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito">Tu perfil</h1>
-      <PerfilForm sesion={sesion} catalogo={catalogo} />
-      {clinicasPaginaPublica.length > 0 && <AvalPaginaPublica clinicas={clinicasPaginaPublica} />}
-      <div className="w-full max-w-lg border-t-[0.5px] border-arena pt-6">
-        <LogoutButton />
-      </div>
-    </main>
+    <>
+      {/* FondoOndas (correcciones generales, ítem 1, 2026-10-10): el fondo
+          de ondas de toda la app con sesión. Va afuera de <main>, fijo y
+          detrás del contenido. */}
+      <FondoOndas />
+      <main className="flex flex-1 flex-col items-center gap-8 px-6 py-16 pt-[calc(var(--header-height)+2rem)]"  >
+        <h1 className="font-[family-name:var(--font-display)] tracking-tight text-3xl font-semibold text-grafito">Tu perfil</h1>
+        <PerfilForm sesion={sesion} catalogo={catalogo} />
+        {clinicasPaginaPublica.length > 0 && <AvalPaginaPublica clinicas={clinicasPaginaPublica} />}
+        <div className="w-full max-w-lg border-t-[0.5px] border-arena pt-6">
+          <LogoutButton />
+        </div>
+      </main>
+    </>
   );
 }

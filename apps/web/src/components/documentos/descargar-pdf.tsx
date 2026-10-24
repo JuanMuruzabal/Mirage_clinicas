@@ -87,6 +87,7 @@ function bajarConEnlace(datos: Blob, nombre: string) {
 
 export function BotonDescargarPDF({
   id,
+  conAnexos = false,
   nombreDeArchivo,
   titulo,
   de,
@@ -98,6 +99,8 @@ export function BotonDescargarPDF({
   children = "Descargar PDF",
 }: {
   id: string;
+  /** En una historia, el PDF con sus anexos (`?con=anexos`). */
+  conAnexos?: boolean;
   /** El nombre que se sugiere al guardar antes de tener la respuesta
    *  (`nombreDeArchivoDelPDF`); después manda el de la API. */
   nombreDeArchivo: string;
@@ -122,6 +125,7 @@ export function BotonDescargarPDF({
 }) {
   const [estado, setEstado] = useState<Estado>({ tipo: "listo" });
   const [error, setError] = useState<string | null>(null);
+  const ruta = rutaDelPDF(id, false, conAnexos);
 
   async function compartir(archivo: File) {
     setEstado({ tipo: "bajando" });
@@ -170,7 +174,7 @@ export function BotonDescargarPDF({
         }
       }
 
-      const respuesta = await fetch(rutaDelPDF(id), { credentials: "same-origin", cache: "no-store" });
+      const respuesta = await fetch(ruta, { credentials: "same-origin", cache: "no-store" });
       if (!respuesta.ok) {
         setError(mensajeDeErrorDelPDF(respuesta.status, await respuesta.text().catch(() => "")));
         setEstado({ tipo: "listo" });
@@ -218,7 +222,7 @@ export function BotonDescargarPDF({
   return (
     <>
       <a
-        href={rutaDelPDF(id)}
+        href={ruta}
         download
         onClick={alHacerClic}
         aria-label={de ? `${accion} de ${de}` : undefined}

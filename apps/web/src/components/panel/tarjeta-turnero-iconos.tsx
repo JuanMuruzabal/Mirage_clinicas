@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { usePinturaPrismatica } from "./degrade-prismatico";
 
 interface IconoDecorativoProps {
   className?: string;
@@ -19,14 +20,15 @@ interface IconoDecorativoProps {
 //   - algo propio del consultorio donde hace sentido: la tarjeta de
 //     resueltos es una muela con el tilde.
 //
-// Puramente decorativos (`aria-hidden`); el color y el tamaño los pone
-// quien los usa. Cada pieza lleva la clase que dice cómo entra cuando la
+// Puramente decorativos (`aria-hidden`). Desde el 2026-10-10 se pintan con
+// el degradé prismático (`usePinturaPrismatica`, guía de estilo de la
+// persona): trazos con el degradé y rellenos con el mismo degradé
+// translúcido. El tamaño y la opacidad los pone quien los usa. Cada pieza lleva la clase que dice cómo entra cuando la
 // tarjeta se despliega (`.dib-*` en globals.css, dentro de
 // `.despliegue-dibujo`); `--i` escalona las que son varias.
 
 const TRAZO = {
   fill: "none",
-  stroke: "currentColor",
   strokeWidth: 3,
   strokeLinecap: "square" as const,
   strokeLinejoin: "miter" as const,
@@ -34,12 +36,13 @@ const TRAZO = {
 
 const i = (n: number) => ({ "--i": n }) as CSSProperties;
 
-function svgProps(className: string, viewBox = "0 0 100 100") {
+function svgProps(className: string, pintura: string, viewBox = "0 0 100 100") {
   return {
     "aria-hidden": true as const,
     viewBox,
-    className: `despliegue-dibujo ${className}`,
+    className: `despliegue-dibujo dibujo-prismatico ${className}`,
     ...TRAZO,
+    stroke: pintura,
   };
 }
 
@@ -47,23 +50,25 @@ function svgProps(className: string, viewBox = "0 0 100 100") {
 // 12 a las 3): el día como algo que avanza. Las agujas giran hasta su
 // lugar cuando la tarjeta aparece.
 export function IconoReloj({ className = "" }: IconoDecorativoProps) {
+  const pintura = usePinturaPrismatica(100, 100);
   return (
-    <svg {...svgProps(className)}>
+    <svg {...svgProps(className, pintura.url)}>
+      {pintura.defs}
       <circle className="dib-trazo" pathLength={1} cx="50" cy="50" r="40" />
-      <path className="dib-aparecer" d="M50 50 L50 18 A32 32 0 0 1 82 50 Z" fill="currentColor" fillOpacity="0.35" stroke="none" />
+      <path className="dib-aparecer" d="M50 50 L50 18 A32 32 0 0 1 82 50 Z" fill={pintura.url} fillOpacity="0.35" stroke="none" />
       {[
         [48, 12, 4, 8],
         [80, 48, 8, 4],
         [48, 80, 4, 8],
         [12, 48, 8, 4],
       ].map(([x, y, w, h], n) => (
-        <rect key={n} className="dib-aparecer" style={i(n)} x={x} y={y} width={w} height={h} fill="currentColor" stroke="none" />
+        <rect key={n} className="dib-aparecer" style={i(n)} x={x} y={y} width={w} height={h} fill={pintura.url} stroke="none" />
       ))}
       <g className="dib-girar">
         <path d="M50 50 L50 26" />
         <path d="M50 50 L66 60" />
       </g>
-      <rect x="47" y="47" width="6" height="6" fill="currentColor" stroke="none" />
+      <rect x="47" y="47" width="6" height="6" fill={pintura.url} stroke="none" />
     </svg>
   );
 }
@@ -72,8 +77,10 @@ export function IconoReloj({ className = "" }: IconoDecorativoProps) {
 // adelante tiene su encabezado y el turno marcado. Entran deslizándose,
 // del más lejano al más cercano.
 export function IconoAvance({ className = "" }: IconoDecorativoProps) {
+  const pintura = usePinturaPrismatica(110, 100);
   return (
-    <svg {...svgProps(className, "0 0 110 100")}>
+    <svg {...svgProps(className, pintura.url, "0 0 110 100")}>
+      {pintura.defs}
       <g className="dib-deslizar" style={i(0)} opacity="0.4">
         <rect x="60" y="10" width="40" height="46" />
       </g>
@@ -82,8 +89,8 @@ export function IconoAvance({ className = "" }: IconoDecorativoProps) {
       </g>
       <g className="dib-deslizar" style={i(2)}>
         <rect x="16" y="42" width="40" height="46" className="fill-marfil" />
-        <rect x="16" y="42" width="40" height="11" fill="currentColor" fillOpacity="0.35" />
-        <rect x="24" y="61" width="11" height="11" fill="currentColor" stroke="none" />
+        <rect x="16" y="42" width="40" height="11" fill={pintura.url} fillOpacity="0.35" />
+        <rect x="24" y="61" width="11" height="11" fill={pintura.url} stroke="none" />
         <path d="M40 64 L48 64 M40 70 L46 70" strokeWidth="2.5" />
       </g>
     </svg>
@@ -105,6 +112,7 @@ function rayado(x: number, y: number, w: number, h: number): string {
 // Horarios reservados — una semana en casilleros; los rayados son los que
 // están tomados. Aparecen en ola, en diagonal.
 export function IconoCasilleros({ className = "" }: IconoDecorativoProps) {
+  const pintura = usePinturaPrismatica(100, 100);
   const tomados = new Set(["0-1", "1-0", "1-3", "2-2"]);
   const celdas: { x: number; y: number; clave: string; n: number }[] = [];
   for (let f = 0; f < 3; f++) {
@@ -113,7 +121,8 @@ export function IconoCasilleros({ className = "" }: IconoDecorativoProps) {
     }
   }
   return (
-    <svg {...svgProps(className)}>
+    <svg {...svgProps(className, pintura.url)}>
+      {pintura.defs}
       {celdas.map(({ x, y, clave, n }) => (
         <g key={clave} className="dib-aparecer" style={i(n)}>
           <rect x={x} y={y} width="18" height="18" />
@@ -127,8 +136,10 @@ export function IconoCasilleros({ className = "" }: IconoDecorativoProps) {
 // Turnos resueltos hoy — una muela con el tilde: lo que se atendió. El
 // contorno y el tilde se dibujan solos, en ese orden.
 export function IconoTilde({ className = "" }: IconoDecorativoProps) {
+  const pintura = usePinturaPrismatica(100, 100);
   return (
-    <svg {...svgProps(className)} strokeLinecap="round" strokeLinejoin="round">
+    <svg {...svgProps(className, pintura.url)} strokeLinecap="round" strokeLinejoin="round">
+      {pintura.defs}
       <path
         className="dib-trazo"
         pathLength={1}
@@ -142,14 +153,16 @@ export function IconoTilde({ className = "" }: IconoDecorativoProps) {
 // Turnos pendientes — un reloj de arena: lo que todavía no pasó. Se da
 // vuelta al aparecer, como quien lo da vuelta para empezar a contar.
 export function IconoSello({ className = "" }: IconoDecorativoProps) {
+  const pintura = usePinturaPrismatica(100, 100);
   return (
-    <svg {...svgProps(className)}>
+    <svg {...svgProps(className, pintura.url)}>
+      {pintura.defs}
       <g className="dib-girar">
-        <rect x="22" y="10" width="56" height="6" fill="currentColor" stroke="none" />
-        <rect x="22" y="84" width="56" height="6" fill="currentColor" stroke="none" />
+        <rect x="22" y="10" width="56" height="6" fill={pintura.url} stroke="none" />
+        <rect x="22" y="84" width="56" height="6" fill={pintura.url} stroke="none" />
         <path d="M30 16 L70 16 L70 24 C70 38 55 44 53 50 C55 56 70 62 70 76 L70 84 L30 84 L30 76 C30 62 45 56 47 50 C45 44 30 38 30 24 Z" />
-        <path d="M37 27 L63 27 C60 36 53 40 50 45 C47 40 40 36 37 27 Z" fill="currentColor" fillOpacity="0.45" stroke="none" />
-        <path d="M35 82 C38 72 45 68 50 68 C55 68 62 72 65 82 Z" fill="currentColor" fillOpacity="0.45" stroke="none" />
+        <path d="M37 27 L63 27 C60 36 53 40 50 45 C47 40 40 36 37 27 Z" fill={pintura.url} fillOpacity="0.45" stroke="none" />
+        <path d="M35 82 C38 72 45 68 50 68 C55 68 62 72 65 82 Z" fill={pintura.url} fillOpacity="0.45" stroke="none" />
         <path d="M50 50 L50 66" strokeWidth="2" strokeDasharray="2 3" />
       </g>
     </svg>
@@ -160,6 +173,7 @@ export function IconoSello({ className = "" }: IconoDecorativoProps) {
 // izquierda es "asistieron" (el color de la tarjeta), la de la derecha
 // "ausentes" (terracota). Crecen desde la base.
 export function IconoEstadistica({ className = "" }: IconoDecorativoProps) {
+  const pintura = usePinturaPrismatica(110, 100);
   const pares: [number, number][] = [
     [46, 14],
     [62, 22],
@@ -167,15 +181,16 @@ export function IconoEstadistica({ className = "" }: IconoDecorativoProps) {
     [70, 18],
   ];
   return (
-    <svg {...svgProps(className, "0 0 110 100")}>
+    <svg {...svgProps(className, pintura.url, "0 0 110 100")}>
+      {pintura.defs}
       <path d="M4 90 L106 90" />
       {pares.map(([alta, baja], n) => {
         const x = 10 + n * 25;
         return (
           <g key={n}>
-            <rect className="dib-crecer" style={i(n)} x={x} y={90 - alta} width="9" height={alta} fill="currentColor" fillOpacity="0.55" stroke="none" />
+            <rect className="dib-crecer" style={i(n)} x={x} y={90 - alta} width="9" height={alta} fill={pintura.url} fillOpacity="0.55" stroke="none" />
             <rect
-              className="dib-crecer text-terracota-oscuro/40"
+              className="dib-crecer text-terracota-oscuro/60"
               style={i(n + 0.5)}
               x={x + 11}
               y={90 - baja}

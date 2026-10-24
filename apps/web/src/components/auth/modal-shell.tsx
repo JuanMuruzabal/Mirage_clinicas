@@ -30,7 +30,7 @@ export function ModalShell({ title, subtitle, footer, children }: ModalShellProp
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-grafito/50 p-3 sm:p-4">
       <div className="flex max-h-[92vh] w-full max-w-[520px] flex-col overflow-hidden rounded-card border-[0.5px] border-arena bg-marfil shadow-soft">
         <header className="flex flex-col gap-1 border-b border-arena/70 px-6 py-5">
-          <h2 className="font-[family-name:var(--font-display)] text-2xl font-medium text-grafito">{title}</h2>
+          <h2 className="font-[family-name:var(--font-display)] tracking-tight text-2xl font-semibold text-grafito">{title}</h2>
           {subtitle && <p className="text-sm text-grafito/60">{subtitle}</p>}
         </header>
 
@@ -54,7 +54,7 @@ export function ModalShell({ title, subtitle, footer, children }: ModalShellProp
 export function SeccionCampos({ titulo, icono, children }: { titulo: string; icono?: ReactNode; children: ReactNode }) {
   return (
     <section className="flex flex-col gap-4">
-      <h3 className="flex items-center gap-2 font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-grafito/50">
+      <h3 className="flex items-center gap-2 font-[family-name:var(--font-mono)] tabular-nums text-xs uppercase tracking-widest text-grafito/50">
         {icono}
         {titulo}
       </h3>

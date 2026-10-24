@@ -13,7 +13,7 @@ export const metadata: Metadata = { title: "Documentos del paciente — PRISMA" 
 // de documentos de un paciente: los terminados (de cualquier colega que lo
 // atienda, con su autor) y lo mío en curso, del folio más nuevo al más
 // viejo, con filtros (pedido del cliente, 2026-09-29).
-const MIGA = `inline-flex items-center rounded-sm text-salvia-oscuro underline-offset-2 hover:text-grafito hover:underline ${CLASE_TACTIL}`;
+const MIGA = `inline-flex items-center rounded-sm text-marca underline-offset-2 hover:text-grafito hover:underline ${CLASE_TACTIL}`;
 
 export default async function DocumentosDelPacientePage({ params }: PageProps<"/panel/pacientes/[id]/documentos">) {
   await requireProfesional();
@@ -47,12 +47,12 @@ export default async function DocumentosDelPacientePage({ params }: PageProps<"/
         {/* El botón en la misma fila que el título, no arriba con el link de
             volver (pedido del cliente, 2026-09-29). */}
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito max-md:text-[clamp(1.25rem,6vw,1.875rem)]">
+          <h1 className="font-[family-name:var(--font-display)] tracking-tight text-3xl font-semibold text-grafito max-md:text-[clamp(1.25rem,6vw,1.875rem)]">
             Documentos clínicos
           </h1>
           <Link
             href={`/panel/documentos?paciente=${p.id}`}
-            className="inline-flex min-h-11 items-center rounded-full bg-salvia-oscuro px-5 text-sm font-semibold text-marfil hover:brightness-95"
+            className="contorno-prisma boton-primario inline-flex min-h-11 items-center rounded-control px-5 text-sm font-semibold"
           >
             + Nuevo documento
           </Link>

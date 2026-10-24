@@ -344,14 +344,14 @@ export function PaginaEditor({ sesion, paginaInicial, urlSitio }: PaginaEditorPr
             <button
               type="button"
               onClick={recargar}
-              className="rounded-full border-[0.5px] border-terracota bg-marfil px-3 py-1.5 text-xs font-medium text-terracota-oscuro hover:bg-terracota-claro"
+              className="rounded-control border-[0.5px] border-terracota bg-marfil px-3 py-1.5 text-xs font-medium text-terracota-oscuro hover:bg-terracota-claro"
             >
               Recargar (perdés lo que tipeaste)
             </button>
             <button
               type="button"
               onClick={mantenerMiCopia}
-              className="rounded-full bg-terracota-oscuro px-3 py-1.5 text-xs font-medium text-marfil hover:brightness-95"
+              className="rounded-control bg-terracota-oscuro px-3 py-1.5 text-xs font-medium text-marfil hover:brightness-95"
             >
               Mantener mi copia
             </button>
@@ -364,14 +364,14 @@ export function PaginaEditor({ sesion, paginaInicial, urlSitio }: PaginaEditorPr
           <button
             type="button"
             onClick={() => setGaleriaAbierta(true)}
-            className="hidden rounded-full border-[0.5px] border-arena bg-marfil px-4 py-2 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro lg:inline-block"
+            className="hidden rounded-control border-[0.5px] border-arena bg-marfil px-4 py-2 text-sm font-medium text-grafito hover:border-marca-medio hover:text-marca lg:inline-block"
           >
             Plantillas
           </button>
           <button
             type="button"
             onClick={() => setHistorialAbierto(true)}
-            className="hidden rounded-full border-[0.5px] border-arena bg-marfil px-4 py-2 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro lg:inline-block"
+            className="hidden rounded-control border-[0.5px] border-arena bg-marfil px-4 py-2 text-sm font-medium text-grafito hover:border-marca-medio hover:text-marca lg:inline-block"
           >
             Historial
           </button>
@@ -379,7 +379,7 @@ export function PaginaEditor({ sesion, paginaInicial, urlSitio }: PaginaEditorPr
             href={`/${sesion.slug}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden rounded-full border-[0.5px] border-arena bg-marfil px-4 py-2 text-sm font-medium text-grafito hover:border-salvia hover:text-salvia-oscuro lg:inline-block"
+            className="hidden rounded-control border-[0.5px] border-arena bg-marfil px-4 py-2 text-sm font-medium text-grafito hover:border-marca-medio hover:text-marca lg:inline-block"
           >
             Ver página
           </Link>
@@ -387,7 +387,7 @@ export function PaginaEditor({ sesion, paginaInicial, urlSitio }: PaginaEditorPr
             type="button"
             onClick={() => void guardar()}
             disabled={!sinGuardar || pendingGuardar}
-            className="min-h-11 rounded-full bg-salvia-oscuro px-4 py-2 text-sm font-semibold text-marfil hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-40 lg:min-h-0"
+            className="min-h-11 rounded-control boton-primario px-4 py-2 text-sm font-semibold lg:min-h-0"
           >
             {pendingGuardar ? "Guardando…" : "Guardar cambios"}
           </button>
@@ -396,7 +396,7 @@ export function PaginaEditor({ sesion, paginaInicial, urlSitio }: PaginaEditorPr
               type="button"
               onClick={descartar}
               disabled={pendingGuardar}
-              className="hidden rounded-full border-[0.5px] border-arena bg-marfil px-4 py-2 text-sm font-medium text-grafito hover:border-terracota hover:text-terracota-oscuro disabled:opacity-50 lg:inline-block"
+              className="hidden rounded-control border-[0.5px] border-arena bg-marfil px-4 py-2 text-sm font-medium text-grafito hover:border-terracota hover:text-terracota-oscuro disabled:opacity-50 lg:inline-block"
             >
               Descartar
             </button>
@@ -413,14 +413,14 @@ export function PaginaEditor({ sesion, paginaInicial, urlSitio }: PaginaEditorPr
             onClick={() => void publicar()}
             disabled={pendingPublicar || pendingGuardar || (!sinGuardar && !sinPublicar && !!pagina.deployadaEn)}
             title={pagina.deployadaEn ? `Última publicación: ${formatFechaHora(pagina.deployadaEn)}` : undefined}
-            className="min-h-11 rounded-full bg-salvia-oscuro px-4 py-2 text-sm font-semibold text-marfil hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-40 lg:min-h-0"
+            className="contorno-prisma boton-primario min-h-11 rounded-control px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed lg:min-h-0"
           >
             {pendingPublicar ? "Publicando…" : sinGuardar ? "Guardar y publicar" : "Publicar"}
           </button>
           {/* "Publicada" solo si lo que se ve es lo que está publicado. */}
           {pagina.deployadaEn && !sinPublicar && !sinGuardar && (
 
-            <span className="rounded-full border-[0.5px] border-salvia bg-salvia-claro px-3 py-1.5 text-xs font-medium text-salvia-oscuro">
+            <span className="rounded-pastilla border-[0.5px] border-marca-medio bg-marca-claro px-3 py-1.5 text-xs font-medium text-marca">
               Publicada
             </span>
           )}
@@ -428,10 +428,10 @@ export function PaginaEditor({ sesion, paginaInicial, urlSitio }: PaginaEditorPr
             type="button"
             onClick={alternarOcultar}
             disabled={pendingOcultar}
-            className={`hidden rounded-full border-[0.5px] px-4 py-2 text-sm font-medium disabled:opacity-60 lg:inline-block ${
+            className={`hidden rounded-control border-[0.5px] px-4 py-2 text-sm font-medium disabled:opacity-60 lg:inline-block ${
               pagina.oculta
                 ? "border-terracota bg-marfil text-terracota-oscuro hover:bg-terracota-claro"
-                : "border-arena bg-marfil text-grafito hover:border-salvia hover:text-salvia-oscuro"
+                : "border-arena bg-marfil text-grafito hover:border-marca-medio hover:text-marca"
             }`}
           >
             {pendingOcultar ? (pagina.oculta ? "Mostrando…" : "Ocultando…") : pagina.oculta ? "Mostrar" : "Ocultar"}
@@ -561,7 +561,7 @@ export function PaginaEditor({ sesion, paginaInicial, urlSitio }: PaginaEditorPr
                       key={preset.id}
                       type="button"
                       onClick={() => editar(aplicarPresetEstilo(borrador, preset))}
-                      className="rounded-field border-[0.5px] border-arena px-3 py-2 text-left hover:border-salvia"
+                      className="rounded-field border-[0.5px] border-arena px-3 py-2 text-left hover:border-marca-medio"
                     >
                       <span className="block text-sm font-medium text-grafito">{preset.nombre}</span>
                       <span className="block text-xs text-grafito/75">{preset.descripcion}</span>
@@ -622,12 +622,12 @@ export function PaginaEditor({ sesion, paginaInicial, urlSitio }: PaginaEditorPr
       {/* bottom-20 debajo de lg: por encima de la barra de Editar/Vista previa. */}
       <div role="status" className="pointer-events-none fixed inset-x-0 bottom-20 z-40 flex justify-center px-4 lg:bottom-4">
         {deshacer && (
-          <div className="pointer-events-auto flex flex-wrap items-center gap-3 rounded-full bg-grafito px-4 py-2 text-sm text-marfil shadow-soft">
+          <div className="pointer-events-auto flex flex-wrap items-center gap-3 rounded-control bg-grafito px-4 py-2 text-sm text-marfil shadow-soft">
             <span>{deshacer.mensaje}</span>
-            <button type="button" onClick={deshacerUltimo} className="min-h-11 rounded-full px-3 font-semibold underline underline-offset-2 hover:bg-marfil/10">
+            <button type="button" onClick={deshacerUltimo} className="min-h-11 rounded-control px-3 font-semibold underline underline-offset-2 hover:bg-marfil/10">
               Deshacer
             </button>
-            <button type="button" onClick={() => setDeshacer(null)} aria-label="Cerrar aviso" className="min-h-11 min-w-11 rounded-full hover:bg-marfil/10">
+            <button type="button" onClick={() => setDeshacer(null)} aria-label="Cerrar aviso" className="min-h-11 min-w-11 rounded-control hover:bg-marfil/10">
               <span aria-hidden="true">×</span>
             </button>
           </div>
@@ -654,8 +654,8 @@ export function PaginaEditor({ sesion, paginaInicial, urlSitio }: PaginaEditorPr
             type="button"
             aria-pressed={vistaMovil === id}
             onClick={() => cambiarVistaMovil(id)}
-            className={`min-h-11 flex-1 rounded-full text-sm font-semibold ${
-              vistaMovil === id ? "bg-salvia-oscuro text-marfil" : "border-[0.5px] border-arena bg-marfil text-grafito"
+            className={`min-h-11 flex-1 rounded-control text-sm font-semibold ${
+              vistaMovil === id ? "bg-marca-relleno text-marfil" : "border-[0.5px] border-arena bg-marfil text-grafito"
             }`}
           >
             {nombre}

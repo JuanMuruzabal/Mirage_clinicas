@@ -413,5 +413,5 @@ func entregarPDFDeContinuacion(gdb *gorm.DB, w http.ResponseWriter, r *http.Requ
 		return
 	}
 	plantilla, _ := documentos.PorID(anexo.PlantillaID, anexo.PlantillaVersion)
-	entregarPDF(gdb, w, r, anexo, nombreDeArchivoDelPDF(anexo, plantilla, documentos.FolioDe(anexo, folioHistoria)), datos)
+	entregarPDF(gdb, w, r, []db.DocumentoClinico{anexo}, nombreDeArchivoDelPDF(anexo, plantilla, documentos.FolioDe(anexo, folioHistoria)), datos)
 }

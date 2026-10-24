@@ -4,8 +4,6 @@ import type {
   AperturaDeNotificacion,
   BandejaDeNotificaciones,
   Notificacion,
-  ContadoresDePacientes,
-  ContadoresDeTurnos,
   AutoreservarTurnosResponse,
   BloqueoHorario,
   BloqueosSeguridad,
@@ -1339,73 +1337,6 @@ export function apiListTurnosPaginado(
   });
 }
 
-// apiContarTurnos — SOLO el total detrás de un filtro, sin traer las
-// filas. Pide una página de 1 y se queda con el X-Total-Count: el total
-// lo calcula el backend con un COUNT(*) aparte (paginacion.go), así que
-// el body es una fila en vez de la lista completa.
-//
-// Lo usan los contadores de las pestañas de /panel/turnos ("Confirmadas
-// 8", "Resueltos 4"...). Antes esa cuenta salía de pedir las 4 listas
-// enteras y hacer `.length` — el costo que esta función elimina.
-export async function apiContarTurnos(
-  token: string,
-  params: ListarTurnosParams,
-): Promise<number> {
-  const res = await apiListTurnosPaginado(token, params, 1, 0);
-  return res.ok ? res.data.total : 0;
-}
-
-// Los cuatro contadores de las pestañas de /panel/turnos, en UN pedido
-// (ronda de optimización post-Fase 3, 2026-09-22).
-//
-// Antes eran cuatro `apiContarTurnos` — cuatro requests a la API que
-// pedían una fila cada uno solo para leer el total de `X-Total-Count`.
-// Iban en paralelo, así que no se notaban en el reloj de la persona,
-// pero cada uno paga el viaje HTTP y las dos consultas que todo request
-// autenticado hace antes de trabajar. Las cuatro pestañas filtran igual
-// en todo lo demás: el backend las resuelve con una sola pasada.
-//
-// `estado`/`resuelto` no se mandan: son justamente lo que distingue una
-// pestaña de otra, y el backend las separa solo.
-// Los tres contadores de las pestañas de /panel/pacientes, en UN pedido
-// (ronda de optimización post-Fase 3, 2026-09-22). Mismo caso que
-// `apiContadoresDeTurnos`: tres requests que pedían una fila cada uno
-// para leer un número del header.
-export async function apiContadoresDePacientes(
-  token: string,
-  params: { q?: string } = {},
-): Promise<ContadoresDePacientes> {
-  const qs = new URLSearchParams();
-  if (params.q) qs.set("q", params.q);
-  const query = qs.toString();
-  const res = await request<ContadoresDePacientes>(
-    `/pacientes/contadores${query ? `?${query}` : ""}`,
-    { headers: { Authorization: `Bearer ${token}` } },
-  );
-  return res.ok ? res.data : { todos: 0, verificados: 0, sinVerificar: 0 };
-}
-
-export async function apiContadoresDeTurnos(
-  token: string,
-  params: ListarTurnosParams,
-): Promise<ContadoresDeTurnos> {
-  // Se arma con el MISMO constructor de query que el listado y se le
-  // sacan las dos que separan una pestaña de otra. Escribir la query a
-  // mano acá sería la forma más fácil de que un filtro nuevo llegue al
-  // listado y no a los contadores.
-  const query = queryDeTurnos(params);
-  query.delete("estado");
-  query.delete("resuelto");
-  const qs = query.toString();
-  const res = await request<ContadoresDeTurnos>(
-    `/turnos/contadores${qs ? `?${qs}` : ""}`,
-    { headers: { Authorization: `Bearer ${token}` } },
-  );
-  // Sin respuesta, cero: una pestaña sin número se lee mejor que una con
-  // un número inventado.
-  return res.ok ? res.data : { agendado: 0, resuelto: 0, cancelada: 0, todas: 0 };
-}
-
 export interface CrearTurnoManualPayload {
   nombreContacto: string;
   apellidoContacto: string;
@@ -1609,16 +1540,6 @@ export function apiListPacientesPaginado(
   return requestPaginado<Paciente>(`/pacientes?${query.toString()}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
-}
-
-// apiContarPacientes — igual que apiContarTurnos, para las pestañas
-// Todos/Verificados/Sin verificar de /panel/pacientes.
-export async function apiContarPacientes(
-  token: string,
-  params: ListarPacientesParams,
-): Promise<number> {
-  const res = await apiListPacientesPaginado(token, params, 1, 0);
-  return res.ok ? res.data.total : 0;
 }
 
 export interface CrearPacientePayload {
@@ -2145,13 +2066,18 @@ export type DescargaDePDF =
  *  pedido: los bytes y los headers con los que la API lo sirve (el nombre
  *  del archivo, attachment o inline, y el Cache-Control), para que la ruta
  *  /panel/documentos/[id]/pdf los pase. Con `paraImprimir` la API lo sirve
- *  inline (para abrirlo en el navegador e imprimirlo). Lleva la IP del
- *  visitante: la descarga queda en la auditoría del documento
- *  ("exportado"), con desde dónde se hizo. */
-export async function apiDescargarPDFDocumento(token: string, id: string, paraImprimir = false): Promise<DescargaDePDF> {
+ *  inline (para abrirlo en el navegador e imprimirlo); con `conAnexos`, arma
+ *  el de una historia seguida de sus anexos. Lleva la IP del visitante: la
+ *  descarga queda en la auditoría de cada documento incluido ("exportado"),
+ *  con desde dónde se hizo. */
+export async function apiDescargarPDFDocumento(token: string, id: string, paraImprimir = false, conAnexos = false): Promise<DescargaDePDF> {
+  const consulta = new URLSearchParams();
+  if (paraImprimir) consulta.set("para", "imprimir");
+  if (conAnexos) consulta.set("con", "anexos");
+  const query = consulta.toString();
   let res: Response;
   try {
-    res = await fetch(`${API_URL}/documentos/${encodeURIComponent(id)}/pdf${paraImprimir ? "?para=imprimir" : ""}`, {
+    res = await fetch(`${API_URL}/documentos/${encodeURIComponent(id)}/pdf${query ? `?${query}` : ""}`, {
       headers: { ...(await cabecerasDeIP()), ...conSesion(token) },
       cache: "no-store",
       signal: AbortSignal.timeout(requestTimeoutMs),

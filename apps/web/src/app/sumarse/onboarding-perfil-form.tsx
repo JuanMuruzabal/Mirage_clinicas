@@ -228,7 +228,7 @@ export function OnboardingPerfilForm({
               {/* Las elegidas viven ADENTRO del mismo control que la
                   búsqueda: un solo borde que contiene los chips y el campo
                   de texto. */}
-              <div className="flex flex-col gap-2 rounded-[10px] border border-linea bg-hueso p-2 focus-within:border-salvia-oscuro">
+              <div className="flex flex-col gap-2 rounded-[10px] border border-linea bg-hueso p-2 focus-within:border-marca">
                 {elegidas.length > 0 && (
                   <ul className="flex flex-wrap gap-1.5">
                     {elegidas.map((esp) => (
@@ -237,7 +237,7 @@ export function OnboardingPerfilForm({
                           type="button"
                           onClick={() => toggleEspecialidad(esp.id)}
                           aria-label={`Quitar ${esp.nombre}`}
-                          className="flex items-center gap-1.5 rounded-full bg-salvia-claro px-2.5 py-1 text-sm text-salvia-oscuro hover:brightness-95"
+                          className="flex items-center gap-1.5 rounded-control bg-marca-claro px-2.5 py-1 text-sm text-marca hover:brightness-95"
                         >
                           {esp.nombre}
                           <IconX className="h-3.5 w-3.5" />
@@ -269,7 +269,7 @@ export function OnboardingPerfilForm({
                     key={esp.id}
                     type="button"
                     onClick={() => toggleEspecialidad(esp.id)}
-                    className="rounded-full border-[0.5px] border-arena px-3 py-1.5 text-sm text-grafito hover:border-salvia hover:text-salvia-oscuro"
+                    className="rounded-control border-[0.5px] border-arena px-3 py-1.5 text-sm text-grafito hover:border-marca-medio hover:text-marca"
                   >
                     {esp.nombre}
                   </button>

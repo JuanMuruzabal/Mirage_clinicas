@@ -1,5 +1,6 @@
 import { getMe } from "@/lib/session";
 import { SiteHeaderChrome, type EstadoHeaderSesion } from "./site-header-chrome";
+import { datosDelTopbarAction } from "@/app/actions/topbar-panel";
 
 // Header global. Antes de completar el onboarding (spec §3) no hay sesión
 // — se ve "Ingresar"/"Sumate". "Cerrar sesión" no vive acá, se muestra
@@ -33,5 +34,13 @@ export async function SiteHeader() {
       ? "cuentaSinTerminar"
       : "anonimo";
 
-  return <SiteHeaderChrome estado={estado} />;
+  // Los datos del topbar del panel (colaboradores, clínicas) se resuelven
+  // acá, en el servidor, y viajan en el HTML (2026-10-10): pedidos desde el
+  // cliente después de hidratar, el ícono de colaboradores aparecía casi
+  // un segundo tarde. El header vive en el layout raíz y no se vuelve a
+  // renderizar al navegar: esto vale para la carga, y `PanelTopbarProvider`
+  // sigue pidiéndolos del cliente al cambiar de ruta.
+  const topbarInicial = estado === "completo" ? await datosDelTopbarAction() : null;
+
+  return <SiteHeaderChrome estado={estado} topbarInicial={topbarInicial} />;
 }

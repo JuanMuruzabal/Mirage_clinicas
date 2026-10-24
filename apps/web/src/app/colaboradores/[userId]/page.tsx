@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import type { PerfilDeColega } from "@dental-mirage/shared-types";
 import { apiPerfilDeColega } from "@/lib/api";
+import { FondoOndas } from "@/components/fondo-ondas";
 import { getSessionToken, requireOnboardingComplete } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Perfil del colaborador — PRISMA" };
@@ -35,23 +36,31 @@ export default async function PerfilDeColaboradorPage({ params }: { params: Prom
   }
 
   return (
-    <main className="flex flex-1 flex-col gap-8 bg-hueso px-6 py-10 pt-[calc(var(--header-height)+2.5rem)]">
-      <div className="mx-auto w-full max-w-[680px]">
-        <p className="mb-1 flex flex-wrap items-center gap-2 font-[family-name:var(--font-mono)] text-xs uppercase tracking-widest text-grafito/50">
-          <Link href="/colaboradores" className="hover:text-salvia-oscuro">
-            Colaboradores
-          </Link>
-          <span aria-hidden="true">/</span>
-          <span>{sesion.nombreClinica}</span>
-        </p>
-        <h1 className="font-[family-name:var(--font-display)] text-3xl font-medium text-grafito">{colega.nombre}</h1>
-        <p className="text-sm text-grafito/60">{colega.email}</p>
-      </div>
+    <>
+      {/* FondoOndas (correcciones generales, ítem 1, 2026-10-10; en esta
+          pantalla desde el ítem 12): el fondo de ondas de toda la app con
+          sesión. Va afuera de <main>, fijo y detrás del contenido. Lo que
+          queda directo sobre las ondas va a `grafito/80`, como en
+          Colaboradores: con `/50` y `/60` no llegaba a 4,5:1. */}
+      <FondoOndas />
+      <main className="flex flex-1 flex-col gap-8 px-6 py-10 pt-[calc(var(--header-height)+2.5rem)]">
+        <div className="mx-auto w-full max-w-[680px]">
+          <p className="mb-1 flex flex-wrap items-center gap-2 font-[family-name:var(--font-mono)] tabular-nums text-xs uppercase tracking-widest text-grafito/80">
+            <Link href="/colaboradores" className="hover:text-marca">
+              Colaboradores
+            </Link>
+            <span aria-hidden="true">/</span>
+            <span>{sesion.nombreClinica}</span>
+          </p>
+          <h1 className="font-[family-name:var(--font-display)] tracking-tight text-3xl font-semibold text-grafito">{colega.nombre}</h1>
+          <p className="text-sm text-grafito/80">{colega.email}</p>
+        </div>
 
-      <div className="mx-auto w-full max-w-[680px]">
-        <FichaDelColega colega={colega} />
-      </div>
-    </main>
+        <div className="mx-auto w-full max-w-[680px]">
+          <FichaDelColega colega={colega} />
+        </div>
+      </main>
+    </>
   );
 }
 
@@ -69,7 +78,7 @@ function FichaDelColega({ colega }: { colega: PerfilDeColega }) {
   return (
     <div className="flex flex-col gap-4">
       <section className="flex flex-col gap-3 rounded-card border border-linea bg-marfil p-6 shadow-soft">
-        <h2 className="font-[family-name:var(--font-mono)] text-sm uppercase tracking-[0.15em] text-grafito/60">
+        <h2 className="font-[family-name:var(--font-mono)] tabular-nums text-sm uppercase tracking-[0.15em] text-grafito/75">
           En esta clínica
         </h2>
         <ul className="flex flex-wrap gap-2">
@@ -85,7 +94,7 @@ function FichaDelColega({ colega }: { colega: PerfilDeColega }) {
           todavía no lo completó aparece igual en el equipo. Decirlo es
           más útil que una ficha llena de guiones. */}
       {!perfil ? (
-        <section className="rounded-card border border-dashed border-linea bg-marfil px-6 py-5 text-sm text-grafito/60">
+        <section className="rounded-card border border-dashed border-linea bg-marfil px-6 py-5 text-sm text-grafito/75">
           Esta persona todavía no completó su perfil profesional.
         </section>
       ) : (
@@ -118,7 +127,7 @@ function FichaDelColega({ colega }: { colega: PerfilDeColega }) {
 
           {perfil.bio && (
             <section className="flex flex-col gap-3 rounded-card border border-linea bg-marfil p-6 shadow-soft">
-              <h2 className="font-[family-name:var(--font-mono)] text-sm uppercase tracking-[0.15em] text-grafito/60">
+              <h2 className="font-[family-name:var(--font-mono)] tabular-nums text-sm uppercase tracking-[0.15em] text-grafito/75">
                 Sobre
               </h2>
               <p className="whitespace-pre-line text-[15px] leading-relaxed text-grafito">{perfil.bio}</p>
@@ -133,7 +142,7 @@ function FichaDelColega({ colega }: { colega: PerfilDeColega }) {
 function Bloque({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
     <section className="flex flex-col gap-3 rounded-card border border-linea bg-marfil p-6 shadow-soft">
-      <h2 className="font-[family-name:var(--font-mono)] text-sm uppercase tracking-[0.15em] text-grafito/60">
+      <h2 className="font-[family-name:var(--font-mono)] tabular-nums text-sm uppercase tracking-[0.15em] text-grafito/75">
         {titulo}
       </h2>
       <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">{children}</dl>
@@ -144,7 +153,7 @@ function Bloque({ titulo, children }: { titulo: string; children: React.ReactNod
 function Dato({ etiqueta, valor }: { etiqueta: string; valor: string }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <dt className="text-xs uppercase tracking-wide text-grafito/50">{etiqueta}</dt>
+      <dt className="text-xs uppercase tracking-wide text-grafito/75">{etiqueta}</dt>
       <dd className="text-[15px] text-grafito">{valor.trim() === "" ? "—" : valor}</dd>
     </div>
   );

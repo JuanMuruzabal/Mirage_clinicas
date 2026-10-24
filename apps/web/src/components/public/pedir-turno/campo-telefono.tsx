@@ -71,7 +71,7 @@ export function CampoTelefonoConPais({ id, label, hint, pais, onPaisChange, valo
       <span id={labelId} className="text-[13px] text-grafito/70">
         {label}
       </span>
-      <div className="flex h-11 items-center rounded-field border-[1.5px] border-transparent bg-hueso pl-2.5 pr-3 focus-within:border-salvia-oscuro focus-within:bg-marfil">
+      <div className="flex h-11 items-center rounded-field border-[1.5px] border-transparent bg-hueso pl-2.5 pr-3 focus-within:border-marca focus-within:bg-marfil">
         <select
           aria-label="País"
           value={pais}

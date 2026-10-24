@@ -122,7 +122,7 @@ export function PedirTurnoButton({ slug, nombreClinica, telefonoClinica }: Pedir
         // Tokens del botón (PE-2, aplicar.ts): forma, relleno/contorno y
         // colores del tema. Con fallback al de siempre: sin tema estas
         // variables no existen y el botón queda salvia sobre marfil.
-        className="rounded-[var(--pp-boton-radio,9999px)] border-[length:var(--pp-boton-borde-ancho,0px)] border-[var(--pp-boton-borde,transparent)] bg-[var(--pp-boton-fondo,var(--color-salvia-oscuro))] px-10 py-4 text-base font-semibold text-[var(--pp-boton-texto,var(--color-marfil))] shadow-soft hover:brightness-95"
+        className="rounded-[var(--pp-boton-radio,9999px)] border-[length:var(--pp-boton-borde-ancho,0px)] border-[var(--pp-boton-borde,transparent)] bg-[var(--pp-boton-fondo,var(--color-marca-relleno))] px-10 py-4 text-base font-semibold text-[var(--pp-boton-texto,var(--color-marfil))] shadow-soft hover:brightness-95"
       >
         Pedir turno
       </button>
