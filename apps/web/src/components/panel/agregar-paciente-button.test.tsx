@@ -45,7 +45,9 @@ describe("AgregarPacienteButton", () => {
     await user.click(screen.getByRole("button", { name: "+ Agregar paciente" }));
     expect(screen.getByRole("dialog", { name: "Agregar paciente" })).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Cancelar" }));
+    // Sin "Cancelar": se cierra con la X.
+    expect(screen.queryByRole("button", { name: "Cancelar" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Cerrar" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 

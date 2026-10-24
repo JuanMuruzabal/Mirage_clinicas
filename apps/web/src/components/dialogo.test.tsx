@@ -213,17 +213,81 @@ describe("Dialogo con pie", () => {
     expect(screen.getByRole("button", { name: "Listo" }).parentElement).not.toHaveClass("max-sm:rounded-none");
   });
 
-  it("sin pie queda como antes: el contenido va directo, sin caja que scrollee ni límite de alto", () => {
+  // Correcciones generales, ítem 4 (2026-10-12): sin pie, el diálogo también
+  // se acota a la pantalla y scrollea en su cuerpo, debajo de la cabecera con
+  // la cruz. Antes scrolleaba la capa entera y en la computadora su barra
+  // quedaba al costado de la ventana (la configuración del calendario).
+  it("sin pie también se acota a la pantalla y scrollea en el cuerpo, que lleva las esquinas de abajo", () => {
     render(
       <Dialogo titulo="Prueba" onCerrar={vi.fn()} ancho="completo">
         <p>Contenido</p>
       </Dialogo>,
     );
     const dialogo = screen.getByRole("dialog");
-    expect(dialogo).not.toHaveClass("flex-col");
-    expect(dialogo).not.toHaveClass("max-h-[calc(100dvh-3rem)]");
-    const parrafo = screen.getByText("Contenido");
-    expect(parrafo.parentElement).toBe(dialogo);
-    expect(dialogo.querySelector(".overflow-y-auto")).toBeNull();
+    expect(dialogo).toHaveClass("flex", "flex-col", "max-h-[calc(100dvh-3rem)]");
+    const cuerpo = screen.getByText("Contenido").parentElement!;
+    expect(cuerpo).toHaveClass("overflow-y-auto", "flex-1", "min-h-0", "rounded-b-card");
+    expect(cuerpo.parentElement).toBe(dialogo);
+    expect(dialogo.lastElementChild).toBe(cuerpo);
+  });
+});
+
+// Correcciones generales, ítems 3 y 4 (2026-10-12): todos los diálogos
+// comparten una pila para Escape y un bloqueo del scroll de la página.
+describe("Dialogo encima de otro", () => {
+  function DosDialogos({ onAbajo, onArriba }: { onAbajo: () => void; onArriba: () => void }) {
+    const [arriba, setArriba] = useState(false);
+    return (
+      <>
+        <Dialogo titulo="Abajo" onCerrar={onAbajo}>
+          <button type="button" onClick={() => setArriba(true)}>
+            Abrir otro
+          </button>
+        </Dialogo>
+        {arriba && (
+          <Dialogo
+            titulo="Arriba"
+            onCerrar={() => {
+              onArriba();
+              setArriba(false);
+            }}
+          >
+            <p>Encima</p>
+          </Dialogo>
+        )}
+      </>
+    );
+  }
+
+  it("Escape cierra solo el de arriba, y la cruz es una sola, sin el botón de texto", async () => {
+    const user = userEvent.setup();
+    const onAbajo = vi.fn();
+    const onArriba = vi.fn();
+    render(<DosDialogos onAbajo={onAbajo} onArriba={onArriba} />);
+    await user.click(screen.getByRole("button", { name: "Abrir otro" }));
+    expect(screen.getAllByRole("dialog")).toHaveLength(2);
+    expect(screen.queryByText("Cerrar")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Cerrar" })).toHaveLength(2);
+
+    await user.keyboard("{Escape}");
+    expect(onArriba).toHaveBeenCalledTimes(1);
+    expect(onAbajo).not.toHaveBeenCalled();
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+
+    await user.keyboard("{Escape}");
+    expect(onAbajo).toHaveBeenCalledTimes(1);
+  });
+
+  it("bloquea el scroll de la página en <html> mientras haya uno abierto, y lo libera al cerrar el último", async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<DosDialogos onAbajo={vi.fn()} onArriba={vi.fn()} />);
+    const html = document.documentElement;
+    expect(html.style.overflowY).toBe("hidden");
+    await user.click(screen.getByRole("button", { name: "Abrir otro" }));
+    await user.keyboard("{Escape}");
+    // Se cerró el de arriba: el de abajo sigue abierto y la página, quieta.
+    expect(html.style.overflowY).toBe("hidden");
+    unmount();
+    expect(html.style.overflowY).toBe("");
   });
 });

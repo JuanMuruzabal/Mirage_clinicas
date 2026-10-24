@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { DocumentoResumen } from "@dental-mirage/shared-types";
 import { aFirmar, borrador, conLamina, paraImprimir, sellado, trazo } from "./fixtures";
 import { tienePDF } from "./acciones-de-pdf";
@@ -56,6 +56,14 @@ function filaDe(id: string): HTMLElement {
   return link?.closest("tr") as HTMLElement;
 }
 
+// Una fila con PDF se despliega con su chevron (FilaDesplegable): las acciones
+// están en la fila de abajo. Devuelve esa fila.
+function desplegar(id: string): HTMLElement {
+  const fila = filaDe(id);
+  fireEvent.click(within(fila).getByRole("button", { name: "Mostrar acciones" }));
+  return filaDe(id).nextElementSibling as HTMLElement;
+}
+
 describe("TablaDeDocumentos: una fila sin PDF no ofrece acciones", () => {
   it("sellado y para imprimir sin PDF, sin Imprimir ni Descargar; los que tienen, sí", () => {
     render(
@@ -71,13 +79,15 @@ describe("TablaDeDocumentos: una fila sin PDF no ofrece acciones", () => {
     );
     for (const id of ["viejo", "papel-viejo"]) {
       const fila = filaDe(id);
+      // Sin PDF no hay nada que desplegar: la fila navega.
+      expect(within(fila).queryByRole("button", { name: /acciones/ })).not.toBeInTheDocument();
       expect(within(fila).queryByRole("link", { name: /^Imprimir/ })).not.toBeInTheDocument();
       expect(within(fila).queryByRole("link", { name: /^Descargar PDF/ })).not.toBeInTheDocument();
     }
     for (const id of ["nuevo", "papel"]) {
-      const fila = filaDe(id);
-      expect(within(fila).getByRole("link", { name: /^Imprimir/ })).toHaveAttribute("href", `/panel/documentos/${id}/pdf?para=imprimir`);
-      expect(within(fila).getByRole("link", { name: /^Descargar PDF/ })).toHaveAttribute("href", `/panel/documentos/${id}/pdf`);
+      const acciones = desplegar(id);
+      expect(within(acciones).getByRole("link", { name: /^Imprimir/ })).toHaveAttribute("href", `/panel/documentos/${id}/pdf?para=imprimir`);
+      expect(within(acciones).getByRole("link", { name: /^Descargar PDF/ })).toHaveAttribute("href", `/panel/documentos/${id}/pdf`);
     }
   });
 
@@ -85,7 +95,7 @@ describe("TablaDeDocumentos: una fila sin PDF no ofrece acciones", () => {
     render(<TablaDeDocumentos documentos={[{ ...paraImprimir(), id: "sin-folio", folio: undefined }]} vacio="nada" />);
     const fila = filaDe("sin-folio");
     expect(within(fila).getAllByRole("cell")[0]).toHaveTextContent("—");
-    expect(within(fila).getByRole("link", { name: /^Descargar PDF/ })).toHaveAttribute("href", "/panel/documentos/sin-folio/pdf");
+    expect(within(desplegar("sin-folio")).getByRole("link", { name: /^Descargar PDF/ })).toHaveAttribute("href", "/panel/documentos/sin-folio/pdf");
   });
 });
 
@@ -99,8 +109,9 @@ describe("RegistroDeDocumentos: las filas siguen el tienePDF de cada documento",
         ]}
       />,
     );
+    expect(within(filaDe("viejo")).queryByRole("button", { name: /acciones/ })).not.toBeInTheDocument();
     expect(within(filaDe("viejo")).queryByRole("link", { name: /^Descargar PDF/ })).not.toBeInTheDocument();
-    expect(within(filaDe("papel")).getByRole("link", { name: /^Descargar PDF/ })).toBeInTheDocument();
+    expect(within(desplegar("papel")).getByRole("link", { name: /^Descargar PDF/ })).toBeInTheDocument();
   });
 });
 

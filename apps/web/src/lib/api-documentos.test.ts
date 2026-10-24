@@ -116,6 +116,17 @@ describe("lib/api — apiDescargarPDFDocumento (Fase 5.3)", () => {
     expect(fetchSpy.mock.calls[1][0]).toMatch(/\/documentos\/doc-1\/pdf$/);
   });
 
+  it("con conAnexos suma ?con=anexos, solo o junto con para=imprimir", async () => {
+    const fetchSpy = vi.fn().mockImplementation(() => Promise.resolve(respuestaPDF(200)));
+    vi.stubGlobal("fetch", fetchSpy);
+
+    await apiDescargarPDFDocumento("t", "doc-1", false, true);
+    expect(fetchSpy.mock.calls[0][0]).toMatch(/\/documentos\/doc-1\/pdf\?con=anexos$/);
+
+    await apiDescargarPDFDocumento("t", "doc-1", true, true);
+    expect(fetchSpy.mock.calls[1][0]).toMatch(/\/documentos\/doc-1\/pdf\?para=imprimir&con=anexos$/);
+  });
+
   it("sin headers en la respuesta, los devuelve en null", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(respuestaPDF(200)));
     const res = await apiDescargarPDFDocumento("t", "doc-1");

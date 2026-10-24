@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ClinicaDelUsuario } from "@dental-mirage/shared-types";
 
@@ -95,16 +95,22 @@ describe("DondeTrabajas (Fase 3.2.3)", () => {
       />,
     );
 
-    expect(screen.getByText("Consultorio Propio")).toBeInTheDocument();
-    expect(screen.getByText("Titular")).toBeInTheDocument();
-    expect(screen.getByText("Clínica Del Colega")).toBeInTheDocument();
-    expect(screen.getByText("Profesional")).toBeInTheDocument();
-    expect(screen.getByText("1 clínica")).toBeInTheDocument();
+    const mia = screen.getByRole("heading", { name: "Mi clínica" }).parentElement!;
+    const otras = screen.getByRole("heading", { name: "Otras clínicas" }).parentElement!;
+    expect(within(mia).getByRole("heading", { name: "Consultorio Propio" })).toBeInTheDocument();
+    expect(within(otras).getByRole("heading", { name: "Clínica Del Colega" })).toBeInTheDocument();
+    // Sin el rol de arriba ni el contador de "Otras clínicas" (ítem 15,
+    // 2026-10-19).
+    expect(screen.queryByText("Titular")).not.toBeInTheDocument();
+    expect(screen.queryByText("Profesional")).not.toBeInTheDocument();
+    expect(screen.queryByText("1 clínica")).not.toBeInTheDocument();
   });
 
-  it("muestra dirección y cantidad de profesionales", () => {
+  it("la tarjeta no muestra la dirección ni la cantidad de profesionales", () => {
     render(<DondeTrabajas clinicas={[clinica()]} />);
-    expect(screen.getByText("Av. Colón 1240, Córdoba · 3 profesionales")).toBeInTheDocument();
+    expect(screen.queryByText(/Av\. Colón 1240/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/profesionales/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Entrar" })).toBeInTheDocument();
   });
 
   // Alguien que entró a la app porque un colega lo sumó puede no tener
@@ -115,7 +121,7 @@ describe("DondeTrabajas (Fase 3.2.3)", () => {
 
     const crear = screen.getByRole("button", { name: /Crear mi clínica/ });
     expect(screen.getByText("Todavía no trabajás en otras clínicas")).toBeInTheDocument();
-    expect(screen.getByText("Ninguna todavía")).toBeInTheDocument();
+    expect(screen.queryByText("Ninguna todavía")).not.toBeInTheDocument();
 
     await userEvent.click(crear);
     expect(screen.getByRole("button", { name: /Clínica individual/ })).toBeInTheDocument();
@@ -232,17 +238,17 @@ describe("DondeTrabajas (Fase 3.2.3)", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("no se pudo generar el código");
   });
 
-  it("sin dirección cargada, muestra solo cuántos profesionales atienden", () => {
+  it("sin dirección cargada, tampoco cuenta a los profesionales", () => {
     render(<DondeTrabajas clinicas={[clinica({ direccion: null, ciudad: null, profesionales: 1 })]} />);
-    expect(screen.getByText("1 profesional")).toBeInTheDocument();
+    expect(screen.queryByText(/profesional/)).not.toBeInTheDocument();
   });
 
-  // Los roles los define el backend; si algún día suma uno que esta
-  // pantalla no conoce, se muestra tal cual en vez de dejar el lugar
-  // vacío.
-  it("un rol desconocido se muestra tal cual", () => {
+  // El rol ya no se muestra en la tarjeta: ni uno conocido ni uno que el
+  // backend sume algún día.
+  it("un rol desconocido no aparece en la tarjeta", () => {
     render(<DondeTrabajas clinicas={[clinica({ rolPrincipal: "suplente" as ClinicaDelUsuario["rolPrincipal"] })]} />);
-    expect(screen.getByText("suplente")).toBeInTheDocument();
+    expect(screen.queryByText("suplente")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Consultorio Propio" })).toBeInTheDocument();
   });
 
   it("copia el código al portapapeles y lo confirma", async () => {

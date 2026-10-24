@@ -22,6 +22,12 @@ describe("rutaDelPDF", () => {
     expect(rutaDelPDF("abc")).toBe("/panel/documentos/abc/pdf");
     expect(rutaDelPDF("abc", true)).toBe("/panel/documentos/abc/pdf?para=imprimir");
   });
+
+  it("con conAnexos suma ?con=anexos, solo o después de para=imprimir", () => {
+    expect(rutaDelPDF("abc", false, true)).toBe("/panel/documentos/abc/pdf?con=anexos");
+    expect(rutaDelPDF("abc", true, true)).toBe("/panel/documentos/abc/pdf?para=imprimir&con=anexos");
+    expect(rutaDelPDF("abc", true, false)).toBe("/panel/documentos/abc/pdf?para=imprimir");
+  });
 });
 
 describe("nombreDeArchivoDelPDF: paridad con la API", () => {
@@ -34,6 +40,7 @@ describe("nombreDeArchivoDelPDF: paridad con la API", () => {
     readFileSync(resolve(__dirname, "../../../api/internal/http/testdata/nombres-de-archivo-del-pdf.json"), "utf8"),
   ) as {
     casos: { caso: string; tipo: string; plantillaNombre: string; folio: number | null; anexoNumero?: number; folioHistoria?: number | null; esperado: string }[];
+    casosConAnexos: { caso: string; tipo: string; plantillaNombre: string; folio: number | null; esperado: string }[];
   };
 
   // El folioMostrado que manda la API (documentos.FolioDe): un anexo con su
@@ -58,6 +65,24 @@ describe("nombreDeArchivoDelPDF: paridad con la API", () => {
       anexoNumero: c.anexoNumero,
     } as Pick<DocumentoResumen, "tipo" | "plantillaNombre" | "folioMostrado" | "anexoNumero">;
     expect(nombreDeArchivoDelPDF(doc)).toBe(c.esperado);
+  });
+
+  // El PDF de una historia con sus anexos (`?con=anexos`): el mismo nombre
+  // con "-con-anexos" al final, igual en Go (`conSusAnexos`).
+  it("la tabla trae casos con anexos", () => {
+    expect(tabla.casosConAnexos.length).toBeGreaterThan(0);
+    expect(tabla.casosConAnexos.every((c) => c.esperado.endsWith("-con-anexos.pdf"))).toBe(true);
+  });
+
+  it.each((tabla.casosConAnexos ?? []).map((c) => [c.caso, c] as const))("con anexos: %s", (_caso, c) => {
+    const doc = {
+      tipo: c.tipo,
+      plantillaNombre: c.plantillaNombre,
+      folioMostrado: c.folio != null ? String(c.folio) : undefined,
+    } as Pick<DocumentoResumen, "tipo" | "plantillaNombre" | "folioMostrado" | "anexoNumero">;
+    expect(nombreDeArchivoDelPDF(doc, true)).toBe(c.esperado);
+    // Sin el segundo argumento, el de siempre.
+    expect(nombreDeArchivoDelPDF(doc)).toBe(c.esperado.replace("-con-anexos.pdf", ".pdf"));
   });
 
   it("un folio null también es 'sin folio' (nunca 'folio-null')", () => {

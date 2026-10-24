@@ -14,7 +14,7 @@ describe("QueEsVerificadoBoton", () => {
     render(<QueEsVerificadoBoton />);
 
     await user.click(screen.getByRole("button", { name: "¿Qué es un paciente verificado?" }));
-    expect(screen.getByRole("dialog", { name: "Qué es un paciente verificado" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Paciente verificado" })).toBeInTheDocument();
     expect(screen.getByText(/apenas se confirma que asistió a al menos un turno/)).toBeInTheDocument();
   });
 
@@ -32,7 +32,8 @@ describe("QueEsVerificadoBoton", () => {
     render(<QueEsVerificadoBoton />);
 
     await user.click(screen.getByRole("button", { name: "¿Qué es un paciente verificado?" }));
-    await user.click(screen.getByRole("dialog"));
+    // El fondo es la capa que envuelve al diálogo (Dialogo).
+    await user.click(screen.getByRole("dialog").parentElement!);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });

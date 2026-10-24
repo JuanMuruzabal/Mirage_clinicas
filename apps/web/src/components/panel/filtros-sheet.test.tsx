@@ -31,7 +31,7 @@ describe("FiltrosSheet", () => {
         <p>Contenido</p>
       </FiltrosSheet>,
     );
-    expect(container.querySelector('span[aria-hidden="true"].bg-salvia-oscuro')).toBeInTheDocument();
+    expect(container.querySelector('span[aria-hidden="true"].bg-marca-relleno')).toBeInTheDocument();
   });
 
   it("sin activo, no muestra el punto indicador", () => {
@@ -40,7 +40,7 @@ describe("FiltrosSheet", () => {
         <p>Contenido</p>
       </FiltrosSheet>,
     );
-    expect(container.querySelector('span[aria-hidden="true"].bg-salvia-oscuro')).not.toBeInTheDocument();
+    expect(container.querySelector('span[aria-hidden="true"].bg-marca-relleno')).not.toBeInTheDocument();
   });
 
   it("al tocar el disparador, llama a onAbrir y abre la hoja con el contenido", async () => {
@@ -121,7 +121,8 @@ describe("FiltrosSheet", () => {
       </FiltrosSheet>,
     );
     await user.click(screen.getByRole("button", { name: "Filtros" }));
-    await user.click(screen.getByRole("dialog"));
+    // El fondo es la capa que envuelve al diálogo (Dialogo).
+    await user.click(screen.getByRole("dialog").parentElement!);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 

@@ -211,7 +211,7 @@ describe("EditorDeDocumento", () => {
       fireEvent.click(screen.getByRole("button", { name: "Completar: Domicilio" }));
     });
     expect(screen.getByRole("textbox", { name: /^Domicilio/ })).toHaveFocus();
-    expect(screen.getByRole("button", { name: "Completar: Domicilio" })).toHaveClass("bg-salvia/20");
+    expect(screen.getByRole("button", { name: "Completar: Domicilio" })).toHaveClass("bg-marca-medio/20");
     // Las tres partes de la próxima consulta llevan al mismo campo.
     expect(screen.getByRole("button", { name: "Completar: Próxima consulta (mes)" })).toBeInTheDocument();
   });

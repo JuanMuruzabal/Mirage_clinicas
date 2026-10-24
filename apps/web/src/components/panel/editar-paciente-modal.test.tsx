@@ -353,18 +353,17 @@ describe("EditarPacienteModal", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("paciente no encontrado");
   });
 
-  it("se cierra con Cancelar, con la X y clickeando afuera", async () => {
+  it("se cierra con la X y clickeando afuera, sin botón Cancelar", async () => {
     const onClose = vi.fn();
     const user = userEvent.setup();
     render(<EditarPacienteModal paciente={paciente} onClose={onClose} onSuccess={vi.fn()} />);
 
-    await user.click(screen.getByRole("button", { name: "Cancelar" }));
+    expect(screen.queryByRole("button", { name: "Cancelar" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Cerrar" }));
     expect(onClose).toHaveBeenCalledTimes(1);
 
-    await user.click(screen.getByRole("button", { name: "Cerrar" }));
+    // El fondo es la capa que envuelve al diálogo (Dialogo).
+    await user.click(screen.getByRole("dialog").parentElement!);
     expect(onClose).toHaveBeenCalledTimes(2);
-
-    await user.click(screen.getByRole("dialog"));
-    expect(onClose).toHaveBeenCalledTimes(3);
   });
 });

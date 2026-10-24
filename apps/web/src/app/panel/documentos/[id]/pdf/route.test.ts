@@ -44,7 +44,7 @@ describe("GET /panel/documentos/{id}/pdf", () => {
 
     const res = await pedir("doc-1");
 
-    expect(apiDescargarPDFDocumentoMock).toHaveBeenCalledWith("tok", "doc-1", false);
+    expect(apiDescargarPDFDocumentoMock).toHaveBeenCalledWith("tok", "doc-1", false, false);
     expect(res.status).toBe(200);
     expect(await res.text()).toBe("%PDF-1.4 bytes");
     expect(res.headers.get("Content-Type")).toBe("application/pdf");
@@ -63,7 +63,7 @@ describe("GET /panel/documentos/{id}/pdf", () => {
       cacheControl: "no-store",
     });
     const res = await pedir("doc-4", "?para=imprimir");
-    expect(apiDescargarPDFDocumentoMock).toHaveBeenCalledWith("tok", "doc-4", true);
+    expect(apiDescargarPDFDocumentoMock).toHaveBeenCalledWith("tok", "doc-4", true, false);
     expect(res.status).toBe(200);
     expect(res.headers.get("Content-Disposition")).toBe('inline; filename="consentimiento-informado-extraccion-folio-4.pdf"');
     expect(res.headers.get("Content-Type")).toBe("application/pdf");
@@ -73,7 +73,30 @@ describe("GET /panel/documentos/{id}/pdf", () => {
     getSessionTokenMock.mockResolvedValue("tok");
     apiDescargarPDFDocumentoMock.mockResolvedValue({ ok: true, datos: bytesDe("%PDF"), contentDisposition: null, cacheControl: null });
     await pedir("doc-4", query);
-    expect(apiDescargarPDFDocumentoMock).toHaveBeenCalledWith("tok", "doc-4", false);
+    expect(apiDescargarPDFDocumentoMock).toHaveBeenCalledWith("tok", "doc-4", false, false);
+  });
+
+  it("con ?con=anexos pide la historia con sus anexos; combinado con para=imprimir pasa los dos", async () => {
+    getSessionTokenMock.mockResolvedValue("tok");
+    apiDescargarPDFDocumentoMock.mockResolvedValue({
+      ok: true,
+      datos: bytesDe("%PDF"),
+      contentDisposition: 'attachment; filename="historia-clinica-folio-3-con-anexos.pdf"',
+      cacheControl: "no-store",
+    });
+    const res = await pedir("doc-3", "?con=anexos");
+    expect(apiDescargarPDFDocumentoMock).toHaveBeenCalledWith("tok", "doc-3", false, true);
+    expect(res.headers.get("Content-Disposition")).toBe('attachment; filename="historia-clinica-folio-3-con-anexos.pdf"');
+
+    await pedir("doc-3", "?para=imprimir&con=anexos");
+    expect(apiDescargarPDFDocumentoMock).toHaveBeenLastCalledWith("tok", "doc-3", true, true);
+  });
+
+  it.each(["?con=otra-cosa", "?con=", "?anexos=1", "?con=ANEXOS"])("con %s no pide los anexos", async (query) => {
+    getSessionTokenMock.mockResolvedValue("tok");
+    apiDescargarPDFDocumentoMock.mockResolvedValue({ ok: true, datos: bytesDe("%PDF"), contentDisposition: null, cacheControl: null });
+    await pedir("doc-3", query);
+    expect(apiDescargarPDFDocumentoMock).toHaveBeenCalledWith("tok", "doc-3", false, false);
   });
 
   it("sin Content-Disposition ni Cache-Control de la API: no inventa nombre y no deja cachear", async () => {

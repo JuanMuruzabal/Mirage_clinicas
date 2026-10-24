@@ -45,7 +45,8 @@ describe("VerTextoBoton", () => {
     render(<VerTextoBoton titulo="Motivo" texto="Motivo largo de prueba" />);
 
     await user.click(screen.getByRole("button", { name: "Ver motivo" }));
-    await user.click(screen.getByRole("dialog"));
+    // El fondo es la capa que envuelve al diálogo (Dialogo).
+    await user.click(screen.getByRole("dialog").parentElement!);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
@@ -65,12 +66,12 @@ describe("VerTextoBoton", () => {
   it("variante 'link' aplica una clase distinta a la de 'boton' (default)", () => {
     const { rerender } = render(<VerTextoBoton titulo="Motivo" texto={"x".repeat(40)} variante="boton" />);
     const botonPastilla = screen.getByRole("button", { name: "Ver motivo" });
-    expect(botonPastilla.className).toContain("rounded-full");
-    expect(botonPastilla.className).toContain("border-arena");
+    expect(botonPastilla.className).toContain("rounded-control");
+    expect(botonPastilla.className).toContain("border-marca-medio");
 
     rerender(<VerTextoBoton titulo="Motivo" texto={"x".repeat(40)} variante="link" />);
     const botonLink = screen.getByRole("button", { name: "Ver motivo" });
-    expect(botonLink.className).not.toContain("rounded-full");
+    expect(botonLink.className).not.toContain("rounded-control");
     expect(botonLink.className).toContain("underline-offset-2");
   });
 

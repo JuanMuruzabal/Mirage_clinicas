@@ -17,7 +17,7 @@ describe("PastillaDeEstado", () => {
     render(<PastillaDeEstado estado={estado}>Rótulo {estado}</PastillaDeEstado>);
     const pastilla = screen.getByText(`Rótulo ${estado}`);
     for (const clase of CHIP_DE_ESTADO[estado].split(" ")) expect(pastilla).toHaveClass(clase);
-    expect(pastilla).toHaveClass("text-xs", "px-2", "rounded-full", "border");
+    expect(pastilla).toHaveClass("text-xs", "px-2", "rounded-pastilla", "border");
     expect(pastilla).not.toHaveClass("text-sm");
   });
 
@@ -95,10 +95,10 @@ describe("el folio de un anexo en la tabla y en el vínculo", () => {
         vacio="nada"
       />,
     );
+    // En la columna del folio, una vez: desde el 2026-10-12 el celular ve la
+    // tabla completa y el folio ya no baja debajo del documento.
     expect(screen.getByText("3.1")).toBeInTheDocument();
-    expect(screen.getByText("Folio 3.1")).toBeInTheDocument();
-    // En el anexo sin folio, la celda y el renglón del celular dicen lo mismo.
-    expect(screen.getAllByText("Anexo Nº 2")).toHaveLength(2);
+    expect(screen.getByText("Anexo Nº 2")).toBeInTheDocument();
   });
 
   it("el vínculo nombra el folio x.y de un anexo y no inventa uno si la historia no lo tiene", () => {

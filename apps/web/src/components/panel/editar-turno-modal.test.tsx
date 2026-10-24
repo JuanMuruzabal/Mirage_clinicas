@@ -223,16 +223,14 @@ describe("EditarTurnoModal — turno agendado (solo edita el horario)", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("se cierra con el botón Cancelar y con la X", async () => {
+  it("se cierra con la X, sin botón Cancelar", async () => {
     const onClose = vi.fn();
     const user = userEvent.setup();
     render(<EditarTurnoModal turno={turnoAgendado} tiposConsulta={tiposConsulta} onClose={onClose} onSuccess={vi.fn()} />);
 
-    await user.click(screen.getByRole("button", { name: "Cancelar" }));
-    expect(onClose).toHaveBeenCalledTimes(1);
-
+    expect(screen.queryByRole("button", { name: "Cancelar" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Cerrar" }));
-    expect(onClose).toHaveBeenCalledTimes(2);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   // QA de la 3.2.6 (2026-09-21): *"en la vista toda la clínica no me deja
