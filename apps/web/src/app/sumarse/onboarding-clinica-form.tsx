@@ -4,7 +4,7 @@ import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { onboardingClinicaAction } from "@/app/actions/auth";
-import { onboardingClinicaSchema, type OnboardingClinicaFormValues } from "@/lib/validation/auth";
+import { onboardingClinicaSchema, type OnboardingClinicaFormInput, type OnboardingClinicaFormValues } from "@/lib/validation/auth";
 import {
   AuthField,
   CampoConIcono,
@@ -86,7 +86,7 @@ export function OnboardingClinicaForm({
     watch,
     setValue,
     formState: { errors, isSubmitting },
-  } = useForm<OnboardingClinicaFormValues>({
+  } = useForm<OnboardingClinicaFormInput, unknown, OnboardingClinicaFormValues>({
     resolver: zodResolver(onboardingClinicaSchema),
     defaultValues: {
       tipo: undefined,

@@ -236,10 +236,10 @@ Con el MVP (secciones 2 a 6) dado por concluido, arranca la Fase 2 sobre el brie
 
 Con la Fase 2 cerrada, y antes de escalar a N profesionales / N clínicas, el sistema entra en un ciclo **recurrente** de revisión técnica: diagnóstico completo del código, plan de acción en fases, arreglos, y un snapshot fechado para comparar contra la ronda siguiente.
 
-- **Diagnóstico:** `docs/Seguridad y optimizacion/radiografia-tecnica_1.md` — primera radiografía (de ahí el `_1`), módulo por módulo: los 12 paquetes de `apps/api` completos más los archivos más grandes y sensibles de `apps/web`. Incluye el plan de acción en Fases A/B/C y el registro de cada ronda de arreglos.
-- **Guía de estudio:** `docs/Seguridad y optimizacion/como-se-arreglo-cada-cosa.md` — el porqué de cada decisión y las alternativas descartadas.
-- **Ronda de optimización post-Fase 3 (2026-09-22):** `docs/Seguridad y optimizacion/optimizacion-post-fase3.md` — el panel multi-tenant, medido contra los contenedores con 600 pacientes y 1.800 turnos.
-- **Segunda radiografía (2026-09-26):** `docs/Seguridad y optimizacion/radiografia-tecnica_2.md` — general, para todo el proyecto.
+- **Diagnóstico:** `docs/Seguridad y optimizacion/Codigo/radiografia-tecnica_1.md` — primera radiografía (de ahí el `_1`), módulo por módulo: los 12 paquetes de `apps/api` completos más los archivos más grandes y sensibles de `apps/web`. Incluye el plan de acción en Fases A/B/C y el registro de cada ronda de arreglos.
+- **Guía de estudio:** `docs/Seguridad y optimizacion/Codigo/como-se-arreglo-cada-cosa.md` — el porqué de cada decisión y las alternativas descartadas.
+- **Ronda de optimización post-Fase 3 (2026-09-22):** `docs/Seguridad y optimizacion/Codigo/optimizacion-post-fase3.md` — el panel multi-tenant, medido contra los contenedores con 600 pacientes y 1.800 turnos.
+- **Segunda radiografía (2026-09-26):** `docs/Seguridad y optimizacion/Codigo/radiografia-tecnica_2.md` — general, para todo el proyecto.
 - **Decisiones de arquitectura:** `docs/Arquitectura y base/tradeoffs.md` TR-121 a TR-132, TR-161 y TR-162, y TR-175 a TR-178.
 - **Plan por fases:** `docs/Arquitectura y base/implementation-plan.md` §12.
 

@@ -13,7 +13,7 @@ const DIRECTORIO_PLANTILLAS = path.join(RAIZ_PAQUETE, "plantillas");
 const moduloPlantillaSchema = z.object({
   tipo: z.string().min(1),
   visible: z.boolean(),
-  config: z.record(z.unknown()),
+  config: z.record(z.string(), z.unknown()),
 }).strict();
 
 const textoEjemploSchema = z.object({
@@ -32,11 +32,11 @@ const plantillaSchema = z.object({
   tema: z.string().min(1),
   temaVariante: z.string().min(1),
   temaTipografia: z.string().min(1),
-  temaTokens: z.record(z.unknown()),
+  temaTokens: z.record(z.string(), z.unknown()),
   estiloMovimiento: z.enum(ESTILOS_MOVIMIENTO),
   bio: z.string(),
   fotoPortadaUrl: z.literal(""),
-  redes: z.record(z.string()),
+  redes: z.record(z.string(), z.string()),
   mostrarMapa: z.boolean(),
   direccionOverride: z.string(),
   nombreSobrePortada: z.boolean(),
@@ -49,7 +49,7 @@ const identidadVisualSchema = z.object({
   tema: z.string().min(1),
   temaVariante: z.string().min(1),
   temaTipografia: z.string().min(1),
-  temaTokens: z.record(z.unknown()),
+  temaTokens: z.record(z.string(), z.unknown()),
   estiloMovimiento: z.enum(ESTILOS_MOVIMIENTO),
 }).strict();
 

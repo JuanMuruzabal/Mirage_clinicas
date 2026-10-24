@@ -48,8 +48,10 @@ const opcion = <K extends ClaveToken>(clave: K) => z.enum(OPCIONES_TOKENS[clave]
 /**
  * Tokens de diseño de la página (PE-2, ver tokens.ts). El esquema que `pnpm engine:generar` exporta como `tema_tokens.schema.json`
  * para que apps/api valide el PATCH sin conocer los tokens por nombre.
- * `.strict()`: una clave desconocida se rechaza (zod-to-json-schema emite
- * `additionalProperties: false`), igual que la config de un módulo.
+ * `.strict()`: una clave desconocida se rechaza en TS y en el backend
+ * (z.toJSONSchema emite `additionalProperties: false`). La config de un
+ * módulo la rechaza solo el backend: en TS se descarta, y el generador cierra
+ * el objeto porque exporta en modo output (ver scripts/generar.ts).
  */
 export const tokensSchema = z
   .object({

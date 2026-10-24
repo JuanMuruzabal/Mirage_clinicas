@@ -210,7 +210,7 @@ type ClinicMember struct {
 	ID       uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
 	ClinicID uuid.UUID `gorm:"column:clinic_id;type:uuid;not null;uniqueIndex:idx_clinic_member"`
 	// UserID — corrección de performance (auditoría 2026-09-08, docs/
-	// Seguridad y optimizacion/radiografia-tecnica_1.md): requireClinic
+	// Seguridad y optimizacion/Codigo/radiografia-tecnica_1.md): requireClinic
 	// (middleware.go) resuelve la Clinic del usuario autenticado con
 	// `WHERE user_id = ? AND role = ?` en CADA request al panel — el único
 	// índice que existía acá (idx_clinic_member, uniqueIndex) es compuesto

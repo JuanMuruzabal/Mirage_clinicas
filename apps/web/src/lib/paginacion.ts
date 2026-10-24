@@ -1,5 +1,5 @@
 // Tamaños de tanda de los listados del panel — Fase B de la auditoría
-// (docs/Seguridad y optimizacion/radiografia-tecnica_1.md). Viven acá, y
+// (docs/Seguridad y optimizacion/Codigo/radiografia-tecnica_1.md). Viven acá, y
 // no en cada componente, porque la primera tanda la pide el Server
 // Component (page.tsx) y las siguientes el Client Component de la tabla:
 // si los dos no usan el mismo número, "Cargar más" saltea o repite filas.

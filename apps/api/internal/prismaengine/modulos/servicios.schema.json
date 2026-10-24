@@ -1,4 +1,5 @@
 {
+  "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "properties": {
     "nombre": {
@@ -159,15 +160,14 @@
       "additionalProperties": false
     },
     "nombres": {
+      "maxItems": 50,
       "type": "array",
       "items": {
         "type": "string",
         "minLength": 1,
         "maxLength": 100
-      },
-      "maxItems": 50
+      }
     }
   },
-  "additionalProperties": false,
-  "$schema": "http://json-schema.org/draft-07/schema#"
+  "additionalProperties": false
 }

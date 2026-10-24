@@ -8,7 +8,7 @@ import (
 )
 
 // TestRequireConfiguracionSegura — corrección de seguridad (auditoría
-// 2026-09-08, docs/Seguridad y optimizacion/radiografia-tecnica_1.md): en
+// 2026-09-08, docs/Seguridad y optimizacion/Codigo/radiografia-tecnica_1.md): en
 // la máquina de quien desarrolla, JWT_SECRET puede faltar (cae al valor de
 // ejemplo del repo, pensado para no trabar el desarrollo local); con una
 // URL pública, arrancar con ese valor tiene que ser imposible.

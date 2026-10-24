@@ -1,4 +1,5 @@
 {
+  "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "properties": {
     "nombre": {
@@ -171,13 +172,13 @@
       ]
     },
     "userIds": {
+      "maxItems": 100,
       "type": "array",
       "items": {
         "type": "string",
         "minLength": 1,
         "maxLength": 100
-      },
-      "maxItems": 100
+      }
     },
     "mostrarNombre": {
       "type": "boolean"
@@ -186,6 +187,5 @@
       "type": "boolean"
     }
   },
-  "additionalProperties": false,
-  "$schema": "http://json-schema.org/draft-07/schema#"
+  "additionalProperties": false
 }

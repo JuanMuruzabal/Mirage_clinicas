@@ -1,4 +1,5 @@
 {
+  "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "properties": {
     "nombre": {
@@ -129,6 +130,5 @@
       "pattern": "^$|^https:\\/\\/(?:(?:www\\.)?youtube\\.com\\/(?:watch\\?v=[A-Za-z0-9_-]{11}(?:&[A-Za-z0-9_~%-]+=[A-Za-z0-9_~%.-]*)*|embed\\/[A-Za-z0-9_-]{11})|youtu\\.be\\/[A-Za-z0-9_-]{11}|(?:www\\.)?youtube-nocookie\\.com\\/embed\\/[A-Za-z0-9_-]{11}|(?:www\\.)?vimeo\\.com\\/[0-9]{1,12}|player\\.vimeo\\.com\\/video\\/[0-9]{1,12})(?:\\?[A-Za-z0-9_~%=&.-]*)?(?:#[A-Za-z0-9_~%=&.-]*)?$"
     }
   },
-  "additionalProperties": false,
-  "$schema": "http://json-schema.org/draft-07/schema#"
+  "additionalProperties": false
 }

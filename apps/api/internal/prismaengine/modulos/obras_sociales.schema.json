@@ -1,4 +1,5 @@
 {
+  "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "properties": {
     "nombre": {
@@ -124,6 +125,7 @@
       "additionalProperties": false
     },
     "coberturas": {
+      "maxItems": 12,
       "type": "array",
       "items": {
         "type": "string",
@@ -141,13 +143,11 @@
           "jerarquicos-salud",
           "avalian"
         ]
-      },
-      "maxItems": 12
+      }
     },
     "consultaPorOtras": {
       "type": "boolean"
     }
   },
-  "additionalProperties": false,
-  "$schema": "http://json-schema.org/draft-07/schema#"
+  "additionalProperties": false
 }

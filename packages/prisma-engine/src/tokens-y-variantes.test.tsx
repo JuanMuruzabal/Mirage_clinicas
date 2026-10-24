@@ -35,7 +35,7 @@ describe("variantes: meta.ts y esquema dicen lo mismo", () => {
   for (const def of DEFINICIONES_MODULOS) {
     it(`${def.tipo}: las variantes del editor son exactamente las que acepta el esquema`, () => {
       const esquema = ESQUEMAS_MODULOS[def.tipo] as z.ZodObject<z.ZodRawShape>;
-      const campo = esquema.shape.variante as z.ZodOptional<z.ZodEnum<[string, ...string[]]>> | undefined;
+      const campo = esquema.shape.variante as z.ZodOptional<z.ZodEnum> | undefined;
       const delEsquema = campo ? campo.unwrap().options : [];
       expect(def.variantes.map((v) => v.id)).toEqual(delEsquema);
     });

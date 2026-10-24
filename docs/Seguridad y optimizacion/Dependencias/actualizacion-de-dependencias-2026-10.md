@@ -19,6 +19,7 @@ Las dos radiografías miraron el código propio. Esta ronda mira lo que **no esc
 7. [Cómo se verificó](#7-cómo-se-verificó)
 8. [Lo que queda, y dónde va cada cosa](#8-lo-que-queda-y-dónde-va-cada-cosa)
 9. [Cómo repetir este chequeo](#9-cómo-repetir-este-chequeo)
+10. [Tanda B: Zod 4](#10-tanda-b-zod-4)
 
 ---
 
@@ -104,22 +105,14 @@ El lockfile conserva las versiones nuevas porque entran dentro de los rangos de 
 
 | Qué | Por qué queda | Dónde va |
 |---|---|---|
-| **Zod 3, GHSA-mrhx-c7xc-m3w5** (alta: agota memoria con colecciones enormes) | Zod 4 cambia el exporte a JSON Schema que usa Go (`zod-to-json-schema` no lo soporta) y pide `@hookform/resolvers` v5. Riesgo bajo hoy: solo valida lo que carga quien edita su página, con el cuerpo acotado a 6 MB | PR propio (tanda B) |
+| **Zod 3, GHSA-mrhx-c7xc-m3w5** | Resuelto en la tanda B (sección 10): Zod 4.6.7. `pnpm audit` da 0 | Hecho |
 | **`braces`, GHSA-vfj7-8cjw-p6xm** | Aviso retirado por GitHub, sin arreglo; llega solo por `eslint-config-next` | Descartarlo a mano en GitHub como inexacto |
 | **`x/crypto/openpgp`, GO-2026-5932** | Paquete sin mantenimiento, que no importamos, sin arreglo | Nada (aparece en `govulncheck -show verbose`) |
-| **Cinco alertas de code scanning (CodeQL) en `dev`**, ninguna explotable | Ver abajo | Ítem de CI |
+| **Cinco alertas de code scanning (CodeQL) en `dev`**, ninguna explotable | Ver `Codigo/alertas-de-codeql.md` | Ítem de CI |
 | **Actualizaciones de seguridad de Dependabot** | Están apagadas en el repo | Ítem de CI |
 | **`middleware` → `proxy`** (deprecación de Next 16.0; `proxy` corre siempre en Node) | Es lo que pone la CSP con nonce y los headers de seguridad: cambia de runtime | Se suma al PR de cambios del frontend |
 
-Las cinco alertas de CodeQL:
-
-| Alerta | Dónde | Qué es |
-|---|---|---|
-| `go/incorrect-integer-conversion` | `apps/api/internal/security/password.go:184` | el `uint8` de `Parallelism` sale de un hash nuestro, no de un usuario |
-| `go/incorrect-integer-conversion` | `apps/api/internal/documentos/lamina.go:47` | `rune` de las métricas fijas de Helvetica |
-| `go/weak-sensitive-data-hashing` | `apps/api/internal/security/pwned.go:41` | el SHA-1 que exige HaveIBeenPwned (k-anonimato): falso positivo |
-| `js/incomplete-sanitization` | `apps/web/src/lib/api-documentos.test.ts:38` | código de tests |
-| `js/incomplete-url-substring-sanitization` | `apps/web/src/lib/pagina-publica/tarjeta-compartir.test.ts:40` | código de tests |
+El detalle de las cinco alertas de CodeQL abiertas en `dev` está en [`../Codigo/alertas-de-codeql.md`](../Codigo/alertas-de-codeql.md): son del código propio, no de dependencias.
 
 Las alertas de `missing-workflow-permissions` de `ci.yml` estaban en `main`, no en `dev`: ya las arregló TR-178.
 
@@ -144,3 +137,23 @@ pnpm update -r --depth Infinity        # o 'pnpm up <paquete>@<versión>'
 ```
 
 Si una transitiva no se mueve aunque el rango del padre la admita, el truco de la sección 5. Después, las suites completas y `docker compose up -d --build` con el script de QA: un cambio de Next o de Go falla al **correr** (el optimizador de imágenes, `next/og`, la subida de fotos), no al compilar.
+
+## 10. Tanda B: Zod 4
+
+PR `fix/seguridad-zod4` (TR-198), la segunda mitad de esta ronda: lo que la sección 8 había dejado para "un PR propio".
+
+**La vulnerabilidad.** GHSA-mrhx-c7xc-m3w5: Zod agota la memoria al validar colecciones grandes con tope. Se arregla en la 4.6.6 y no tiene backport a la 3.x; el subpath `zod/v3` de Zod 4 no da garantía de traerlo. Nos alcanzaba poco (solo valida lo que carga quien edita su página, con el cuerpo acotado a 6 MB), pero la única salida real era pasar a la 4.
+
+**Las versiones.** zod 4.6.7 en los tres paquetes que lo usan (`apps/web`, `packages/prisma-engine`, `packages/documentos-clinicos`), en una sola copia. `@hookform/resolvers` 5.9.2 (Zod 4 lo soporta desde la v5; la 6.0.0 es del 19/10 y no pasaba la espera de 7 días) y `react-hook-form` 7.90.0. Sale `zod-to-json-schema`, que no soporta Zod 4.
+
+**El exporte.** Los JSON Schema de los módulos son el contrato con el backend (`go:embed`). Pasan de `zod-to-json-schema` a `z.toJSONSchema(..., { target: "draft-07", io: "output", reused: "inline", cycles: "throw" })`. Los 30 archivos generados cambian de forma (el `$schema` al principio, el orden de `maxItems` en 6 arrays), no de semántica.
+
+**La lección principal: la prueba diferencial.** Ningún test de TypeScript ve qué acepta y qué rechaza el backend, así que se armó un corpus y se lo pasó por Go con el mismo validador que usa la API (`jsonschema/v5`), contra los esquemas viejos y los nuevos: 5899 casos, de los cuales 83 reales (plantillas, presets, configuraciones iniciales y tokens), 58 sacados de los tests de Go y 5758 mutaciones sintéticas. Con `io: "input"`, que era lo que decía el plan, los 14 módulos perdían el `additionalProperties: false` de la raíz: sus `z.object` no son `.strict()` y Zod 4 solo cierra el objeto en modo `output`. El backend pasaba a aceptar claves desconocidas (57 casos distintos, entre ellos un test de Go existente, `sobre_nosotros_con_clave_desconocida`). Con `io: "output"` da 5899/5899, y es lo más simple: reproduce lo que hacía `zod-to-json-schema` con un objeto que descarta claves.
+
+**Cuándo revisar `io`.** Si un esquema de módulo suma `.default`, `.transform`, `.pipe` o `.catch`, entrada y salida dejan de coincidir: un `.default()` haría requerido ese campo en el JSON Schema y Go rechazaría un payload que no lo traiga. El generador corta ante lo que no sabe representar (`unrepresentable: throw`), y el comentario de `generar.ts` lo explica.
+
+**Los mensajes de auth.** Zod 4 cambió los defaults y eliminó `errorMap`. En `lib/validation/auth.ts`, 17 casos que caían en un mensaje por defecto en inglés pasaron a castellano con voseo, con helpers locales (`textoObligatorio`, `listaDeTextos`, `opcionalOVacio`). Se comparó sobre 235 entradas: mismo éxito o fallo que antes, y los 30 mensajes posibles están en castellano. Los tres formularios con `.default()` usan `useForm<Input, unknown, Values>`.
+
+**La verificación.** `pnpm audit` en 0; typecheck de los cuatro paquetes y de los scripts; lint con 0 errores; web 2367 tests, `prisma-engine` 70 y `documentos-clinicos` 401; Go (`prismaengine` y `http`) en verde; `validar:plantillas` y `documentos:generar` sin cambios. En contenedores reconstruidos: el script de QA en 21 pasadas y 0 fallas; guardar la página pública con módulos y tokens válidos da 200, y una clave desconocida en la raíz de `contacto`, de `sobre_nosotros` o de los tokens da 400, igual que una variante o un token fuera de la lista; `/ingresar`, el perfil y la clínica muestran sus mensajes en castellano; el login real llega a `/clinicas` sin errores de consola.
+
+**Cómo repetir la prueba diferencial** (el script quedó fuera del repo, a propósito): 1) generar los esquemas con la versión vieja y con la nueva del exportador; 2) armar un corpus con todo lo que el backend ya acepta (plantillas, presets, configuraciones iniciales, tokens), los payloads de los tests de Go y mutaciones de eso (claves de más, campos faltantes, tipos cambiados, textos y listas por encima del tope); 3) validar cada caso contra los dos juegos de esquemas con `jsonschema/v5`, el mismo que usa la API; 4) exigir que cada caso dé lo mismo, y mirar uno por uno los que no.

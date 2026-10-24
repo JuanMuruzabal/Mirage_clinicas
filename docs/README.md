@@ -15,14 +15,14 @@ Mapa rápido de qué es cada documento y dónde vive, y si sigue vigente. `CLAUD
 
 Los `.md`/`.docx` sueltos son fuente primaria (transcripciones o entregas directas del cliente) — se mantienen tal cual llegaron, sin editar. Las decisiones tomadas a partir de ellos están en `tradeoffs.md`, no acá.
 
-- [`fase2-dental-mirage.md`](<Fase 2/fase2-dental-mirage.md>) — brief original de Fase 2 (calendario avanzado).
-- [`fase2.3-extra-dental-mirage.md`](<Fase 2/fase2.3-extra-dental-mirage.md>) — brief de los 5 ítems extra post-QA de F2.3.
-- [`FASE 2.4 - detallada y bien especificada.docx`](<Fase 2/FASE 2.4 - detallada y bien especificada.docx>) — brief de Fase 2.4 (verificación de identidad, "sacar turno para otro").
+- [`fase2-dental-mirage.md`](<Fases post MVP/Fase 2/fase2-dental-mirage.md>) — brief original de Fase 2 (calendario avanzado).
+- [`fase2.3-extra-dental-mirage.md`](<Fases post MVP/Fase 2/fase2.3-extra-dental-mirage.md>) — brief de los 5 ítems extra post-QA de F2.3.
+- [`FASE 2.4 - detallada y bien especificada.docx`](<Fases post MVP/Fase 2/FASE 2.4 - detallada y bien especificada.docx>) — brief de Fase 2.4 (verificación de identidad, "sacar turno para otro").
 
 **`Fase 2/turnero_pagina/`** — documentos vivos de arquitectura/UX del wizard público, no briefs del cliente:
 
-- [`ArquitecturaPeticionesTurno.md`](<Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md>) — detalle técnico del mecanismo de verificación de identidad y anti-abuso del formulario público.
-- [`rediseno-flujo-turnos.md`](<Fase 2/turnero_pagina/rediseno-flujo-turnos.md>) — especificación de UX del wizard de "pedir turno" — el código lo cita activamente por número de sección (`§3.5`, `§5`, etc.).
+- [`ArquitecturaPeticionesTurno.md`](<Fases post MVP/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md>) — detalle técnico del mecanismo de verificación de identidad y anti-abuso del formulario público.
+- [`rediseno-flujo-turnos.md`](<Fases post MVP/Fase 2/turnero_pagina/rediseno-flujo-turnos.md>) — especificación de UX del wizard de "pedir turno" — el código lo cita activamente por número de sección (`§3.5`, `§5`, etc.).
 
 ## `Login/` — auth/onboarding, caso particular
 
@@ -33,9 +33,9 @@ Los `.md`/`.docx` sueltos son fuente primaria (transcripciones o entregas direct
 
 Auditoría periódica de ingeniería (complejidad, seguridad, rendimiento) — cada ronda queda como su propio archivo, numerado, en vez de sobreescribir la anterior:
 
-- [`radiografia-tecnica_1.md`](<Seguridad y optimizacion/radiografia-tecnica_1.md>) — primer diagnóstico completo, 2026-09-08. Arranca con los hallazgos crudos y el plan de acción en Fases A/B/C; cada ronda de arreglos se le suma como una sección más al final (§13 paginación, §14 deadlock en migraciones, §15 revisión de la Fase A). **Fases A y B cerradas, y los dos ítems accionables de la Fase C, el 2026-09-09** (§16: foreign keys reales y guardián de migraciones destructivas). Los tres ítems restantes de la Fase C están bloqueados por su propia condición de activación, escrita.
-- [`como-se-arreglo-cada-cosa.md`](<Seguridad y optimizacion/como-se-arreglo-cada-cosa.md>) — guía de estudio que acompaña al diagnóstico: el porqué de cada decisión, la alternativa descartada en cada caso, y los bugs que introdujo el propio trabajo de la auditoría. Si querés entender el razonamiento y no solo el resultado, este es el que hay que leer.
-- [`snapshot-2026-09-09.md`](<Seguridad y optimizacion/snapshot-2026-09-09.md>) — **el documento que hay que leer para saber "cómo estamos hoy"**, sin releer el diagnóstico crudo. No es solo lo que arregló la auditoría: es el inventario COMPLETO de lo que hace seguro y eficiente al sistema —sesiones, CAPTCHA, códigos de verificación, barrido de basura, detectores de abuso, aislamiento entre clínicas, integridad de la base, headers, BFF, rendimiento, testing— marcando qué ya existía y qué se agregó. Cierra con lo que NO está y qué lo activa, y con una lista concreta de qué volver a medir en el próximo snapshot para poder compararlos.
+- [`radiografia-tecnica_1.md`](<Seguridad y optimizacion/Codigo/radiografia-tecnica_1.md>) — primer diagnóstico completo, 2026-09-08. Arranca con los hallazgos crudos y el plan de acción en Fases A/B/C; cada ronda de arreglos se le suma como una sección más al final (§13 paginación, §14 deadlock en migraciones, §15 revisión de la Fase A). **Fases A y B cerradas, y los dos ítems accionables de la Fase C, el 2026-09-09** (§16: foreign keys reales y guardián de migraciones destructivas). Los tres ítems restantes de la Fase C están bloqueados por su propia condición de activación, escrita.
+- [`como-se-arreglo-cada-cosa.md`](<Seguridad y optimizacion/Codigo/como-se-arreglo-cada-cosa.md>) — guía de estudio que acompaña al diagnóstico: el porqué de cada decisión, la alternativa descartada en cada caso, y los bugs que introdujo el propio trabajo de la auditoría. Si querés entender el razonamiento y no solo el resultado, este es el que hay que leer.
+- [`snapshot-2026-09-09.md`](<Seguridad y optimizacion/Codigo/snapshot-2026-09-09.md>) — **el documento que hay que leer para saber "cómo estamos hoy"**, sin releer el diagnóstico crudo. No es solo lo que arregló la auditoría: es el inventario COMPLETO de lo que hace seguro y eficiente al sistema —sesiones, CAPTCHA, códigos de verificación, barrido de basura, detectores de abuso, aislamiento entre clínicas, integridad de la base, headers, BFF, rendimiento, testing— marcando qué ya existía y qué se agregó. Cierra con lo que NO está y qué lo activa, y con una lista concreta de qué volver a medir en el próximo snapshot para poder compararlos.
 
 ## `mockups MVP/` — capturas de referencia visual del cliente
 
