@@ -663,6 +663,7 @@ una ronda por etapa. Los documentos, en `docs/Seguridad y optimizacion/`:
 | [`radiografia-tecnica_1.md`](<docs/Seguridad y optimizacion/radiografia-tecnica_1.md>) | La primera radiografía (2026-09-08/09), módulo por módulo, y el registro de cada ronda de arreglos |
 | [`optimizacion-post-fase3.md`](<docs/Seguridad y optimizacion/optimizacion-post-fase3.md>) | La ronda de optimización post-Fase 3 (2026-09-22/23): qué se midió y cómo, qué se aplicó de caché, goroutines y colas, y qué se descartó, con los números |
 | [`como-se-arreglo-cada-cosa.md`](<docs/Seguridad y optimizacion/como-se-arreglo-cada-cosa.md>) | El **porqué** de cada decisión, la alternativa descartada en cada caso, y los bugs que introdujo el propio trabajo de las auditorías |
+| [`actualizacion-de-dependencias-2026-10.md`](<docs/Seguridad y optimizacion/actualizacion-de-dependencias-2026-10.md>) | La ronda de dependencias de octubre (TR-197): Next 16.4.2, Go 1.26.10, la espera de 7 días y cómo repetir el chequeo |
 | [`scripts/qa-entorno-dev.sh`](scripts/qa-entorno-dev.sh) | QA del entorno real de punta a punta, para correr antes de cada ronda |
 
 **Primera radiografía** (2026-09-08/09, TR-121 a TR-132, plan §12):
