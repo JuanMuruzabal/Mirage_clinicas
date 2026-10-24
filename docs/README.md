@@ -15,14 +15,14 @@ Mapa rápido de qué es cada documento y dónde vive, y si sigue vigente. `CLAUD
 
 Los `.md`/`.docx` sueltos son fuente primaria (transcripciones o entregas directas del cliente) — se mantienen tal cual llegaron, sin editar. Las decisiones tomadas a partir de ellos están en `tradeoffs.md`, no acá.
 
-- [`fase2-dental-mirage.md`](<Fase 2/fase2-dental-mirage.md>) — brief original de Fase 2 (calendario avanzado).
-- [`fase2.3-extra-dental-mirage.md`](<Fase 2/fase2.3-extra-dental-mirage.md>) — brief de los 5 ítems extra post-QA de F2.3.
-- [`FASE 2.4 - detallada y bien especificada.docx`](<Fase 2/FASE 2.4 - detallada y bien especificada.docx>) — brief de Fase 2.4 (verificación de identidad, "sacar turno para otro").
+- [`fase2-dental-mirage.md`](<Fases post MVP/Fase 2/fase2-dental-mirage.md>) — brief original de Fase 2 (calendario avanzado).
+- [`fase2.3-extra-dental-mirage.md`](<Fases post MVP/Fase 2/fase2.3-extra-dental-mirage.md>) — brief de los 5 ítems extra post-QA de F2.3.
+- [`FASE 2.4 - detallada y bien especificada.docx`](<Fases post MVP/Fase 2/FASE 2.4 - detallada y bien especificada.docx>) — brief de Fase 2.4 (verificación de identidad, "sacar turno para otro").
 
 **`Fase 2/turnero_pagina/`** — documentos vivos de arquitectura/UX del wizard público, no briefs del cliente:
 
-- [`ArquitecturaPeticionesTurno.md`](<Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md>) — detalle técnico del mecanismo de verificación de identidad y anti-abuso del formulario público.
-- [`rediseno-flujo-turnos.md`](<Fase 2/turnero_pagina/rediseno-flujo-turnos.md>) — especificación de UX del wizard de "pedir turno" — el código lo cita activamente por número de sección (`§3.5`, `§5`, etc.).
+- [`ArquitecturaPeticionesTurno.md`](<Fases post MVP/Fase 2/turnero_pagina/ArquitecturaPeticionesTurno.md>) — detalle técnico del mecanismo de verificación de identidad y anti-abuso del formulario público.
+- [`rediseno-flujo-turnos.md`](<Fases post MVP/Fase 2/turnero_pagina/rediseno-flujo-turnos.md>) — especificación de UX del wizard de "pedir turno" — el código lo cita activamente por número de sección (`§3.5`, `§5`, etc.).
 
 ## `Login/` — auth/onboarding, caso particular
 
