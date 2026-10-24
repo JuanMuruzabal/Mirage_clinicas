@@ -25,12 +25,12 @@
     "@types/react": "^19",
     "framer-motion": "^13.1.0",
     "@vitejs/plugin-react": "^6.0.5",
-    "@vitest/coverage-v8": "^4.1.10",
+    "@vitest/coverage-v8": "^4.1.12",
     "jsdom": "^30.0.1",
     "react": "19.2.8",
     "tsx": "^4.19.2",
     "typescript": "^5.4.0",
-    "vitest": "^4.1.10",
+    "vitest": "^4.1.12",
     "zod-to-json-schema": "^3.24.1"
   }
 }

@@ -814,6 +814,19 @@ Segunda pasada general, sobre todo lo que entró después de la primera (Fase 3 
 | **Fase C: caché de la página pública, paginar el buscador** | ⏸ Con su condición escrita en la radiografía |
 | **Fase C: CI con el parche de Go de producción** | ✖ Descartado (TR-178): rompía el acople `go.mod` ↔ CI o dejaba producción sin parches |
 
+### 12.7 Actualización de dependencias de seguridad (2026-10-24)
+
+Ronda puntual sobre lo que no escribimos nosotros. Documento: `docs/Seguridad y optimizacion/actualizacion-de-dependencias-2026-10.md`; decisión: `tradeoffs.md` TR-197.
+
+| | Estado |
+|---|---|
+| **Next 16.3.3 con tres RCE críticas (una sin sesión, otra en `next/og`, que usamos)** | ✅ 16.4.2 |
+| **`go 1.26.0` en `go.mod`: el CI probaba con ~20 vulnerabilidades de la biblioteca estándar** | ✅ 1.26.10 y módulos directos al día |
+| **Transitivas con alertas (undici, sharp, vite, brace-expansion, source-map-js)** | ✅ sin `overrides` permanentes |
+| **Espera de 7 días para versiones nuevas de npm** | ✅ `minimumReleaseAge` |
+| **Zod 3 → 4 (GHSA-mrhx-c7xc-m3w5)** | ⏸ PR propio (tanda B) |
+| **Dependabot de seguridad, code scanning en `dev` (5 alertas no explotables)** | ⏸ ítem de CI |
+
 ## 13. Fase 3 — Multi-tenant (N profesionales / N clínicas)
 
 Brief del cliente: `docs/Fases post MVP/Fase 3/Fase2-fix-Fase3-Multi-tenant.docx`. Mockups en `docs/Fases post MVP/Fase 3/Mockups/`.

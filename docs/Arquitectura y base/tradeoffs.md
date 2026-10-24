@@ -3723,3 +3723,28 @@ La persona probó el odontograma completo y pidió seis correcciones. Quedan hec
   - **Mantener el fondo de la fila del anexo** (`CLASE_FONDO_ANIDADO`, que sigue igual porque Turnos lo usa).
 - **Se sacrifica:** un refactor del armado de los PDF de documentos legales (cubierto por los hashes) y una consulta más en la API; dos comportamientos de fila en la misma tabla (los distingue el chevron); un toque más para imprimir desde la tabla; el PDF combinado cambia cuando un anexo suma una anotación; y sin el fondo, el subcuerpo del anexo queda marcado solo por el riel y la sangría.
 - **Tests:** `GenerarPDFConAnexos` (orden, partes idénticas a las sueltas, determinismo, errores, anexo ajeno), el handler (400/409, scope, eventos, nombre, un conteo de consultas que no crece con los anexos), la fila desplegable y los dos grupos, y la paridad del nombre de archivo en Go y TypeScript. QA en contenedores con una historia sellada y dos anexos: 200 con `…-folio-1-con-anexos.pdf` y 5 páginas contra las 3 de la historia sola; dos descargas dan los mismos bytes y el BFF devuelve los mismos bytes que la API; `para=imprimir` sale `inline`; en el BFF `con=otra` se ignora y devuelve el PDF de la historia sola; un anexo con `con=anexos` da 409, `con=todo` da 400 y sin sesión 401; cada exportación deja el mismo evento en la historia y en sus dos anexos y los errores no dejan eventos.
+
+## TR-197: Actualización de seguridad de dependencias (Next 16.4.2, Go 1.26.10) y espera de 7 días
+
+- **Fecha:** 2026-10-24 · **Fase:** execution (rama `fix/seguridad-dependencias`, PR a `dev`)
+- **Contexto:** Dependabot tenía 49 alertas abiertas (6 críticas, todas de Next) y `pnpm audit` en la rama daba 42. Next 16.3.3 tenía tres RCE críticas: una en el optimizador de imágenes (sin sesión, prendido por defecto aunque no usemos `next/image`), una en `next/og` `ImageResponse` —que nos alcanzaba, porque `[slug]/opengraph-image.tsx` la usa con datos que carga cualquiera que cree una clínica— y una en `use cache`, que no usamos. Aparte, `go 1.26.0` en `go.mod` hacía que el CI y las máquinas locales probaran con una biblioteca estándar con unas 20 vulnerabilidades (arregladas entre la 1.26.6 y la 1.26.10); producción compilaba con `golang:1.26-alpine`, que ya traía la nueva. Detalle completo en `docs/Seguridad y optimizacion/actualizacion-de-dependencias-2026-10.md`.
+- **Decisión:**
+  1. **Next 16.3.3 → 16.4.2** (y `eslint-config-next` igual), `vitest` y `@vitest/coverage-v8` a `^4.1.12`, y las transitivas con alertas (undici 8.12.2, sharp 0.35.5, vite 8.3.4, brace-expansion 1.1.21 y 5.0.12, source-map-js 1.2.2). Sin cambios de código.
+  2. **`go 1.26.10` en `go.mod`**, y los módulos directos a la menor o parche más nueva con 7 días o más (chi 5.5.0, pgx 5.11.0, aws-sdk-go-v2, x/crypto, x/image, x/text y el driver de GORM). Ninguno tenía vulnerabilidades: higiene.
+  3. **`minimumReleaseAge: 10080` (7 días) en `pnpm-workspace.yaml`**, contra versiones comprometidas recién publicadas. Un arreglo urgente con menos de 7 días se exceptúa con `minimumReleaseAgeExclude` y un comentario de qué alerta arregla. Go no tiene un equivalente: la fecha se mira a mano en `proxy.golang.org/<módulo>/@v/<versión>.info`.
+  4. **Un PR propio y urgente**, no sumado al PR largo de correcciones generales: el arreglo llega a producción sin esperar los otros ítems.
+  5. **La rama por defecto del repo pasa a `dev`** (24/10), para que Dependabot y CodeQL miren lo que se integra y no una `main` vieja; `main` sigue siendo producción.
+  6. **Sin `overrides` permanentes:** vite y brace-expansion 5 no se movían con `pnpm update -r --depth Infinity`; se movieron con un override temporal más `pnpm install`, se sacó el override y se volvió a instalar, y el lockfile conservó las versiones.
+- **Alternativas descartadas:**
+  - **Next 16.4.3** (23/10): más nueva que la espera; las dos arreglan lo mismo.
+  - **Las versiones de AWS del 21 y 22/10:** tampoco pasan la espera.
+  - **Zod 3 → 4 en esta tanda:** cambia el exporte a JSON Schema que usa Go (`zod-to-json-schema` no lo soporta) y pide `@hookform/resolvers` v5; toca la paridad con el backend. Va en su propio PR.
+  - **`middleware` → `proxy` en esta tanda:** la deprecación viene de Next 16.0 y cambia el runtime de edge a Node; es lo que pone la CSP con nonce y los headers. Va al PR del frontend.
+  - **Un `overrides` permanente** para las transitivas: una lista más que mantener, que fuerza versiones aunque el padre ya pida otra.
+  - **Sumarlo al PR #92:** demoraba el arreglo días o semanas.
+- **Se sacrifica:**
+  - **Zod 3 sigue con GHSA-mrhx-c7xc-m3w5** (agota memoria con colecciones enormes) hasta la tanda B. Riesgo bajo: solo valida lo que carga quien edita su página, con el cuerpo acotado a 6 MB.
+  - **Un arreglo urgente con menos de 7 días hay que exceptuarlo a mano**, y en Go la espera no la aplica nadie: depende de que alguien mire la fecha.
+  - **Quedan abiertos, con su lugar:** `braces` (aviso retirado por GitHub, a descartar a mano), `x/crypto/openpgp` (no lo importamos, sin arreglo) y cinco alertas de CodeQL no explotables (ítem de CI).
+- **La lección de `govulncheck`:** con `GOTOOLCHAIN=auto` el escáner se cambió solo a go1.26.10 y dijo "0 vulnerabilidades" mientras el CI usaba la 1.26.0. Se corre con `GOTOOLCHAIN=go<versión del go.mod>`.
+- **Tests:** web 2367, `prisma-engine` 70, `documentos-clinicos` 401 y Go con `-race`, todo en verde; typecheck, lint (0 errores), `golangci-lint` y los generadores sin diferencias. En contenedores: QA 21/0, `next/og` 200 `image/png`, `/_next/image` 200 local y 400 con URL externa, recorrido con sesión sin errores y subida de foto con WebP.
