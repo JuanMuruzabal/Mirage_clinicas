@@ -19,7 +19,7 @@ Cuando la rama por defecto de GitHub pasó a `dev` (2026-10-24), CodeQL empezó 
 | `go/weak-sensitive-data-hashing` (#7) | `apps/api/internal/security/pwned.go` | No: falso positivo | **Descartada** con su motivo |
 | `braces`, GHSA-vfj7-8cjw-p6xm (#32) | transitiva de `eslint-config-next` | No: aviso retirado | **Descartada** (es de Dependabot) |
 | `actions/unpinned-tag` ×4 | `.github/workflows/` | Riesgo de cadena de suministro | Arregladas: actions por SHA |
-| `go/log-injection` ×9 | `turno_publico.go`, `mail.go`, `logging.go` | No en producción | Arregladas: `slog` y `X-Request-Id` |
+| `go/log-injection` ×9 | `turno_publico.go`, `mail.go`, `logging.go` | No en producción | Arregladas: `slog` más `SinSaltosDeLinea`, y `X-Request-Id` |
 
 ## Las cuatro originales
 
@@ -71,7 +71,8 @@ CodeQL detectó que un dato de afuera llega a un log sin que se escapen los salt
 - **Las 8 de `log.Printf` de solo desarrollo:**
   - **Dónde:** los tres avisos `[simulado]` de `turno_publico.go` (mail con muchos DNIs, tope de DNI y tipo, rotación por IP) y los de `LogSender` en `mail.go`, el enviador de mails de desarrollo.
   - **Era explotable:** no en producción. Los `[simulado]` solo corren con las herramientas de desarrollo, y `LogSender` solo se usa sin Resend, es decir, en localhost. El log de requests de producción ya usa `slog`, que escapa.
-  - **Qué se arregló:** pasaron a `slog` con atributos (`slog.Info("[mail:dev] bienvenida", "para", to, "nombre", nombre)`), que escapa los saltos de línea. Son **3** llamadas en `turno_publico.go` y **6** en `mail.go`: CodeQL marcó 5 de las 6 de `LogSender`, pero se migraron todas para que el archivo no mezcle dos formas de loguear. Los avisos siguen siendo legibles (se comprobó en contenedores con `[mail:dev]` de bienvenida y de recuperación).
+  - **Qué se arregló:** pasaron a `slog` con atributos (`slog.Info("[mail:dev] bienvenida", "para", to, "nombre", nombre)`), que escapa los saltos de línea. **Pero `slog` solo no cerró las alertas:** en el análisis del PR #95 CodeQL siguió marcando 8 (#24 a #31, 3 en `turno_publico.go` y 5 en `mail.go`), porque no modela el escape de los handlers. Lo que reconoce como saneador es un `strings.ReplaceAll` con el literal exacto `""` o `"
+"` (`ReplaceSanitizer`, en `LogInjectionCustomizations.qll` de CodeQL). Por eso los valores string pasan además por `security.SinSaltosDeLinea` (`internal/security/log.go`). Tests: `TestSinSaltosDeLinea` y `TestLogSender_UnRenglonPorAvisoAunqueElDatoTraigaSaltos`. Son **3** llamadas en `turno_publico.go` y **6** en `mail.go`: CodeQL marcó 5 de las 6 de `LogSender`, pero se migraron todas para que el archivo no mezcle dos formas de loguear. Los avisos siguen siendo legibles (se comprobó en contenedores con `[mail:dev]` de bienvenida y de recuperación).
 - **La novena, el `request_id`:**
   - **Dónde:** el log de requests de `apps/api/internal/http/logging.go` escribe el `request_id`, y ese id lo toma `middleware.RequestID` de chi del header `X-Request-Id` **que mande el cliente**.
   - **Era explotable:** no daba acceso a nada, pero como la API es pública cualquiera podía elegir el id de su request, o copiar el de otro, y confundir a quien rastrea un pedido en los logs. El BFF no manda ese header, así que descartarlo no pierde nada.
@@ -81,8 +82,13 @@ CodeQL detectó que un dato de afuera llega a un log sin que se escapen los salt
 
 ## Qué se descartó como camino
 
-- **Descartar las 9 de `log-injection` como falsos positivos:** 8 tenían un arreglo trivial.
+- **Descartar las 9 de `log-injection` como falsos positivos:** 8 tenían un arreglo trivial (y descartar por huella puede tapar una regresión en la misma línea).
+- **Sacar los datos de esos logs:** son de desarrollo y de QA, y sin ellos los avisos no sirven.
 - **Validar el `X-Request-Id`** contra un patrón en vez de borrarlo (ver arriba).
+
+## Lección
+
+**Un arreglo de CodeQL se da por hecho cuando el análisis del PR lo cierra, no cuando el código "debería" bastar.** `slog` escapa los saltos de línea y aun así CodeQL no lo vio: la herramienta reconoce formas concretas, y se verifica en el PR.
 
 ## Cuando salga una alerta nueva
 
