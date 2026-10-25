@@ -1,0 +1,32 @@
+name: Preparar pnpm
+description: Instala pnpm y Node 22 y, si se pide, las dependencias del workspace.
+
+# Una sola copia de la preparación que repetían los jobs de la web, sus
+# tests, Lighthouse y `pnpm audit`: si cambia la versión de pnpm o de Node,
+# cambia acá y en ningún otro lado. El checkout no va adentro: con `./` la
+# action se lee del repo ya clonado, así que cada job lo hace antes, sin
+# credenciales (por qué `./` y no `$/`, en ci.yml).
+inputs:
+  instalar:
+    description: Corre `pnpm install --frozen-lockfile` (y usa la caché del store). `pnpm audit` lee el lockfile y no lo necesita.
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      with:
+        version: 11
+
+    # Sin instalar, la caché queda apagada: el store está vacío y el paso
+    # posterior de setup-node falla si no encuentra la carpeta a guardar.
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      with:
+        node-version: 22
+        cache: ${{ inputs.instalar == 'true' && 'pnpm' || '' }}
+
+    - name: Install dependencies
+      if: inputs.instalar == 'true'
+      shell: bash
+      run: pnpm install --frozen-lockfile

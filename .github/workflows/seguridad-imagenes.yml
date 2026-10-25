@@ -1,0 +1,98 @@
+name: Imágenes
+
+# Trivy sobre las imágenes de Docker de la API y de la web: ve los paquetes
+# del sistema operativo de la imagen (alpine) y lo que trae la imagen base
+# de Node, que ningún otro chequeo mira.
+#
+# Corre en un PR solo si cambió algo que entra en la imagen, así que NO
+# puede ser un check obligatorio del ruleset: en un PR que no toca esos
+# archivos, el check nunca aparece y el PR quedaría trabado esperándolo.
+# Lo cubren el push a `dev` y la corrida semanal.
+on:
+  pull_request:
+    paths:
+      - apps/api/Dockerfile
+      - apps/web/Dockerfile
+      - docker-compose.yml
+      - pnpm-lock.yaml
+      - package.json
+      - apps/*/package.json
+      - packages/*/package.json
+      - apps/api/go.mod
+      - apps/api/go.sum
+      - .github/workflows/seguridad-imagenes.yml
+  push:
+    branches: [dev]
+  schedule:
+    - cron: "0 10 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  trivy:
+    name: Trivy (${{ matrix.imagen }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write # subir el SARIF a code scanning
+    strategy:
+      fail-fast: false
+      # El contexto y el Dockerfile de cada una, los mismos de
+      # docker-compose.yml.
+      matrix:
+        include:
+          - imagen: api
+            contexto: apps/api
+            dockerfile: apps/api/Dockerfile
+          - imagen: web
+            contexto: .
+            dockerfile: apps/web/Dockerfile
+    env:
+      IMAGEN: prisma-${{ matrix.imagen }}:ci
+      # La imagen oficial por versión y digest, no la action: en 2026 las
+      # etiquetas de aquasecurity/trivy-action se movieron a código malicioso.
+      TRIVY: aquasec/trivy:0.76.0@sha256:2416d1f74045b57274df1a340eee6b510cacd73c66a6ccb8da092b117eb7d222
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      # Solo local: no se pushea a ningún registro.
+      - name: Construir la imagen
+        run: docker build --file "$DOCKERFILE" --tag "$IMAGEN" "$CONTEXTO"
+        env:
+          DOCKERFILE: ${{ matrix.dockerfile }}
+          CONTEXTO: ${{ matrix.contexto }}
+
+      # Dos pasadas sobre la misma base de avisos: la primera arma el SARIF
+      # para code scanning y la segunda es la que falla, con la tabla
+      # legible en el log.
+      - name: Escanear (SARIF)
+        run: |
+          mkdir -p "$RUNNER_TEMP/trivy-cache"
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$RUNNER_TEMP/trivy-cache:/root/.cache/trivy" \
+            -v "$GITHUB_WORKSPACE:/salida" \
+            "$TRIVY" image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed \
+            --format sarif --output /salida/trivy.sarif "$IMAGEN"
+
+      - name: Subir el SARIF a code scanning
+        uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        with:
+          sarif_file: trivy.sarif
+          category: trivy-${{ matrix.imagen }}
+
+      - name: Fallar con un HIGH o CRITICAL que tenga arreglo
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$RUNNER_TEMP/trivy-cache:/root/.cache/trivy" \
+            "$TRIVY" image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed \
+            --skip-db-update --exit-code 1 "$IMAGEN"

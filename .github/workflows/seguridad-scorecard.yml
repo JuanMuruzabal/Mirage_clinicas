@@ -1,0 +1,53 @@
+name: Scorecard
+
+# OpenSSF Scorecard: mide la postura del repo (ramas protegidas, actions
+# fijadas, permisos de los tokens, revisión de código) y sube el resultado
+# a code scanning. Basado en la plantilla oficial de ossf/scorecard-action;
+# con `publish_results` el job no puede tener pasos `run`, `env` ni
+# servicios, y solo corre en la rama por defecto (`dev`).
+on:
+  branch_protection_rule:
+  push:
+    branches: [dev]
+  schedule:
+    - cron: "30 10 * * 1"
+  workflow_dispatch:
+
+# La plantilla oficial dice `read-all`; alcanza con leer el contenido, porque
+# el repo es público y el job declara lo suyo.
+permissions:
+  contents: read
+
+jobs:
+  analysis:
+    name: Scorecard
+    if: github.event.repository.default_branch == github.ref_name
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write # subir el SARIF a code scanning
+      id-token: write # publicar el resultado en la API pública de Scorecard
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - uses: ossf/scorecard-action@fa7117db83c52d787ae5a89f350999701505d78e # v2.5.0
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+          # Con un token fine-grained de solo lectura de administración
+          # (secreto SCORECARD_TOKEN), el chequeo Branch-Protection puede leer
+          # los rulesets; el GITHUB_TOKEN no puede y ese chequeo puntúa de
+          # menos. Sin el secreto cae al token del workflow y corre igual.
+          repo_token: ${{ secrets.SCORECARD_TOKEN || github.token }}
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: scorecard
+          path: results.sarif
+          retention-days: 5
+
+      - uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        with:
+          sarif_file: results.sarif

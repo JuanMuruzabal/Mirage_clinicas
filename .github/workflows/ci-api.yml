@@ -1,0 +1,40 @@
+name: CI api
+
+# La API de Go: `go vet`, golangci-lint con versión fija y que compile. Los
+# tests van aparte (ci-tests-api.yml) porque necesitan Postgres. Lo llama
+# ci.yml, y el deploy espera a este job.
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  api:
+    name: api (vet + lint + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: apps/api/go.mod
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Lint
+        uses: golangci/golangci-lint-action@9fae48acfc02a90574d7c304a1758ef9895495fa # v7.0.1
+        with:
+          working-directory: apps/api
+          # Versión fija: con `latest` una release nueva del linter podía
+          # poner el CI en rojo sin que el código cambiara.
+          version: v2.15.0
+
+      - name: Build
+        run: go build ./...

@@ -1,0 +1,104 @@
+# Actualizaciones de versión, una vez por semana y siempre a `dev`, que es
+# donde se integra (a `main` se llega desde `dev`). Las actualizaciones de
+# seguridad no esperan al lunes: las abre Dependabot apenas sale el aviso.
+#
+# `cooldown` es la misma espera de 7 días que `minimumReleaseAge` de pnpm
+# (TR-197): una versión recién publicada puede estar comprometida.
+# Menores y parches van juntos en un PR; una mayor va sola, porque es la
+# que puede romper algo y se revisa aparte. Sin `labels`: si la etiqueta
+# no existe en el repo, Dependabot falla.
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Argentina/Cordoba
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      menores-y-parches:
+        update-types: [minor, patch]
+
+  - package-ecosystem: gomod
+    directory: /apps/api
+    target-branch: dev
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Argentina/Cordoba
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      menores-y-parches:
+        update-types: [minor, patch]
+
+  # La raíz cubre .github/workflows/; la action compuesta va aparte, o las
+  # actions que usa adentro no se actualizan.
+  - package-ecosystem: github-actions
+    directories:
+      - /
+      - /.github/actions/preparar-pnpm
+    target-branch: dev
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Argentina/Cordoba
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      menores-y-parches:
+        update-types: [minor, patch]
+
+  # Los Dockerfiles de la API y de la web (imágenes base de cada etapa).
+  - package-ecosystem: docker
+    directories:
+      - /apps/api
+      - /apps/web
+    target-branch: dev
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Argentina/Cordoba
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      menores-y-parches:
+        update-types: [minor, patch]
+
+  # El Postgres de docker-compose.yml.
+  - package-ecosystem: docker-compose
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Argentina/Cordoba
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      menores-y-parches:
+        update-types: [minor, patch]

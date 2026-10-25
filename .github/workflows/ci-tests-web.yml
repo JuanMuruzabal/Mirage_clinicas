@@ -1,0 +1,28 @@
+name: CI tests web
+
+# Los tests de la web (Vitest) con el gate de cobertura del 80 %, mismo
+# criterio que los de la API (TR-007). Lo llama ci.yml, y el deploy espera
+# a este job.
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  test-web:
+    name: "Run tests and quality gates (web)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Preparar pnpm, Node y las dependencias
+        uses: ./.github/actions/preparar-pnpm # zizmor: ignore[self-repository]
+
+      # coverage.thresholds en apps/web/vitest.config.mts ya hace fallar
+      # este comando si algún indicador baja de 80% — no hace falta un
+      # chequeo aparte como en el job de api.
+      - name: Test with coverage
+        run: pnpm --filter @dental-mirage/web test:coverage
