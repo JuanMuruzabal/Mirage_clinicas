@@ -30,7 +30,7 @@ Antes era un solo `ci.yml` de ~240 líneas. Ahora `ci.yml` es la puerta de entra
 ### Los otros dos
 
 - **`.github/actions/preparar-pnpm/`**: no es un workflow, es una pieza que usan los demás (pnpm, Node y, si hace falta, las dependencias). Así hay una sola copia en vez de cuatro.
-- **`.github/dependabot.yml`**: qué revisa Dependabot (npm, Go, GitHub Actions, Docker y docker-compose): una vez por semana, con la espera de 7 días y los PRs a `dev`.
+- **`.github/dependabot.yml`**: qué revisa Dependabot (npm, Go, GitHub Actions, Docker y docker-compose). **Desde el 2026-10-25 solo abre PRs de seguridad** (`open-pull-requests-limit: 0`); las versiones se actualizan en rondas a mano (sección 2.1).
 
 > **La nota que importa:** todo lo de `ci-*` y `seguridad.yml` frena el merge cuando están cargadas las reglas de rama. `seguridad-imagenes` y `seguridad-scorecard` avisan y quedan registrados, pero **no pueden ser obligatorios**, porque no corren en todos los PRs (ver la sección 4).
 
@@ -38,15 +38,16 @@ Antes era un solo `ci.yml` de ~240 líneas. Ahora `ci.yml` es la puerta de entra
 
 Hay una idea común detrás de todas: **ningún chequeo solo alcanza**. Dependabot no ve la biblioteca estándar de Go (en la ronda de dependencias eran ~20 avisos, TR-197); `pnpm audit` avisó de Zod antes que Dependabot (TR-198); Trivy ve el sistema operativo de las imágenes, que ningún otro mira; zizmor ve los workflows, que ningún otro mira. Cada uno tapa un hueco de los demás.
 
-### 2.1 Dependabot (versiones y seguridad)
+### 2.1 Dependabot (solo seguridad)
 
-- **Riesgo que cubre:** dependencias que envejecen sin que nadie se entere, con avisos de seguridad ya publicados.
-- **Qué hace:** abre PRs a `dev` para npm, `gomod`, `github-actions`, `docker` (los dos Dockerfiles) y `docker-compose` (el Postgres), los lunes a las 06:00 de Córdoba. Las menores y los parches van juntos en un PR; una mayor va sola, porque es la que puede romper algo. Con `cooldown: 7` espera 7 días desde que sale una versión: es la misma regla que `minimumReleaseAge` de pnpm (TR-197), porque una versión recién publicada puede estar comprometida. Las **actualizaciones de seguridad** están prendidas aparte y no esperan al lunes.
-- **Por qué se eligió:** viene con GitHub, sin servicio externo ni secreto, y entiende los cinco ecosistemas del repo.
-- **Qué se descartó:** nada que lo reemplace: hasta ahora las actualizaciones eran a mano, y así la biblioteca estándar de Go y Next llegaron a acumular avisos (TR-197).
-- **Cuánto cuesta:** unos pocos PRs por semana (`open-pull-requests-limit: 5` por ecosistema). Cada uno corre el CI completo.
-- **Cuando falla:** si la pestaña *Insights → Dependency graph → Dependabot* muestra un error, lo más probable es el formato (`labels` que no existen en el repo, por eso no se usan). Si un PR suyo rompe el build, no se mergea: se mira el changelog de la mayor y se arregla en la misma rama.
-- **Pendiente de confirmar en GitHub:** que soporte pnpm 11 y `cooldown` en `docker` y `docker-compose`. Se ve en la pestaña del primer lunes.
+- **Riesgo que cubre:** una dependencia con un aviso de seguridad ya publicado que nadie se entera de que tiene arreglo.
+- **Qué hace:** `.github/dependabot.yml` declara los cinco ecosistemas del repo (npm, `gomod`, `github-actions`, `docker` con los dos Dockerfiles y `docker-compose` con el Postgres) con `open-pull-requests-limit: 0`. **El límite 0 bloquea solo las actualizaciones de versión**: las de seguridad (que están prendidas aparte) siguen saliendo, una por aviso con arreglo, contra la rama por defecto (`dev`) y sin esperar al lunes. El archivo se queda a propósito: Scorecard puntúa 10 en Dependency-Update-Tool por tenerlo.
+- **Por qué solo seguridad:** el primer lunes después del merge del #95 abrió 11 PRs de versión (#96 a #106), casi todos de mayores: TypeScript 7, ESLint 10, Node 25 (no es LTS), `@types/node` 26 (con Node 22 en runtime), `@vitest/coverage-v8` 5 (sin vitest 5) y 5 actions. El equipo prefiere actualizar en rondas hechas a mano (TR-197, TR-198). Los 11 se cerraron con un comentario del motivo.
+- **Qué se descartó:** agrupar las de versión una vez por mes (seguían llegando PRs de mayores, unos 5 por mes) y apagarlo todo borrando el archivo (se perdían los PRs de seguridad y Scorecard bajaba ~0,8).
+- **Qué se sacrifica:** nada avisa de una versión mayor nueva salvo que traiga un aviso de seguridad; hay que acordarse de hacer la ronda. La configuración de grupos (menores y parches juntos, mayores solas) y `cooldown: 7` (la misma regla que `minimumReleaseAge` de pnpm, TR-197) queda dormida, lista para cuando se suba el límite.
+- **Cómo volver a prender las de versión:** subir `open-pull-requests-limit` (por ejemplo a 5) en el ecosistema que se quiera. No hace falta tocar nada más.
+- **Visto después del merge:** Dependabot soporta pnpm 11 y el `cooldown` en `docker` y `docker-compose` (todas las corridas del lunes dieron `success`). Las dos security updates que fallaron el 24/10 a las 23:07 (vite y `@vitest/mocker`) quedan por mirar en *Insights → Dependency graph → Dependabot*.
+- **Cuando falla:** si esa pestaña muestra un error, lo más probable es el formato (`labels` que no existen en el repo, por eso no se usan). Si un PR de seguridad rompe el build, no se mergea: se mira el changelog y se arregla en la misma rama.
 
 ### 2.2 govulncheck: "Vulnerabilidades (Go)"
 
@@ -140,9 +141,10 @@ Hay una idea común detrás de todas: **ningún chequeo solo alcanza**. Dependab
 - **Detalle que no se puede romper:** el bloque va **solo en la entrada** (`ci.yml`). Un `concurrency` con el mismo grupo dentro de un workflow llamado se bloquea esperándose a sí mismo.
 - **Qué hay que mirar en GitHub:** la concurrencia con los reutilizables no se puede probar en local. Si un PR queda con checks cancelados que nadie canceló, empezar por acá.
 
-### 2.13 Los rulesets (después del merge)
+### 2.13 Los rulesets (cargados el 2026-10-25)
 
-- **Riesgo que cubre:** hoy nada impide pushear sin CI a una rama que despliega, ni reescribir `main`.
+- **Riesgo que cubre:** que nada impida pushear sin CI a una rama que despliega, ni reescribir `main`.
+- **Estado:** ya cargados por API el 2026-10-25, con `enforcement: active` y `bypass_actors` vacío. `25810962` "dev: solo por PR y con el CI en verde (TR-199)" (deletion, non_fast_forward, required_status_checks y pull_request con 0 aprobaciones; merge, squash y rebase permitidos) y `25810963` "main: con el CI en verde, sin force push ni borrado (TR-199)" (las mismas reglas sin pull_request). Los checks llevan `integration_id: 15368` (GitHub Actions), para que ninguna otra integración los pueda satisfacer con un status; `strict_required_status_checks_policy: false`. Se ven con `gh api repos/JuanMuruzabal/Mirage_clinicas/rulesets`.
 - **Qué hacen:** en `dev` y en `main`, sin force push, sin borrado y con los checks de la sección 4 obligatorios. **Sin excepciones, ni para la cuenta administradora** (lo eligió la persona). Efecto práctico: **a `dev` solo se entra por PR**. A `main`, el `git merge --ff-only` desde `dev` sigue funcionando, porque esos commits ya pasaron el CI en `dev`.
 - **Qué se descartó:** una excepción para la cuenta admin (queda el hueco que se quería cerrar), solo prohibir force push y borrado (se puede pushear sin CI a una rama que despliega), y los chequeos que solo avisan (es fácil no verlos).
 - **Cuánto cuesta:** se acabó el push directo a `dev` para un cambio chico. Un aviso alto o crítico recién publicado pone en rojo **todos** los PRs hasta que se arregle.
@@ -178,7 +180,7 @@ Por eso cada una de las 9 líneas lleva `# zizmor: ignore[self-repository]`, y e
 
 ## 4. Los checks obligatorios del ruleset
 
-Los nombres son los que muestra GitHub para un reutilizable (`<id del job que llama> / <nombre del job llamado>`). Los de `ci.yml` hay que **confirmarlos con el primer PR**: son los esperados, y los reales se leen con `gh pr checks`.
+Los nombres son los que muestra GitHub para un reutilizable (`<id del job que llama> / <nombre del job llamado>`). Los nombres reales se confirmaron después del merge del #95 y coinciden con estos ocho; se leen con `gh pr checks`.
 
 | Check | Viene de |
 |---|---|
@@ -193,13 +195,13 @@ Los nombres son los que muestra GitHub para un reutilizable (`<id del job que ll
 
 **Por qué Trivy y Scorecard no lo son:** `seguridad-imagenes.yml` corre en un PR solo si cambió algo que entra en la imagen, y un check obligatorio que no aparece deja el PR esperando para siempre. `seguridad-scorecard.yml` ni siquiera corre en PRs (solo en `dev`). Los dos se cubren con el push a `dev` y la corrida semanal, y sus hallazgos quedan en la pestaña de seguridad.
 
-**`lighthouse` tampoco:** mismo motivo que su ausencia en `needs` del deploy (3.2).
+**`lighthouse` tampoco:** mismo motivo que su ausencia en `needs` del deploy (3.2). Además de estos ocho y de `lighthouse / Presupuesto de rendimiento (Lighthouse)`, `Trivy (api)` y `Trivy (web)`, en un PR aparecen `Analyze (actions|go|javascript-typescript|python)` y `CodeQL`, que tampoco son obligatorios (`Analyze (python)` lo sumó sola la configuración por defecto de CodeQL).
 
 ## 5. Configuración externa
 
 ### 5.1 El token opcional de Scorecard (`SCORECARD_TOKEN`)
 
-Sin él todo funciona: el workflow cae a `github.token` (`repo_token: ${{ secrets.SCORECARD_TOKEN || github.token }}`). Con él, el chequeo *Branch-Protection* puede leer los rulesets y deja de puntuar de menos. Pasos:
+**No hace falta.** El workflow cae a `github.token` (`repo_token: ${{ secrets.SCORECARD_TOKEN || github.token }}`) y, con los rulesets cargados, *Branch-Protection* los leyó igual: pasó de 0 a 3 y vio "PRs are required", el status check y las protecciones contra borrado y force push. Se creyó que sin el token puntuaría de menos y no fue así. Queda como opcional, por si Scorecard llega a necesitar leer más; el respaldo del workflow se queda. Pasos:
 
 1. GitHub → **Settings** (de la cuenta) → **Developer settings** → **Personal access tokens** → **Fine-grained tokens** → *Generate new token*.
 2. **Repository access:** *Only select repositories* y elegir solo este repo.
@@ -207,7 +209,7 @@ Sin él todo funciona: el workflow cae a `github.token` (`repo_token: ${{ secret
 4. **Expiration:** un año. Anotar el vencimiento y poner un recordatorio de renovación.
 5. En el repo: **Settings → Secrets and variables → Actions → New repository secret**, con nombre `SCORECARD_TOKEN` y el token como valor.
 
-Se descartó un token clásico (da más alcance del necesario) y exigir el secreto (el workflow fallaría hasta que alguien lo cargue). Se sacrifica la renovación anual; si vence, Branch-Protection vuelve a puntuar de menos y no se rompe nada más.
+Se descartó un token clásico (da más alcance del necesario) y exigir el secreto (el workflow fallaría hasta que alguien lo cargue). Se sacrifica la renovación anual; si vence, el workflow sigue con `github.token` y no se rompe nada.
 
 ### 5.2 SonarCloud (a futuro)
 
@@ -221,12 +223,41 @@ No está. Si se agrega: crear el proyecto en sonarcloud.io, cargar el secreto `S
 
 ## 6. Lo que solo se ve en GitHub, y hay que mirar después del merge
 
-- **Dependabot:** que soporte pnpm 11 y `cooldown` en `docker` y `docker-compose`. Se ve en su pestaña; si falla, se ajusta el ecosistema afectado.
-- **Los SARIF:** que Trivy (`trivy-api`, `trivy-web`) y Scorecard aparezcan en *Security → Code scanning*.
+**Ya visto (2026-10-25, después del merge del #95):**
+
+- **Dependabot:** soporta pnpm 11 y `cooldown` en `docker` y `docker-compose` (2.1).
+- **Los nombres reales de los checks:** coinciden con la sección 4.
+- **El SARIF de Scorecard** subió y el puntaje está publicado (sección 8).
+- **Los rulesets** están cargados (2.13).
+
+**Pendiente de mirar:**
+
+- **Las dos security updates de Dependabot que fallaron el 24/10 a las 23:07** (vite y `@vitest/mocker`).
+- **El SARIF de Trivy** (`trivy-api`, `trivy-web`) en *Security → Code scanning*.
 - **La concurrencia con los reutilizables** (2.12) y **la caché de pnpm a través de la action compuesta**, incluido el `cache: ''` del job `pnpm audit`.
-- **Los nombres reales de los checks** (sección 4), antes de cargar los rulesets.
-- **Que se cierren las alertas de CodeQL de `dev`** y el puntaje en `scorecard.dev/viewer/?uri=github.com/JuanMuruzabal/Mirage_clinicas`.
+- **Que se cierren las alertas de CodeQL de `dev`.**
 
 ## 7. Verificado antes del PR
 
 actionlint v1.7.12: 0 errores. zizmor 1.31.1: 0 hallazgos (9 `ignore` por `./` y 4 suprimidos con motivo, más 2 pedantes que no fallan). govulncheck con `GOTOOLCHAIN=go1.26.10`: 0. `pnpm audit --audit-level=high`: 0. Trivy 0.76.0 sobre las dos imágenes, tras el arreglo del Dockerfile: 0. Go con `-race` entero en verde, cobertura 83,6 %; web 2367 tests. Contenedores: script de QA 21/0, la web como `node` sin npm/npx/yarn/corepack y con todos sus headers, el `X-Request-Id` del cliente ignorado en el log de la API y los avisos `[mail:dev]` legibles con `slog`.
+
+## 8. El puntaje de Scorecard
+
+Publicado en `api.securityscorecards.dev` (también en `scorecard.dev/viewer/?uri=github.com/JuanMuruzabal/Mirage_clinicas`): **5,7 en el merge del #95 y 6,0 después de cargar los rulesets** y relanzar el workflow. El detalle:
+
+| Chequeo | Puntaje | Nota |
+|---|---|---|
+| Dangerous-Workflow, Token-Permissions, Binary-Artifacts, Security-Policy, Dependency-Update-Tool, CI-Tests | 10 | Dependency-Update-Tool se mantiene por tener el archivo de Dependabot, aunque abra solo PRs de seguridad |
+| Vulnerabilities | 9 | GO-2026-5932 (`x/crypto/openpgp`): sin arreglo y sin usar |
+| SAST | 7 | 21 de 30 commits con CodeQL; sube a medida que entran commits nuevos |
+| Pinned-Dependencies | 4 | Los `FROM` de los Dockerfiles van por etiqueta, no por digest |
+| Branch-Protection | 3 | Con 0 aprobaciones por PR |
+| Contributors | 3 | |
+| Maintained, Code-Review, Fuzzing, License, CII-Best-Practices | 0 | Maintained: el repo tiene menos de 90 días (es del 24/08). Code-Review: 0 de 6 PRs aprobados |
+| Packaging, Signed-Releases | -1 | No cuentan |
+
+**Cómo subirlo** (las cifras son una estimación con los pesos de Scorecard; lo único verificado en local, con el CLI v5.6.0, es lo del `osv-scanner.toml`):
+
+- **Solo, con el tiempo:** Maintained pasa de 0 a 10 el 22/11 y SAST de 7 a 10 a medida que entran commits con CodeQL. Con eso, ~7.
+- **Con un PR técnico pendiente:** fijar por digest los `FROM` de los Dockerfiles (Pinned de 4 a 10); tests de fuzzing de Go sobre los parsers de datos de afuera (Fuzzing de 0 a 10); un `apps/api/osv-scanner.toml` que ignore GO-2026-5932 con su motivo (Vulnerabilities de 9 a 10, verificado en local: Scorecard lo respeta). Con eso, ~8.
+- **Decisiones de la persona, todavía sin tomar:** exigir 1 aprobación por PR (Branch-Protection y Code-Review), el badge de OpenSSF Best Practices y una licencia (el repo es público y no tiene). Con todo eso, ~9,5.
