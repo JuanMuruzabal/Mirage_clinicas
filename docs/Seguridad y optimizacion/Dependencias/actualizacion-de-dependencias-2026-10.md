@@ -108,11 +108,11 @@ El lockfile conserva las versiones nuevas porque entran dentro de los rangos de 
 | **Zod 3, GHSA-mrhx-c7xc-m3w5** | Resuelto en la tanda B (sección 10): Zod 4.6.7. `pnpm audit` da 0 | Hecho |
 | **`braces`, GHSA-vfj7-8cjw-p6xm** | Aviso retirado por GitHub, sin arreglo; llega solo por `eslint-config-next` | Descartarlo a mano en GitHub como inexacto |
 | **`x/crypto/openpgp`, GO-2026-5932** | Paquete sin mantenimiento, que no importamos, sin arreglo | Nada (aparece en `govulncheck -show verbose`) |
-| **Cinco alertas de code scanning (CodeQL) en `dev`**, ninguna explotable | Ver `Codigo/alertas-de-codeql.md` | Ítem de CI |
-| **Actualizaciones de seguridad de Dependabot** | Están apagadas en el repo | Ítem de CI |
+| **Cinco alertas de code scanning (CodeQL) en `dev`**, ninguna explotable | Ver `Codigo/CodeQL/alertas-de-codeql-2026-10-25.md` | Resuelto en el ítem de CI (TR-199) |
+| **Actualizaciones de seguridad de Dependabot** | Están apagadas en el repo | Prendidas en el ítem de CI (TR-199) |
 | **`middleware` → `proxy`** (deprecación de Next 16.0; `proxy` corre siempre en Node) | Es lo que pone la CSP con nonce y los headers de seguridad: cambia de runtime | Se suma al PR de cambios del frontend |
 
-El detalle de las cinco alertas de CodeQL abiertas en `dev` está en [`../Codigo/alertas-de-codeql.md`](../Codigo/alertas-de-codeql.md): son del código propio, no de dependencias.
+El detalle de las cinco alertas de CodeQL abiertas en `dev` está en [`../Codigo/CodeQL/alertas-de-codeql-2026-10-25.md`](../Codigo/CodeQL/alertas-de-codeql-2026-10-25.md): son del código propio, no de dependencias.
 
 Las alertas de `missing-workflow-permissions` de `ci.yml` estaban en `main`, no en `dev`: ya las arregló TR-178.
 
