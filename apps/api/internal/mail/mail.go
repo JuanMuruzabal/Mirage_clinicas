@@ -19,6 +19,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"dental-mirage/api/internal/security"
 )
 
 // Sender es la interfaz que consume internal/http/auth.go y onboarding.go
@@ -72,32 +74,32 @@ type TurnoConfirmadoInfo struct {
 type LogSender struct{}
 
 func (LogSender) SendVerificationEmail(_ context.Context, to, code string) error {
-	slog.Info("[mail:dev] código de verificación", "para", to, "codigo", code)
+	slog.Info("[mail:dev] código de verificación", "para", security.SinSaltosDeLinea(to), "codigo", security.SinSaltosDeLinea(code))
 	return nil
 }
 
 func (LogSender) SendPasswordResetEmail(_ context.Context, to, resetURL string) error {
-	slog.Info("[mail:dev] recuperación de contraseña", "para", to, "url", resetURL)
+	slog.Info("[mail:dev] recuperación de contraseña", "para", security.SinSaltosDeLinea(to), "url", security.SinSaltosDeLinea(resetURL))
 	return nil
 }
 
 func (LogSender) SendWelcomeEmail(_ context.Context, to, nombre string) error {
-	slog.Info("[mail:dev] bienvenida", "para", to, "nombre", nombre)
+	slog.Info("[mail:dev] bienvenida", "para", security.SinSaltosDeLinea(to), "nombre", security.SinSaltosDeLinea(nombre))
 	return nil
 }
 
 func (LogSender) SendTurnoVerificationEmail(_ context.Context, to, code, nombreClinica string) error {
-	slog.Info("[mail:dev] código de verificación de turno", "clinica", nombreClinica, "para", to, "codigo", code)
+	slog.Info("[mail:dev] código de verificación de turno", "clinica", security.SinSaltosDeLinea(nombreClinica), "para", security.SinSaltosDeLinea(to), "codigo", security.SinSaltosDeLinea(code))
 	return nil
 }
 
 func (LogSender) SendInvitacionColaboradorEmail(_ context.Context, to string, info InvitacionColaboradorInfo) error {
-	slog.Info("[mail:dev] invitación", "clinica", info.NombreClinica, "rol", info.Rol, "para", to, "url", info.URL)
+	slog.Info("[mail:dev] invitación", "clinica", security.SinSaltosDeLinea(info.NombreClinica), "rol", security.SinSaltosDeLinea(info.Rol), "para", security.SinSaltosDeLinea(to), "url", security.SinSaltosDeLinea(info.URL))
 	return nil
 }
 
 func (LogSender) SendTurnoConfirmadoEmail(_ context.Context, to string, info TurnoConfirmadoInfo) error {
-	slog.Info("[mail:dev] turno confirmado", "clinica", info.NombreClinica, "para", to, "fecha", info.Fecha, "hora_inicio", info.HoraInicio, "hora_fin", info.HoraFin, "tipo_consulta", info.TipoConsulta)
+	slog.Info("[mail:dev] turno confirmado", "clinica", security.SinSaltosDeLinea(info.NombreClinica), "para", security.SinSaltosDeLinea(to), "fecha", security.SinSaltosDeLinea(info.Fecha), "hora_inicio", security.SinSaltosDeLinea(info.HoraInicio), "hora_fin", security.SinSaltosDeLinea(info.HoraFin), "tipo_consulta", security.SinSaltosDeLinea(info.TipoConsulta))
 	return nil
 }
 
