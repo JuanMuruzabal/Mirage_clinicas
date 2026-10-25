@@ -1,6 +1,6 @@
 # Alertas de code scanning (CodeQL) en `dev`: ronda del 2026-10-25
 
-**PRISMA · Seguridad y optimización / Código / CodeQL** · TR-199 en `docs/Arquitectura y base/tradeoffs.md`
+**PRISMA · Seguridad y optimización / Código / CodeQL** · TR-199 y TR-200 en `docs/Arquitectura y base/tradeoffs.md`
 
 Cuando la rama por defecto de GitHub pasó a `dev` (2026-10-24), CodeQL empezó a mirar lo que realmente se integra (ver `../../Dependencias/actualizacion-de-dependencias-2026-10.md`, sección 2). Se abrieron 5 alertas sobre **nuestro código**. Al prender el conjunto `security-extended` ese mismo día aparecieron 13 más. Esta es la ronda que las cierra, ítem 4 del plan (el CI y la seguridad del repo, `../../CI/ci-de-seguridad.md`).
 
@@ -72,18 +72,21 @@ CodeQL detectó que un dato de afuera llega a un log sin que se escapen los salt
   - **Dónde:** los tres avisos `[simulado]` de `turno_publico.go` (mail con muchos DNIs, tope de DNI y tipo, rotación por IP) y los de `LogSender` en `mail.go`, el enviador de mails de desarrollo.
   - **Era explotable:** no en producción. Los `[simulado]` solo corren con las herramientas de desarrollo, y `LogSender` solo se usa sin Resend, es decir, en localhost. El log de requests de producción ya usa `slog`, que escapa.
   - **Qué se arregló:** pasaron a `slog` con atributos (`slog.Info("[mail:dev] bienvenida", "para", to, "nombre", nombre)`), que escapa los saltos de línea. **Pero `slog` solo no cerró las alertas:** en el análisis del PR #95 CodeQL siguió marcando 8 (#24 a #31, 3 en `turno_publico.go` y 5 en `mail.go`), porque no modela el escape de los handlers. Lo que reconoce como saneador es un `strings.ReplaceAll` con el literal exacto `"\r"` o `"\n"` (`ReplaceSanitizer`, en `LogInjectionCustomizations.qll` de CodeQL). Por eso los valores string pasan además por `security.SinSaltosDeLinea` (`internal/security/log.go`). Tests: `TestSinSaltosDeLinea` y `TestLogSender_UnRenglonPorAvisoAunqueElDatoTraigaSaltos`. Son **3** llamadas en `turno_publico.go` y **6** en `mail.go`: CodeQL marcó 5 de las 6 de `LogSender`, pero se migraron todas para que el archivo no mezcle dos formas de loguear. Los avisos siguen siendo legibles (se comprobó en contenedores con `[mail:dev]` de bienvenida y de recuperación).
-- **La novena, el `request_id`:**
-  - **Dónde:** el log de requests de `apps/api/internal/http/logging.go` escribe el `request_id`, y ese id lo toma `middleware.RequestID` de chi del header `X-Request-Id` **que mande el cliente**.
-  - **Era explotable:** no daba acceso a nada, pero como la API es pública cualquiera podía elegir el id de su request, o copiar el de otro, y confundir a quien rastrea un pedido en los logs. El BFF no manda ese header, así que descartarlo no pierde nada.
-  - **Qué se arregló:** no se tocó `logging.go`. Se agregó `descartarRequestIDEntrante` en `apps/api/internal/http/router.go` (registrado en la línea 52 y definido en la 206), un middleware que borra el `X-Request-Id` entrante **antes** de `middleware.RequestID`, así el id lo genera siempre el servidor. Mismo criterio que `ip_del_visitante.go` con las cabeceras de la IP.
-  - **Por qué no validarlo contra un patrón:** aceptarlo, aunque sea con formato válido, sigue dejando que el cliente elija el id. Y nadie lo necesita.
-  - **Tests:** `request_id_test.go` prueba la cadena del middleware (con un caso de control sin él, que muestra que el test mide algo real) y el router real de punta a punta: el `request_id` del cliente no aparece en el log.
+- **La novena, la IP del log de requests (corregido en TR-200):**
+  - **Dónde:** el log de requests de `apps/api/internal/http/logging.go` escribe el atributo `ip`. El SARIF del análisis de `dev` marca como **fuente** `auth.go:249` y `:252`, las lecturas de `CF-Connecting-IP` y `X-Forwarded-For` en `clientIPConFuente`. Esta ronda (y la primera versión de este documento) creyó que la alerta era por el `request_id`; no lo era.
+  - **Era explotable:** poco. Para `cf` y `xff` la IP ya pasó por `net.ParseIP`, pero `xff-interna` devuelve el último tramo de la cadena sin validar.
+  - **Qué se arregló, primero (no cerró la alerta):** `descartarRequestIDEntrante` en `apps/api/internal/http/router.go`, un middleware que borra el `X-Request-Id` entrante **antes** de `middleware.RequestID`, así el id lo genera siempre el servidor (la API es pública y cualquiera podía elegir el id de su request). Mismo criterio que `ip_del_visitante.go` con las cabeceras de la IP. **Sigue siendo un refuerzo válido**, pero no era el arreglo de esta alerta, que siguió abierta en `dev` (#15).
+  - **Qué la cerró (TR-200):** en `logging.go`, el atributo `ip` pasa por `security.SinSaltosDeLinea`, la regla de siempre: si CodeQL marca el valor, va por ahí. `clientIPConFuente` no cambia, así que el rate limit y los detectores de abuso reciben la IP como antes.
+  - **Por qué no se saneó adentro de `clientIPConFuente`:** cambiaría lo que ven el rate limit y los detectores, y la IP solo necesita saneo donde se loguea.
+  - **Por qué no se vio en el PR #95:** el análisis de un PR solo informa las alertas de las líneas que cambian, y `logging.go` no cambió.
+  - **Tests:** `request_id_test.go` (la cadena del middleware, con un caso de control sin él, y el router real de punta a punta) y los de logging y `clientIP` que ya había; la suite entera con `-race` pasa.
 
 ## Qué se descartó como camino
 
 - **Descartar las 9 de `log-injection` como falsos positivos:** 8 tenían un arreglo trivial (y descartar por huella puede tapar una regresión en la misma línea).
 - **Sacar los datos de esos logs:** son de desarrollo y de QA, y sin ellos los avisos no sirven.
 - **Validar el `X-Request-Id`** contra un patrón en vez de borrarlo (ver arriba).
+- **Sanear adentro de `clientIPConFuente`** en vez de en el log (ver arriba).
 
 ## Lección
 
@@ -92,3 +95,5 @@ CodeQL detectó que un dato de afuera llega a un log sin que se escapen los salt
 ## Cuando salga una alerta nueva
 
 Una ronda futura va en **un archivo nuevo con su fecha** (`alertas-de-codeql-AAAA-MM-DD.md`), en esta misma carpeta, y no pisa este: el historial queda sin tocar. De cada alerta, el mismo formato: qué detectó CodeQL, si era explotable de verdad y qué se arregló o por qué se descartó.
+
+**Y un arreglo en un archivo que el PR no toca se confirma en el análisis de `dev`** (TR-200). El análisis de un PR solo informa las alertas de las líneas que cambian: la #15 de `go/log-injection` parecía resuelta en el #95 y siguió abierta en `dev`, porque el archivo con el `log` (`logging.go`) no estaba en el diff y la fuente (`auth.go`) estaba en otro. Ante una alerta, mirá en el SARIF cuál es la **fuente** y cuál el **destino**, y después del merge fijate que quede `fixed`.

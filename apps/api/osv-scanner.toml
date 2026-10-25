@@ -1,0 +1,8 @@
+# Vulnerabilidades que no nos afectan, para OSV y para el chequeo
+# Vulnerabilities de OpenSSF Scorecard (TR-200). Cada una con su motivo y
+# un vencimiento: al llegar la fecha vuelve a contar y hay que revisarla.
+
+[[IgnoredVulns]]
+id = "GO-2026-5932"
+ignoreUntil = 2027-04-25
+reason = "golang.org/x/crypto/openpgp: paquete sin mantenimiento y sin arreglo publicado. La API no lo importa (solo usa argon2 y otros paquetes del módulo x/crypto), y govulncheck, que mira las llamadas, no lo reporta."

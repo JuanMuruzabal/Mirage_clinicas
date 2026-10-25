@@ -1,6 +1,6 @@
 # El CI y la seguridad del repositorio
 
-**PRISMA · Seguridad y optimización / CI** · 2026-10-25 · TR-199 en `docs/Arquitectura y base/tradeoffs.md`
+**PRISMA · Seguridad y optimización / CI** · 2026-10-25 · TR-199 y TR-200 en `docs/Arquitectura y base/tradeoffs.md`
 
 Este documento explica **qué corre en GitHub cada vez que se toca el repo, por qué corre y qué hacer cuando falla**. Está en su propia carpeta porque el CI cruza las otras dos: revisa dependencias (`../Dependencias/`) y código propio (`../Codigo/`). La idea es que cuando un chequeo se ponga en rojo se entienda qué protege **antes** de saltearlo.
 
@@ -30,7 +30,7 @@ Antes era un solo `ci.yml` de ~240 líneas. Ahora `ci.yml` es la puerta de entra
 ### Los otros dos
 
 - **`.github/actions/preparar-pnpm/`**: no es un workflow, es una pieza que usan los demás (pnpm, Node y, si hace falta, las dependencias). Así hay una sola copia en vez de cuatro.
-- **`.github/dependabot.yml`**: qué revisa Dependabot (npm, Go, GitHub Actions, Docker y docker-compose). **Desde el 2026-10-25 solo abre PRs de seguridad** (`open-pull-requests-limit: 0`); las versiones se actualizan en rondas a mano (sección 2.1).
+- **`.github/dependabot.yml`**: qué revisa Dependabot (npm, Go, GitHub Actions, Docker y docker-compose). **Desde el 2026-10-25 no abre ningún PR: solo deja alertas** (`open-pull-requests-limit: 0` y las actualizaciones automáticas de seguridad apagadas); las versiones se actualizan en rondas a mano (sección 2.1).
 
 > **La nota que importa:** todo lo de `ci-*` y `seguridad.yml` frena el merge cuando están cargadas las reglas de rama. `seguridad-imagenes` y `seguridad-scorecard` avisan y quedan registrados, pero **no pueden ser obligatorios**, porque no corren en todos los PRs (ver la sección 4).
 
@@ -38,16 +38,17 @@ Antes era un solo `ci.yml` de ~240 líneas. Ahora `ci.yml` es la puerta de entra
 
 Hay una idea común detrás de todas: **ningún chequeo solo alcanza**. Dependabot no ve la biblioteca estándar de Go (en la ronda de dependencias eran ~20 avisos, TR-197); `pnpm audit` avisó de Zod antes que Dependabot (TR-198); Trivy ve el sistema operativo de las imágenes, que ningún otro mira; zizmor ve los workflows, que ningún otro mira. Cada uno tapa un hueco de los demás.
 
-### 2.1 Dependabot (solo seguridad)
+### 2.1 Dependabot (solo alertas)
 
-- **Riesgo que cubre:** una dependencia con un aviso de seguridad ya publicado que nadie se entera de que tiene arreglo.
-- **Qué hace:** `.github/dependabot.yml` declara los cinco ecosistemas del repo (npm, `gomod`, `github-actions`, `docker` con los dos Dockerfiles y `docker-compose` con el Postgres) con `open-pull-requests-limit: 0`. **El límite 0 bloquea solo las actualizaciones de versión**: las de seguridad (que están prendidas aparte) siguen saliendo, una por aviso con arreglo, contra la rama por defecto (`dev`) y sin esperar al lunes. El archivo se queda a propósito: Scorecard puntúa 10 en Dependency-Update-Tool por tenerlo.
-- **Por qué solo seguridad:** el primer lunes después del merge del #95 abrió 11 PRs de versión (#96 a #106), casi todos de mayores: TypeScript 7, ESLint 10, Node 25 (no es LTS), `@types/node` 26 (con Node 22 en runtime), `@vitest/coverage-v8` 5 (sin vitest 5) y 5 actions. El equipo prefiere actualizar en rondas hechas a mano (TR-197, TR-198). Los 11 se cerraron con un comentario del motivo.
-- **Qué se descartó:** agrupar las de versión una vez por mes (seguían llegando PRs de mayores, unos 5 por mes) y apagarlo todo borrando el archivo (se perdían los PRs de seguridad y Scorecard bajaba ~0,8).
-- **Qué se sacrifica:** nada avisa de una versión mayor nueva salvo que traiga un aviso de seguridad; hay que acordarse de hacer la ronda. La configuración de grupos (menores y parches juntos, mayores solas) y `cooldown: 7` (la misma regla que `minimumReleaseAge` de pnpm, TR-197) queda dormida, lista para cuando se suba el límite.
-- **Cómo volver a prender las de versión:** subir `open-pull-requests-limit` (por ejemplo a 5) en el ecosistema que se quiera. No hace falta tocar nada más.
-- **Visto después del merge:** Dependabot soporta pnpm 11 y el `cooldown` en `docker` y `docker-compose` (todas las corridas del lunes dieron `success`). Las dos security updates que fallaron el 24/10 a las 23:07 (vite y `@vitest/mocker`) quedan por mirar en *Insights → Dependency graph → Dependabot*.
-- **Cuando falla:** si esa pestaña muestra un error, lo más probable es el formato (`labels` que no existen en el repo, por eso no se usan). Si un PR de seguridad rompe el build, no se mergea: se mira el changelog y se arregla en la misma rama.
+- **Riesgo que cubre:** una dependencia con un aviso de seguridad ya publicado que nadie se entera de que existe.
+- **Qué hace:** `.github/dependabot.yml` declara los cinco ecosistemas del repo (npm, `gomod`, `github-actions`, `docker` con los dos Dockerfiles y `docker-compose` con el Postgres) con `open-pull-requests-limit: 0`. **El límite 0 bloquea las actualizaciones de versión**, y las actualizaciones automáticas de seguridad se apagaron por API (`DELETE /automated-security-fixes`, 2026-10-25), así que **no sale ningún PR**. Las **alertas** (`vulnerability-alerts`) siguen prendidas y aparecen en la pestaña *Security and quality*. El archivo se queda a propósito: Scorecard puntúa 10 en Dependency-Update-Tool por tenerlo.
+- **Por qué solo alertas:** el primer lunes después del merge del #95 abrió 11 PRs de versión (#96 a #106), casi todos de mayores: TypeScript 7, ESLint 10, Node 25 (no es LTS), `@types/node` 26 (con Node 22 en runtime), `@vitest/coverage-v8` 5 (sin vitest 5) y 5 actions. El equipo prefiere actualizar en rondas hechas a mano (TR-197, TR-198). Los 11 se cerraron con un comentario del motivo. Después la persona pidió también apagar los PRs de seguridad: prefiere arreglar cada aviso en una sesión, con el flujo de siempre (plan, revisión, tests, PR), en vez de PRs automáticos que mergear (TR-200).
+- **Cómo se enteran las alertas:** se revisan a mano en la pestaña *Security and quality*. No se sigue el repo con Watch ni se corre `seguridad.yml` a diario (se probó y se volvió atrás). Un aviso nuevo se ve cuando alguien abre la pestaña, cuando falla la corrida del lunes o con el próximo PR, porque `govulncheck` y `pnpm audit` frenan ante un aviso alto.
+- **Qué se descartó:** agrupar las de versión una vez por mes (seguían llegando PRs de mayores, unos 5 por mes) dejar los PRs de seguridad (traían el arreglo hecho, pero la persona prefiere hacerlo en una sesión) y borrar el archivo (no cambiaba nada en los PRs, que ya están apagados, y Scorecard bajaba ~0,8).
+- **Qué se sacrifica:** un aviso de seguridad ya no trae el arreglo armado: alguien tiene que abrir la sesión y hacerlo, y nada avisa de una versión mayor nueva; hay que acordarse de hacer la ronda. La configuración de grupos (menores y parches juntos, mayores solas) y `cooldown: 7` (la misma regla que `minimumReleaseAge` de pnpm, TR-197) queda dormida, lista para cuando se suba el límite.
+- **Cómo volver atrás:** para las de versión, subir `open-pull-requests-limit` (por ejemplo a 5) en el ecosistema que se quiera; para las de seguridad, prenderlas en *Settings → Code security*. No hace falta tocar nada más.
+- **Visto después del merge:** Dependabot soporta pnpm 11 y el `cooldown` en `docker` y `docker-compose` (todas las corridas del lunes dieron `success`). Las dos security updates que fallaron el 24/10 a las 23:07 (vite y `@vitest/mocker`) ya no importan: sus alertas quedaron `fixed` con la ronda de dependencias (#93 y #94).
+- **Cuando falla:** si *Insights → Dependency graph → Dependabot* muestra un error, lo más probable es el formato (`labels` que no existen en el repo, por eso no se usan).
 
 ### 2.2 govulncheck: "Vulnerabilidades (Go)"
 
@@ -113,7 +114,7 @@ Hay una idea común detrás de todas: **ningún chequeo solo alcanza**. Dependab
 - **Por qué:** el conjunto estándar no vio nada de lo que `extended` marcó, y las 13 alertas nuevas eran todas arreglables a bajo costo.
 - **Qué se descartó:** el conjunto estándar solo (menos ruido, menos cobertura).
 - **Cuánto cuesta:** algo más de ruido; lo corre GitHub, no suma al tiempo del CI.
-- **Cuando falla:** en `Security → Code scanning`. Las 17 alertas de esta ronda están explicadas una por una en `../Codigo/CodeQL/alertas-de-codeql-2026-10-25.md`.
+- **Cuando falla:** en `Security → Code scanning`. Las 17 alertas de esta ronda están explicadas una por una en `../Codigo/CodeQL/alertas-de-codeql-2026-10-25.md`. **Un arreglo en un archivo que el PR no toca se confirma en el análisis de `dev`**, no en el del PR: el de un PR solo informa las alertas de las líneas que cambian (la #15 de `go/log-injection` siguió abierta por eso, TR-200).
 
 ### 2.9 Las actions fijadas por SHA
 
@@ -227,12 +228,11 @@ No está. Si se agrega: crear el proyecto en sonarcloud.io, cargar el secreto `S
 
 - **Dependabot:** soporta pnpm 11 y `cooldown` en `docker` y `docker-compose` (2.1).
 - **Los nombres reales de los checks:** coinciden con la sección 4.
-- **El SARIF de Scorecard** subió y el puntaje está publicado (sección 8).
+- **El SARIF de Scorecard** subió y el puntaje está publicado (`scorecard.md`).
 - **Los rulesets** están cargados (2.13).
 
 **Pendiente de mirar:**
 
-- **Las dos security updates de Dependabot que fallaron el 24/10 a las 23:07** (vite y `@vitest/mocker`).
 - **El SARIF de Trivy** (`trivy-api`, `trivy-web`) en *Security → Code scanning*.
 - **La concurrencia con los reutilizables** (2.12) y **la caché de pnpm a través de la action compuesta**, incluido el `cache: ''` del job `pnpm audit`.
 - **Que se cierren las alertas de CodeQL de `dev`.**
@@ -243,21 +243,4 @@ actionlint v1.7.12: 0 errores. zizmor 1.31.1: 0 hallazgos (9 `ignore` por `./` y
 
 ## 8. El puntaje de Scorecard
 
-Publicado en `api.securityscorecards.dev` (también en `scorecard.dev/viewer/?uri=github.com/JuanMuruzabal/Mirage_clinicas`): **5,7 en el merge del #95 y 6,0 después de cargar los rulesets** y relanzar el workflow. El detalle:
-
-| Chequeo | Puntaje | Nota |
-|---|---|---|
-| Dangerous-Workflow, Token-Permissions, Binary-Artifacts, Security-Policy, Dependency-Update-Tool, CI-Tests | 10 | Dependency-Update-Tool se mantiene por tener el archivo de Dependabot, aunque abra solo PRs de seguridad |
-| Vulnerabilities | 9 | GO-2026-5932 (`x/crypto/openpgp`): sin arreglo y sin usar |
-| SAST | 7 | 21 de 30 commits con CodeQL; sube a medida que entran commits nuevos |
-| Pinned-Dependencies | 4 | Los `FROM` de los Dockerfiles van por etiqueta, no por digest |
-| Branch-Protection | 3 | Con 0 aprobaciones por PR |
-| Contributors | 3 | |
-| Maintained, Code-Review, Fuzzing, License, CII-Best-Practices | 0 | Maintained: el repo tiene menos de 90 días (es del 24/08). Code-Review: 0 de 6 PRs aprobados |
-| Packaging, Signed-Releases | -1 | No cuentan |
-
-**Cómo subirlo** (las cifras son una estimación con los pesos de Scorecard; lo único verificado en local, con el CLI v5.6.0, es lo del `osv-scanner.toml`):
-
-- **Solo, con el tiempo:** Maintained pasa de 0 a 10 el 22/11 y SAST de 7 a 10 a medida que entran commits con CodeQL. Con eso, ~7.
-- **Con un PR técnico pendiente:** fijar por digest los `FROM` de los Dockerfiles (Pinned de 4 a 10); tests de fuzzing de Go sobre los parsers de datos de afuera (Fuzzing de 0 a 10); un `apps/api/osv-scanner.toml` que ignore GO-2026-5932 con su motivo (Vulnerabilities de 9 a 10, verificado en local: Scorecard lo respeta). Con eso, ~8.
-- **Decisiones de la persona, todavía sin tomar:** exigir 1 aprobación por PR (Branch-Protection y Code-Review), el badge de OpenSSF Best Practices y una licencia (el repo es público y no tiene). Con todo eso, ~9,5.
+Tiene su propio documento: [`scorecard.md`](scorecard.md). Explica qué mide cada chequeo, el puntaje publicado (6,0 antes de la ronda de TR-200), lo que se hizo para subirlo, lo que se decidió no hacer, lo que queda pendiente de la persona y cómo medirlo en local.

@@ -8,6 +8,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+
+	"dental-mirage/api/internal/security"
 )
 
 // Logging estructurado — Fase B de la auditoría (2026-09-08, docs/Seguridad
@@ -117,7 +119,8 @@ func loggerMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
 					slog.Int("status", ww.Status()),
 					slog.Int64("duracion_ms", time.Since(inicio).Milliseconds()),
 					slog.Int("bytes", ww.BytesWritten()),
-					slog.String("ip", ipLogueada),
+					// La IP sale de cabeceras del cliente y, en xff-interna, sin validar: se sanea antes de loguearla (CodeQL go/log-injection, TR-199).
+					slog.String("ip", security.SinSaltosDeLinea(ipLogueada)),
 					// Fase 3.1.2: de dónde salió esa IP. Permite comprobar
 					// en un deploy real si la cadena de proxies es la que
 					// suponemos, en vez de deducirla — que fue exactamente
