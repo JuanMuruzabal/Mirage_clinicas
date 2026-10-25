@@ -826,7 +826,16 @@ Ronda puntual sobre lo que no escribimos nosotros. Documento: `docs/Seguridad y 
 | **Espera de 7 días para versiones nuevas de npm** | ✅ `minimumReleaseAge` |
 | **Zod 3 → 4 (GHSA-mrhx-c7xc-m3w5)** | ✅ Zod 4.6.7, exporte nativo con `io: "output"` y paridad 5899/5899 con Go (TR-198) |
 | **Carpeta de seguridad separada en `Dependencias/` y `Codigo/`** | ✅ TR-198 |
-| **Dependabot de seguridad, code scanning en `dev` (5 alertas no explotables, `Codigo/alertas-de-codeql.md`)** | ⏸ ítem de CI |
+| **Dependabot de seguridad y code scanning en `dev`** | ✅ pasó al ítem 4 (12.8, TR-199) |
+
+### 12.8 El CI y la seguridad del repo (2026-10-25)
+
+Ítem 4 de la nota de seguridad: lo que TR-197 y TR-198 dejaron para el CI. Documento: `docs/Seguridad y optimizacion/CI/ci-de-seguridad.md`; decisiones: TR-199.
+
+| | Estado |
+|---|---|
+| **Dependabot de seguridad y code scanning en `dev` (5 alertas no explotables más 13 de `extended`)** | ✅ ítem 4 (TR-199): Dependabot de versión y de seguridad, `govulncheck`/`pnpm audit`/`dependency-review`/zizmor bloqueantes, Trivy por imagen, Scorecard con `SECURITY.md`, CodeQL `extended` con sus 17 alertas de código arregladas (`Codigo/CodeQL/alertas-de-codeql-2026-10-25.md`), las actions por SHA y el CI separado en `ci-*` y `seguridad-*` (`CI/ci-de-seguridad.md`) |
+| **Rulesets en `dev` y `main` (a `dev` solo por PR, sin excepciones)** | ⏸ se cargan por API después de mergear el PR del ítem 4, con los nombres reales de los checks |
 
 ## 13. Fase 3 — Multi-tenant (N profesionales / N clínicas)
 

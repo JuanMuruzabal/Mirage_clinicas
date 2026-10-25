@@ -37,7 +37,7 @@ describe("familiaDelTitulo", () => {
 describe("fuenteDelTitulo", () => {
   it("pide el CSS a Google Fonts, baja el TTF y lo recuerda", async () => {
     const fetchMock = vi.fn(async (url: string) =>
-      url.startsWith("https://fonts.googleapis.com")
+      new URL(url).hostname === "fonts.googleapis.com"
         ? new Response("@font-face { src: url(https://fonts.gstatic.com/x.ttf) format('truetype'); }")
         : new Response(new Uint8Array([1, 2, 3])),
     );

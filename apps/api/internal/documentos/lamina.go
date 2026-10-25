@@ -40,7 +40,7 @@ func init() {
 	}
 	anchosHelvetica = make(map[rune]int, len(m.Anchos))
 	for clave, ancho := range m.Anchos {
-		codigo, err := strconv.Atoi(clave)
+		codigo, err := strconv.ParseInt(clave, 10, 32)
 		if err != nil {
 			panic(fmt.Sprintf("documentos: métricas de Helvetica: clave %q", clave))
 		}

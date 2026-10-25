@@ -19,233 +19,43 @@ on:
 permissions:
   contents: read
 
+# Un PR nuevo cancela la corrida vieja del mismo PR: ya no le importa a
+# nadie. Un push nunca se cancela, porque el de `dev` dispara el deploy.
+# Va SOLO acá: un workflow llamado con el mismo grupo se bloquearía
+# esperándose a sí mismo.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# Cada parte vive en su propio workflow reutilizable (ci-*.yml), y este
+# archivo es la entrada: los disparadores, la concurrencia y el deploy. Se
+# llaman en vez de ser workflows sueltos porque `needs` no cruza
+# workflows, y el deploy tiene que esperar a los cuatro jobs de abajo.
+# Ninguno recibe secretos.
+#
+# Las llamadas van con `./` y no con la sintaxis `$/` que pide zizmor
+# (self-repository): actionlint 1.7.12 todavía no la reconoce y deja de
+# validar la llamada. Un reutilizable con `./` ya se resuelve en el mismo
+# commit, y una action local se lee después del checkout, sin otro paso
+# antes que pueda cambiarla.
 jobs:
   web:
-    name: web (lint + typecheck + build)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 11
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      # PE-1 (docs/Fases post MVP/Prisma Engine/plan-prisma-engine.md): lo
-      # que engine:generar produce (JSON Schema de cada módulo + catálogo de
-      # temas, copiados a apps/api/internal/prismaengine/) se commitea, no se
-      # arma solo en el build — si alguien edita un schema.ts o
-      # catalogo/temas.json sin correr `pnpm engine:generar`, el backend
-      # quedaría validando contra un catálogo desactualizado sin que nada lo
-      # avise. Solo escribe JSON (no compila Go), así que no hace falta
-      # setup-go acá — eso lo cubre el job `api`.
-      - name: Regenerar el catálogo de Prisma Engine y verificar que no cambió
-        run: |
-          pnpm run engine:generar
-          git diff --exit-code -- packages/prisma-engine/catalogo apps/api/internal/prismaengine || {
-            echo "::error::pnpm engine:generar produjo un resultado distinto al commiteado — correlo local y commiteá la diferencia.";
-            exit 1;
-          }
-
-      # Fase 5.1 (TR-183): las plantillas de los documentos clínicos y
-      # sus fixtures, copiadas a apps/api/internal/documentos/. Mismo
-      # criterio que el catálogo de Prisma Engine: si alguien cambia una
-      # plantilla sin regenerar, la API validaría y congelaría el texto
-      # contra una versión vieja. Con la lámina (TR-187) también van los
-      # casos de composición y la tabla de anchos con la que compone Go.
-      - name: Regenerar las plantillas de documentos clínicos y verificar que no cambiaron
-        run: |
-          pnpm run documentos:generar
-          git diff --exit-code -- apps/api/internal/documentos/plantillas apps/api/internal/documentos/fixtures apps/api/internal/documentos/composicion apps/api/internal/documentos/metricas-helvetica.json || {
-            echo "::error::pnpm documentos:generar produjo un resultado distinto al commiteado — correlo local y commiteá la diferencia.";
-            exit 1;
-          }
-
-      - name: Validar plantillas y presets de Prisma Engine
-        run: pnpm run validar:plantillas
-
-      - name: Lint
-        run: pnpm run lint:web
-
-      - name: Typecheck (web)
-        run: pnpm run typecheck:web
-
-      - name: Typecheck (shared-types)
-        run: pnpm run typecheck:shared-types
-
-      - name: Typecheck (prisma-engine)
-        run: pnpm run typecheck:prisma-engine
-
-      - name: Test (prisma-engine)
-        run: pnpm run test:prisma-engine
-
-      - name: Typecheck (documentos-clinicos)
-        run: pnpm run typecheck:documentos-clinicos
-
-      - name: Test (documentos-clinicos, con su gate de 80%)
-        run: pnpm run test:documentos-clinicos
-
-      - name: Build
-        # Un reintento (PP-7): `next build` (Turbopack) falla a veces al
-        # procesar las fuentes de Google ("next/font/google queries have
-        # exactly one entry"), sin que el código tenga nada — pasó en #61, #62
-        # y #67 y siempre anduvo al relanzar. Si falla de verdad, falla dos veces.
-        run: pnpm run build:web || { echo "::warning::next build falló; reintentando una vez (fuentes de Google)"; pnpm run build:web; }
+    uses: ./.github/workflows/ci-web.yml # zizmor: ignore[self-repository]
 
   api:
-    name: api (vet + lint + build)
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/api
-    steps:
-      - uses: actions/checkout@v4
+    uses: ./.github/workflows/ci-api.yml # zizmor: ignore[self-repository]
 
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: apps/api/go.mod
-
-      - name: Vet
-        run: go vet ./...
-
-      - name: Lint
-        uses: golangci/golangci-lint-action@v7
-        with:
-          working-directory: apps/api
-          version: latest
-
-      - name: Build
-        run: go build ./...
-
-  # T0.4 (docs/Arquitectura y base/implementation-plan.md): gate de coverage 80% activo desde
-  # Sprint 0 — ver TR-007 en docs/Arquitectura y base/tradeoffs.md (lección aplicada de
-  # Marcuzzi_Madryn, donde este gate se agregó recién al final del
-  # proyecto). Dos jobs paralelos, uno por stack.
   test-api:
-    name: "Run tests and quality gates (api)"
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/api
-    services:
-      # Nunca la base de desarrollo — internal/testdb rechaza cualquier
-      # TEST_DATABASE_URL que no termine en "_test" (ver spec §9.6).
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: dental_mirage
-          POSTGRES_PASSWORD: dental_mirage
-          POSTGRES_DB: dental_mirage_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U dental_mirage -d dental_mirage_test"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      TEST_DATABASE_URL: postgres://dental_mirage:dental_mirage@localhost:5432/dental_mirage_test?sslmode=disable
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: apps/api/go.mod
-
-      # ./internal/... en vez de ./... — cmd/api y cmd/migrate son binarios
-      # main sin archivos de test, y pedirles -coverprofile hace fallar
-      # `go test ./...` con "no such tool covdata" en algunos toolchains.
-      - name: Test with coverage
-        run: go test ./internal/... -race -coverprofile=coverage.out -covermode=atomic
-
-      - name: Check coverage >= 80%
-        run: |
-          go tool cover -func=coverage.out | tail -1
-          total=$(go tool cover -func=coverage.out | tail -1 | grep -oE '[0-9]+\.[0-9]+')
-          echo "Coverage total: ${total}%"
-          awk -v c="$total" 'BEGIN { exit !(c >= 80) }'
+    uses: ./.github/workflows/ci-tests-api.yml # zizmor: ignore[self-repository]
 
   test-web:
-    name: "Run tests and quality gates (web)"
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+    uses: ./.github/workflows/ci-tests-web.yml # zizmor: ignore[self-repository]
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 11
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      # coverage.thresholds en apps/web/vitest.config.mts ya hace fallar
-      # este comando si algún indicador baja de 80% — no hace falta un
-      # chequeo aparte como en el job de api.
-      - name: Test with coverage
-        run: pnpm --filter @dental-mirage/web test:coverage
-
-  # PE-9 (plan Prisma Engine): presupuesto de rendimiento. Con los efectos y
-  # fondos de PE-4/PE-5 es fácil hacer una página linda y lenta sin que nadie
-  # lo note, así que se mide la PLANTILLA en cada PR: Lighthouse (emulación
-  # de celular) sobre tres páginas de demostración, armadas con plantillas
-  # del catálogo sin API ni base (lib/pagina-publica/demostracion.ts, que
-  # solo existe con PRISMA_DEMO_PLANTILLAS=1). Umbrales en lighthouserc.json,
-  # sobre la corrida MEDIANA de tres para que un runner lento no lo tumbe;
-  # calibrados el 2026-09-23 contra las plantillas actuales (performance
-  # 0,82–0,86, LCP 3,9–4,2 s simulado). El reporte queda como artefacto.
-  #
   # No está en `needs` del deploy a propósito: un runner de GitHub puede
   # medir peor un día sin que el código haya cambiado, y eso no tiene que
   # frenar un arreglo urgente. Falla en el PR, que es donde se decide.
   lighthouse:
-    name: "Presupuesto de rendimiento (Lighthouse)"
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 11
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build
-        # Un reintento (PP-7): `next build` (Turbopack) falla a veces al
-        # procesar las fuentes de Google ("next/font/google queries have
-        # exactly one entry"), sin que el código tenga nada — pasó en #61, #62
-        # y #67 y siempre anduvo al relanzar. Si falla de verdad, falla dos veces.
-        run: pnpm run build:web || { echo "::warning::next build falló; reintentando una vez (fuentes de Google)"; pnpm run build:web; }
-
-      - name: Lighthouse sobre las páginas de demostración
-        run: pnpm dlx @lhci/cli@0.15.1 autorun
-        env:
-          PRISMA_DEMO_PLANTILLAS: "1"
-
-      - name: Guardar el reporte
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: lighthouse
-          path: .lighthouseci
-          if-no-files-found: ignore
+    uses: ./.github/workflows/ci-lighthouse.yml # zizmor: ignore[self-repository]
 
   # Deploy (Sprint 5, T5.5) — repuesto (2026-08-24, blueprint ya aplicado
   # en Render y RENDER_DEPLOY_HOOK_API/WEB ya cargados como secrets del

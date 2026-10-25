@@ -44,6 +44,12 @@ func NewRouter(db *gorm.DB, authSecret string, corsOrigins []string) http.Handle
 func NewRouterWithDeps(db *gorm.DB, deps AuthDeps, corsOrigins []string) http.Handler {
 	r := chi.NewRouter()
 
+	// El id de cada request lo genera siempre el servidor: RequestID de chi
+	// reusa el X-Request-Id que mande el cliente, y la API es pública, así que
+	// cualquiera podría elegir el suyo (o el de otro pedido) y ensuciar los
+	// logs. El BFF no lo manda. Mismo criterio que ip_del_visitante.go con
+	// las cabeceras de la IP.
+	r.Use(descartarRequestIDEntrante)
 	r.Use(middleware.RequestID)
 	// Antes del logger a propósito: este middleware es el que deja la IP
 	// REAL del visitante en X-Forwarded-For (ver ip_del_visitante.go), y
@@ -195,4 +201,11 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, v any) error {
 	defer func() { _ = r.Body.Close() }()
 	r.Body = http.MaxBytesReader(w, r.Body, maxJSONBodyBytes)
 	return json.NewDecoder(r.Body).Decode(v)
+}
+
+func descartarRequestIDEntrante(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.Header.Del(middleware.RequestIDHeader)
+		next.ServeHTTP(w, r)
+	})
 }

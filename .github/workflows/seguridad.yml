@@ -1,0 +1,95 @@
+name: Seguridad
+
+# Chequeos de vulnerabilidades bloqueantes: en cada PR, en cada push y una
+# vez por semana, porque un aviso nuevo puede salir sobre código que no
+# cambió. Dependabot no ve la biblioteca estándar de Go (govulncheck sí) y
+# pnpm audit avisó de Zod antes que Dependabot (TR-197, TR-198).
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+  schedule:
+    - cron: "0 10 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Mismo criterio que ci.yml: se cancela solo la corrida vieja de un PR.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  govulncheck:
+    name: Vulnerabilidades (Go)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: apps/api/go.mod
+          cache-dependency-path: apps/api/go.sum
+
+      # GOTOOLCHAIN=local: sin esto Go se cambia solo a la toolchain más
+      # nueva y analiza ESA biblioteca estándar, no la del go.mod que corre
+      # en producción (TR-197).
+      - name: govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+        env:
+          GOTOOLCHAIN: local
+
+  pnpm-audit:
+    name: Vulnerabilidades (npm)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      # Lee el lockfile: no necesita `pnpm install`.
+      - name: Preparar pnpm y Node
+        uses: ./.github/actions/preparar-pnpm # zizmor: ignore[self-repository]
+        with:
+          instalar: "false"
+
+      - name: pnpm audit
+        run: pnpm audit --audit-level=high
+
+  dependency-review:
+    name: Revisión de dependencias
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      # Frena el PR que SUMA una dependencia con un aviso alto o crítico,
+      # aunque el lockfile de la rama base esté limpio.
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: high
+
+  zizmor:
+    name: Seguridad de los workflows
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      # Inyecciones de plantilla, permisos de más, actions sin fijar y
+      # credenciales que quedan en el checkout. Con el token también hace
+      # los chequeos en línea (SHA que no es de la action, versiones con
+      # avisos conocidos).
+      - name: zizmor
+        run: pipx run zizmor==1.31.1 .
+        env:
+          GH_TOKEN: ${{ github.token }}

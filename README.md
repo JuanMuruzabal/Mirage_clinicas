@@ -290,29 +290,48 @@ test <patrón del archivo>`.
 
 ## Integración continua
 
-`.github/workflows/ci.yml` corre en cada push a `main` o `dev`, y en
-cualquier pull request, con seis jobs y permisos de solo lectura sobre el
-repo (`permissions: contents: read`, TR-178):
+`.github/workflows/ci.yml` es la entrada: corre en cada push a `main` o
+`dev`, y en cualquier pull request, con permisos de solo lectura sobre el
+repo (`permissions: contents: read`, TR-178). Cada parte vive en su propio
+workflow reutilizable (`ci-*.yml`, que `ci.yml` llama), y los chequeos de
+seguridad en otros (`seguridad*.yml`). Todo está directo en
+`.github/workflows/`, agrupado por prefijo: GitHub no ejecuta subcarpetas.
+Qué hace cada archivo, por qué y qué hacer cuando falla:
+[`docs/Seguridad y optimizacion/CI/ci-de-seguridad.md`](docs/Seguridad%20y%20optimizacion/CI/ci-de-seguridad.md)
+(TR-199).
 
-- **`web`**: regenera el catálogo de Prisma Engine y falla si difiere de
-  lo commiteado (`engine:generar`), valida plantillas y presets, `eslint`,
-  `next typegen && tsc --noEmit`, typecheck de `packages/shared-types` y
-  `packages/prisma-engine`, los tests de `prisma-engine` y `next build`
-  (con un reintento: el build descarga las fuentes de Google y a veces
-  esa descarga falla sola).
-- **`api`**: `go vet`, `golangci-lint`, `go build`.
-- **`test-api`**: los tests de Go contra un Postgres real levantado como
-  `services:` del job, con `-race` + coverage — falla el build si el
-  total baja de 80%.
-- **`test-web`**: la suite de Vitest con coverage — el propio
-  `coverage.thresholds` de `apps/web/vitest.config.mts` hace fallar el
-  comando por debajo de 80%.
-- **`lighthouse`**: el presupuesto de rendimiento de la página pública
-  (PE-9, TR-165), sobre páginas de demostración (`lighthouserc.json`).
-- **`deploy`**: solo en push a `dev` (nunca en un pull request) y solo si
-  `web`, `api`, `test-api` y `test-web` pasaron. Dispara los Deploy Hooks
-  de `dental-mirage-api`/`dental-mirage-web` en Render. Un push a `main`
-  corre todo lo demás pero no despliega (ver "Deploy").
+Los jobs del CI:
+
+- **`web`** (`ci-web.yml`): regenera el catálogo de Prisma Engine y las
+  plantillas de documentos clínicos y falla si difieren de lo commiteado
+  (`engine:generar`, `documentos:generar`), valida plantillas y presets,
+  `eslint`, `next typegen && tsc --noEmit`, typecheck de
+  `packages/shared-types` y `packages/prisma-engine`, los tests de los
+  paquetes y `next build` (con un reintento: el build descarga las fuentes
+  de Google y a veces esa descarga falla sola).
+- **`api`** (`ci-api.yml`): `go vet`, `golangci-lint` (versión fija) y
+  `go build`.
+- **`test-api`** (`ci-tests-api.yml`): los tests de Go contra un Postgres
+  real levantado como `services:` del job, con `-race` + coverage — falla
+  el build si el total baja de 80%.
+- **`test-web`** (`ci-tests-web.yml`): la suite de Vitest con coverage — el
+  propio `coverage.thresholds` de `apps/web/vitest.config.mts` hace fallar
+  el comando por debajo de 80%.
+- **`lighthouse`** (`ci-lighthouse.yml`): el presupuesto de rendimiento de
+  la página pública (PE-9, TR-165), sobre páginas de demostración
+  (`lighthouserc.json`).
+- **`deploy`** (en `ci.yml`): solo en push a `dev` (nunca en un pull
+  request) y solo si `web`, `api`, `test-api` y `test-web` pasaron.
+  Dispara los Deploy Hooks de `dental-mirage-api`/`dental-mirage-web` en
+  Render. Un push a `main` corre todo lo demás pero no despliega (ver
+  "Deploy").
+
+Los chequeos de seguridad (`seguridad.yml`: `govulncheck`, `pnpm audit`,
+revisión de dependencias y `zizmor`; `seguridad-imagenes.yml`: Trivy sobre
+las imágenes de Docker; `seguridad-scorecard.yml`: OpenSSF Scorecard) y
+Dependabot (`.github/dependabot.yml`) corren aparte. Con las reglas de rama
+cargadas, **a `dev` solo se entra por PR** y el CI y esos chequeos tienen
+que estar en verde. Cómo reportar una vulnerabilidad: [`SECURITY.md`](SECURITY.md).
 
 Antes de abrir un PR, correr localmente el mismo pipeline que corre CI
 (los comandos de arriba, en el mismo orden) evita sorpresas — en

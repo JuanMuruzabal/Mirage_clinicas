@@ -35,7 +35,7 @@ describe("lib/api — documentos clínicos (Fase 5.1)", () => {
     const fetchSpy = espiarFetch(200, {});
     await llamar();
     const [url, init] = fetchSpy.mock.calls[0];
-    expect(url).toMatch(new RegExp(`${ruta.replace(/\//g, "\\/")}$`));
+    expect(new URL(String(url), "http://base.invalid").pathname.endsWith(ruta)).toBe(true);
     expect(init.method ?? "GET").toBe(metodo);
     expect(init.headers.Authorization).toBe("Bearer t");
   });

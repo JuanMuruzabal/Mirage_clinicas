@@ -1,0 +1,85 @@
+name: CI web
+
+# La web y los paquetes de TypeScript: que lo generado para Go (catálogo de
+# Prisma Engine y plantillas de documentos) esté al día con lo commiteado,
+# las plantillas y presets válidos, lint, typecheck de cada paquete, los
+# tests de los paquetes y que `next build` compile. Lo llama ci.yml, y el
+# deploy espera a este job.
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    name: web (lint + typecheck + build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Preparar pnpm, Node y las dependencias
+        uses: ./.github/actions/preparar-pnpm # zizmor: ignore[self-repository]
+
+      # PE-1 (docs/Fases post MVP/Prisma Engine/plan-prisma-engine.md): lo
+      # que engine:generar produce (JSON Schema de cada módulo + catálogo de
+      # temas, copiados a apps/api/internal/prismaengine/) se commitea, no se
+      # arma solo en el build — si alguien edita un schema.ts o
+      # catalogo/temas.json sin correr `pnpm engine:generar`, el backend
+      # quedaría validando contra un catálogo desactualizado sin que nada lo
+      # avise. Solo escribe JSON (no compila Go), así que no hace falta
+      # setup-go acá — eso lo cubre el job `api`.
+      - name: Regenerar el catálogo de Prisma Engine y verificar que no cambió
+        run: |
+          pnpm run engine:generar
+          git diff --exit-code -- packages/prisma-engine/catalogo apps/api/internal/prismaengine || {
+            echo "::error::pnpm engine:generar produjo un resultado distinto al commiteado — correlo local y commiteá la diferencia.";
+            exit 1;
+          }
+
+      # Fase 5.1 (TR-183): las plantillas de los documentos clínicos y
+      # sus fixtures, copiadas a apps/api/internal/documentos/. Mismo
+      # criterio que el catálogo de Prisma Engine: si alguien cambia una
+      # plantilla sin regenerar, la API validaría y congelaría el texto
+      # contra una versión vieja. Con la lámina (TR-187) también van los
+      # casos de composición y la tabla de anchos con la que compone Go.
+      - name: Regenerar las plantillas de documentos clínicos y verificar que no cambiaron
+        run: |
+          pnpm run documentos:generar
+          git diff --exit-code -- apps/api/internal/documentos/plantillas apps/api/internal/documentos/fixtures apps/api/internal/documentos/composicion apps/api/internal/documentos/metricas-helvetica.json || {
+            echo "::error::pnpm documentos:generar produjo un resultado distinto al commiteado — correlo local y commiteá la diferencia.";
+            exit 1;
+          }
+
+      - name: Validar plantillas y presets de Prisma Engine
+        run: pnpm run validar:plantillas
+
+      - name: Lint
+        run: pnpm run lint:web
+
+      - name: Typecheck (web)
+        run: pnpm run typecheck:web
+
+      - name: Typecheck (shared-types)
+        run: pnpm run typecheck:shared-types
+
+      - name: Typecheck (prisma-engine)
+        run: pnpm run typecheck:prisma-engine
+
+      - name: Test (prisma-engine)
+        run: pnpm run test:prisma-engine
+
+      - name: Typecheck (documentos-clinicos)
+        run: pnpm run typecheck:documentos-clinicos
+
+      - name: Test (documentos-clinicos, con su gate de 80%)
+        run: pnpm run test:documentos-clinicos
+
+      - name: Build
+        # Un reintento (PP-7): `next build` (Turbopack) falla a veces al
+        # procesar las fuentes de Google ("next/font/google queries have
+        # exactly one entry"), sin que el código tenga nada — pasó en #61, #62
+        # y #67 y siempre anduvo al relanzar. Si falla de verdad, falla dos veces.
+        run: pnpm run build:web || { echo "::warning::next build falló; reintentando una vez (fuentes de Google)"; pnpm run build:web; }
