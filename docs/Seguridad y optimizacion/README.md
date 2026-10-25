@@ -13,6 +13,7 @@ Las rondas de actualización de dependencias y la cadena de suministro.
 Qué corre en GitHub cada vez que se toca el repo, por qué y qué hacer cuando falla. Cruza las otras dos carpetas: revisa dependencias y código.
 
 - `ci-de-seguridad.md`: el mapa de los workflows (`ci-*` y `seguridad-*`), el porqué de Dependabot, govulncheck, pnpm audit, dependency-review, zizmor, Trivy, Scorecard, CodeQL `extended`, las actions por SHA y los rulesets, los checks obligatorios y la configuración externa (TR-199).
+- `scorecard.md`: el puntaje de OpenSSF Scorecard: qué mide cada chequeo, qué se hizo para subirlo, qué se decidió no hacer, qué queda pendiente y cómo medirlo en local (TR-200).
 
 ## `Codigo/`
 
