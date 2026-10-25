@@ -13,7 +13,11 @@
 # `go` de go.mod y el `go-version-file` del CI se mueven JUNTAS — con el
 # Dockerfile pinneado en 1.25 y go.mod pidiendo 1.26, el build de
 # producción falla (verificado en la práctica antes de este cambio).
-FROM golang:1.26-alpine AS build
+# Las imágenes base van por digest para que una etiqueta movida no cambie la
+# imagen (Scorecard, Pinned-Dependencies; TR-200). Dependabot ya no actualiza
+# versiones: el digest se renueva en las rondas de dependencias, y Trivy
+# (seguridad-imagenes.yml) avisa cada lunes si quedó un alto o crítico con arreglo.
+FROM golang:1.26-alpine@sha256:27f2d3b83cfc5803c8078f8e730af0f7c431bf067afaec8f60a36fb763187cba AS build
 WORKDIR /src
 
 # Cachea `go mod download` en su propia capa: solo se re-ejecuta si
@@ -30,10 +34,12 @@ RUN CGO_ENABLED=0 go build -o /out/migrate ./cmd/migrate
 
 # Alpine 3.24 (radiografía técnica 2, Fase B): la 3.20 salió de soporte en
 # abril de 2026 y ya no recibe parches de seguridad.
-FROM alpine:3.24 AS runtime
+FROM alpine:3.24@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a AS runtime
 # ca-certificates: necesario para las requests salientes por HTTPS (Resend,
 # Google, Turnstile, HaveIBeenPwned, R2).
-RUN apk add --no-cache ca-certificates
+# Con el digest fijo, apk upgrade trae los parches del sistema en cada build.
+RUN apk upgrade --no-cache \
+    && apk add --no-cache ca-certificates
 # Sin root (radiografía técnica 2, Fase B): el proceso corre como `app`, un
 # usuario sin privilegios. /data/uploads es donde escribe el storage local
 # en docker compose (STORAGE_DIR); se crea acá y es de `app` para que un

@@ -25,7 +25,11 @@
 # Sigue el patrón oficial de Next.js para "output: standalone" en
 # monorepos: https://nextjs.org/docs/app/api-reference/config/next-config-js/output
 
-FROM node:22-alpine AS base
+# Las imágenes base van por digest para que una etiqueta movida no cambie la
+# imagen (Scorecard, Pinned-Dependencies; TR-200). Dependabot ya no actualiza
+# versiones: el digest se renueva en las rondas de dependencias, y Trivy
+# (seguridad-imagenes.yml) avisa cada lunes si quedó un alto o crítico con arreglo.
+FROM node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914 AS base
 RUN corepack enable && corepack prepare pnpm@11 --activate
 
 # --- deps: instala node_modules de todo el workspace, cacheable por
@@ -61,7 +65,7 @@ ENV NEXT_PUBLIC_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_TURNSTILE_SITE_KEY
 RUN pnpm --filter @dental-mirage/web build || pnpm --filter @dental-mirage/web build
 
 # --- runtime: solo lo que server.js standalone necesita para correr ---
-FROM node:22-alpine AS runtime
+FROM node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914 AS runtime
 # Lo que Trivy encontró en la imagen base (seguridad-imagenes.yml): el openssl de
 # alpine atrasado respecto de sus parches, y avisos altos y críticos en las
 # dependencias que trae npm (tar, sigstore, pacote…). El servidor corre con
