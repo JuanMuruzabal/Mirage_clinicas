@@ -93,6 +93,7 @@ La spec de PRISMA no trae una sección de ERD como la de Marcuzzi (§5). Se prop
   tradeoffs.md
 docker-compose.yml         # Postgres local
 CLAUDE.md
+.claude/rules/             # reglas por área, con `paths:` (TR-201); el índice está en CLAUDE.md
 ```
 
 Toda tarea que agregue código nuevo debe caer dentro de esta estructura; si una tarea necesita un directorio no listado acá, se agrega a esta tabla en el mismo PR.

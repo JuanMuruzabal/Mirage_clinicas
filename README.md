@@ -12,7 +12,9 @@ decisiones de arquitectura/alcance (con sus alternativas descartadas) en
 [`docs/Arquitectura y base/tradeoffs.md`](docs/Arquitectura y base/tradeoffs.md). Antes de tocar un módulo nuevo,
 esos tres son la fuente de verdad — este README es solo la puerta de
 entrada. `CLAUDE.md` (raíz del repo) tiene el mapa rápido de convenciones
-para trabajar acá con ayuda de un agente de IA.
+para trabajar acá con ayuda de un agente de IA, y `.claude/rules/` las reglas
+de cada área del código (la API, el panel, los documentos clínicos…), que se
+cargan solo al tocar sus archivos (TR-201).
 
 **Proyecto de referencia:** [`../Marcuzzi_Madryn`](../Marcuzzi_Madryn) —
 mismo stack y modo de trabajo, ya validado en producción. Ante cualquier
@@ -600,7 +602,7 @@ cada query, y dos tests (`TestAislamiento_*`) fallan si una consulta nueva
 se lo saltea; y **quién es "yo" puede no ser quien apretó el botón** —
 recepción trabaja parada en la vista de un profesional, así que lo que
 guarda "de quién es esta fila" sale del foco y no de la sesión. Ver
-`CLAUDE.md`.
+`.claude/rules/multi-tenant.md`.
 
 ### Fase 4 y Prisma Engine — la página pública personalizable
 

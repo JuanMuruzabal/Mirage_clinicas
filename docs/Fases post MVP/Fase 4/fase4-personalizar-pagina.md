@@ -68,7 +68,7 @@ Esto es lo que separa esta propuesta de "marca libre": el "toque propio" que ped
 
 Nada de rating ni cantidad de reseñas — Mirage no tiene un sistema de reseñas de pacientes hoy, y mostrar un número sin ningún mecanismo real detrás sería inventar contenido. Candidatas reales, derivables de datos que ya existen:
 
-- **Pacientes atendidos**: conteo de pacientes con al menos un turno marcado `asistió` en esa clínica — dato ya existe (asistencia se marca desde la Fase 2.3.4, ver CLAUDE.md), solo falta el query de agregación.
+- **Pacientes atendidos**: conteo de pacientes con al menos un turno marcado `asistió` en esa clínica — dato ya existe (asistencia se marca desde la Fase 2.3.4, ver `.claude/rules/turnos-y-calendario.md`), solo falta el query de agregación.
 - **Turnos realizados**: mismo criterio, conteo total en vez de pacientes únicos.
 - **Años en Mirage**: derivado de `Clinic.CreatedAt` — más simbólico que útil, a confirmar si suma.
 
