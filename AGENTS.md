@@ -2,7 +2,7 @@
 
 ## Antes de trabajar
 
-- Lee `CLAUDE.md` en la raíz: contiene las convenciones del proyecto, decisiones de arquitectura y estado de las fases. Para cambios de producto o arquitectura, consulta también `docs/Arquitectura y base/dental-mirage-spec.md`, `docs/Arquitectura y base/implementation-plan.md` y `docs/Arquitectura y base/tradeoffs.md`.
+- Lee `CLAUDE.md` en la raíz: contiene las convenciones del proyecto, decisiones de arquitectura y estado de las fases. Las reglas de cada área del código viven en `.claude/rules/<área>.md` (el índice está en `CLAUDE.md`, "Reglas por área"): Claude Code las carga solo al tocar sus archivos, pero otro agente tiene que leer la del área antes de cambiarla. Para cambios de producto o arquitectura, consulta también `docs/Arquitectura y base/dental-mirage-spec.md`, `docs/Arquitectura y base/implementation-plan.md` y `docs/Arquitectura y base/tradeoffs.md`.
 - Si trabajas en `apps/web`, sigue además `apps/web/AGENTS.md` y lee la documentación de Next.js instalada en `apps/web/node_modules/next/dist/docs/` que corresponda al cambio. `apps/web/CLAUDE.md` remite a esa guía.
 - Conserva los cambios preexistentes del usuario. No crees ramas, hagas commits, pushes ni merges salvo que te lo pidan.
 
@@ -22,7 +22,7 @@
 
 ## Zona Prisma Engine en curso
 
-La advertencia inicial de `CLAUDE.md` enumera las áreas cubiertas por el plan Prisma Engine. Antes de editar, borrar o mover archivos de esas áreas, informa al usuario del posible conflicto y espera su respuesta, salvo que la rama actual sea `feature/pe-*` o `docs/prisma-engine*`, o el usuario ya haya indicado que trabaja en ese plan. La tabla de estado y el documento `docs/Fases post MVP/Prisma Engine/plan-prisma-engine.md` indican qué partes siguen abiertas. No agregues módulos, variantes, temas o tipografías fuera del registro y catálogo compartidos.
+`.claude/rules/pagina-publica.md` ("Prisma Engine (plan completo)") enumera las áreas cubiertas por el plan Prisma Engine. Antes de editar, borrar o mover archivos de esas áreas, informa al usuario del posible conflicto y espera su respuesta, salvo que la rama actual sea `feature/pe-*` o `docs/prisma-engine*`, o el usuario ya haya indicado que trabaja en ese plan. La tabla de estado y el documento `docs/Fases post MVP/Prisma Engine/plan-prisma-engine.md` indican qué partes siguen abiertas. No agregues módulos, variantes, temas o tipografías fuera del registro y catálogo compartidos.
 
 ## Comandos habituales
 
