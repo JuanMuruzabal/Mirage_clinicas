@@ -835,7 +835,9 @@ Ronda puntual sobre lo que no escribimos nosotros. Documento: `docs/Seguridad y 
 | | Estado |
 |---|---|
 | **Dependabot de seguridad y code scanning en `dev` (5 alertas no explotables más 13 de `extended`)** | ✅ ítem 4 (TR-199): Dependabot de versión y de seguridad, `govulncheck`/`pnpm audit`/`dependency-review`/zizmor bloqueantes, Trivy por imagen, Scorecard con `SECURITY.md`, CodeQL `extended` con sus 17 alertas de código arregladas (`Codigo/CodeQL/alertas-de-codeql-2026-10-25.md`), las actions por SHA y el CI separado en `ci-*` y `seguridad-*` (`CI/ci-de-seguridad.md`) |
-| **Rulesets en `dev` y `main` (a `dev` solo por PR, sin excepciones)** | ⏸ se cargan por API después de mergear el PR del ítem 4, con los nombres reales de los checks |
+| **Rulesets en `dev` y `main` (a `dev` solo por PR, sin excepciones)** | ✅ cargados por API el 2026-10-25: `25810962` (`dev`) y `25810963` (`main`), sin bypass, con los 8 checks reales (addendum de TR-199, `CI/ci-de-seguridad.md` 2.13) |
+| **Dependabot solo con actualizaciones de seguridad** | ✅ `open-pull-requests-limit: 0` en los 5 ecosistemas; se cerraron los 11 PRs de versión (#96 a #106). Las versiones se mueven en rondas a mano (addendum de TR-199) |
+| **Subir el puntaje de Scorecard (hoy 6,0)** | ⏸ palancas: solas con el tiempo (Maintained el 22/11, SAST), un PR técnico (digests de los `FROM`, fuzzing de Go, `osv-scanner.toml`) y decisiones de la persona (1 aprobación por PR, badge de OpenSSF, licencia); ver `CI/ci-de-seguridad.md` sección 8 |
 
 ## 13. Fase 3 — Multi-tenant (N profesionales / N clínicas)
 
