@@ -1,6 +1,13 @@
-# Actualizaciones de versión, una vez por semana y siempre a `dev`, que es
-# donde se integra (a `main` se llega desde `dev`). Las actualizaciones de
-# seguridad no esperan al lunes: las abre Dependabot apenas sale el aviso.
+# Solo actualizaciones de SEGURIDAD (TR-199, addendum). Las de versión están
+# apagadas con `open-pull-requests-limit: 0`: el primer lunes abrieron más
+# de diez PRs, casi todos de versiones mayores, y el equipo prefirió hacer
+# las actualizaciones en rondas de dependencias a mano (TR-197). Ese límite
+# no afecta a las de seguridad, que Dependabot abre apenas sale un aviso con
+# arreglo, contra la rama por defecto (`dev`). El archivo se queda porque
+# esas PRs toman de acá parte de su configuración (el prefijo del commit,
+# por ejemplo) y porque Scorecard lo mira (Dependency-Update-Tool). Para
+# volver a prender las de versión, subí el límite: el resto de la
+# configuración sigue armada para eso.
 #
 # `cooldown` es la misma espera de 7 días que `minimumReleaseAge` de pnpm
 # (TR-197): una versión recién publicada puede estar comprometida.
@@ -20,7 +27,7 @@ updates:
       timezone: America/Argentina/Cordoba
     cooldown:
       default-days: 7
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
     commit-message:
       prefix: "chore(deps)"
     groups:
@@ -37,7 +44,7 @@ updates:
       timezone: America/Argentina/Cordoba
     cooldown:
       default-days: 7
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
     commit-message:
       prefix: "chore(deps)"
     groups:
@@ -58,7 +65,7 @@ updates:
       timezone: America/Argentina/Cordoba
     cooldown:
       default-days: 7
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
     commit-message:
       prefix: "chore(deps)"
     groups:
@@ -78,7 +85,7 @@ updates:
       timezone: America/Argentina/Cordoba
     cooldown:
       default-days: 7
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
     commit-message:
       prefix: "chore(deps)"
     groups:
@@ -96,7 +103,7 @@ updates:
       timezone: America/Argentina/Cordoba
     cooldown:
       default-days: 7
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
     commit-message:
       prefix: "chore(deps)"
     groups:
