@@ -2,7 +2,7 @@ package http
 
 import (
 	"errors"
-	"log"
+	"log/slog"
 	"net/http"
 	"net/mail"
 	"regexp"
@@ -1374,7 +1374,7 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 					// modo simulado es que el mail/IP no quedan bloqueados
 					// de verdad.
 					if deps.SimularBloqueosSeguridad {
-						log.Printf("[simulado] mail con muchos DNIs detectado: email=%s dnis_existentes=%d (turnos anteriores borrados de verdad; mail/IP NO quedaron bloqueados)", turno.EmailContacto, len(dnisExistentes))
+						slog.Warn("[simulado] mail con muchos DNIs detectado (turnos anteriores borrados de verdad; mail/IP NO quedaron bloqueados)", "email", turno.EmailContacto, "dnis_existentes", len(dnisExistentes))
 					}
 					mensajeBloqueoAbuso = "este mail no puede pedir turno por ahora"
 					return nil
@@ -1535,7 +1535,7 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 				}
 				if cantidad >= limiteTurnosSinVerificarPorDNIYTipo {
 					if deps.SimularBloqueosSeguridad {
-						log.Printf("[simulado] tope DNI+tipo alcanzado: dni=%s tipo=%s (se habría rechazado con 409)", turno.DNIContacto, tipo.ID)
+						slog.Warn("[simulado] tope DNI+tipo alcanzado (se habría rechazado con 409)", "dni", turno.DNIContacto, "tipo", tipo.ID)
 						ipCopia := ip
 						if err := registrarAuditoriaBloqueo(tx, clinic.ID, "dni_tipo_tope", nil, &ipCopia, []string{turno.DNIContacto}, 0, true); err != nil {
 							return err
@@ -1571,7 +1571,7 @@ func solicitarTurnoPublicoHandler(gdb *gorm.DB, deps AuthDeps) http.HandlerFunc 
 					// gatilló el patrón de todos modos se rechaza (los turnos
 					// que ya existían de esa IP acaban de borrarse).
 					if deps.SimularBloqueosSeguridad {
-						log.Printf("[simulado] rotación por IP detectada: ip=%s mails=%d dnis=%d (turnos anteriores borrados de verdad; la IP NO quedó bloqueada)", ip, mailsDistintos, dnisDistintos)
+						slog.Warn("[simulado] rotación por IP detectada (turnos anteriores borrados de verdad; la IP NO quedó bloqueada)", "ip", ip, "mails", mailsDistintos, "dnis", dnisDistintos)
 					}
 					mensajeBloqueoAbuso = "no se puede pedir turno desde esta conexión por ahora"
 					return nil

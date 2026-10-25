@@ -14,7 +14,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"regexp"
 	"strings"
@@ -72,32 +72,32 @@ type TurnoConfirmadoInfo struct {
 type LogSender struct{}
 
 func (LogSender) SendVerificationEmail(_ context.Context, to, code string) error {
-	log.Printf("[mail:dev] código de verificación para %s: %s", to, code)
+	slog.Info("[mail:dev] código de verificación", "para", to, "codigo", code)
 	return nil
 }
 
 func (LogSender) SendPasswordResetEmail(_ context.Context, to, resetURL string) error {
-	log.Printf("[mail:dev] recuperación de contraseña para %s: %s", to, resetURL)
+	slog.Info("[mail:dev] recuperación de contraseña", "para", to, "url", resetURL)
 	return nil
 }
 
 func (LogSender) SendWelcomeEmail(_ context.Context, to, nombre string) error {
-	log.Printf("[mail:dev] bienvenida para %s (%s)", to, nombre)
+	slog.Info("[mail:dev] bienvenida", "para", to, "nombre", nombre)
 	return nil
 }
 
 func (LogSender) SendTurnoVerificationEmail(_ context.Context, to, code, nombreClinica string) error {
-	log.Printf("[mail:dev] código de verificación de turno (%s) para %s: %s", nombreClinica, to, code)
+	slog.Info("[mail:dev] código de verificación de turno", "clinica", nombreClinica, "para", to, "codigo", code)
 	return nil
 }
 
 func (LogSender) SendInvitacionColaboradorEmail(_ context.Context, to string, info InvitacionColaboradorInfo) error {
-	log.Printf("[mail:dev] invitación a %s (%s) para %s — %s", info.NombreClinica, info.Rol, to, info.URL)
+	slog.Info("[mail:dev] invitación", "clinica", info.NombreClinica, "rol", info.Rol, "para", to, "url", info.URL)
 	return nil
 }
 
 func (LogSender) SendTurnoConfirmadoEmail(_ context.Context, to string, info TurnoConfirmadoInfo) error {
-	log.Printf("[mail:dev] turno confirmado (%s) para %s: %s %s-%s (%s)", info.NombreClinica, to, info.Fecha, info.HoraInicio, info.HoraFin, info.TipoConsulta)
+	slog.Info("[mail:dev] turno confirmado", "clinica", info.NombreClinica, "para", to, "fecha", info.Fecha, "hora_inicio", info.HoraInicio, "hora_fin", info.HoraFin, "tipo_consulta", info.TipoConsulta)
 	return nil
 }
 

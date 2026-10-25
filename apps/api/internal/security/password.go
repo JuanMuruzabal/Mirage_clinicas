@@ -171,23 +171,34 @@ func parseArgon2Params(raw string) (Argon2Params, error) {
 		if len(kv) != 2 {
 			return params, fmt.Errorf("parámetro de hash inválido: %q", field)
 		}
-		n, err := strconv.ParseUint(kv[1], 10, 32)
-		if err != nil {
-			return params, fmt.Errorf("parámetro de hash inválido: %q", field)
-		}
+		// Cada parámetro se parsea con el tamaño de su campo: un valor fuera
+		// de rango es un hash inválido, no un número truncado en silencio.
+		var err error
 		switch kv[0] {
 		case "m":
-			params.Memory = uint32(n)
+			params.Memory, err = parseUint32(kv[1])
 		case "t":
-			params.Iterations = uint32(n)
+			params.Iterations, err = parseUint32(kv[1])
 		case "p":
+			var n uint64
+			n, err = strconv.ParseUint(kv[1], 10, 8)
 			params.Parallelism = uint8(n)
+		default:
+			_, err = parseUint32(kv[1])
+		}
+		if err != nil {
+			return params, fmt.Errorf("parámetro de hash inválido: %q", field)
 		}
 	}
 	if params.Memory == 0 || params.Iterations == 0 || params.Parallelism == 0 {
 		return params, errors.New("faltan parámetros en el hash")
 	}
 	return params, nil
+}
+
+func parseUint32(valor string) (uint32, error) {
+	n, err := strconv.ParseUint(valor, 10, 32)
+	return uint32(n), err
 }
 
 // ConstantTimeEquals compara dos strings en tiempo constante — para
