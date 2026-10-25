@@ -25,7 +25,7 @@
 # Sigue el patrón oficial de Next.js para "output: standalone" en
 # monorepos: https://nextjs.org/docs/app/api-reference/config/next-config-js/output
 
-FROM node:22-alpine AS base
+FROM node:25-alpine AS base
 RUN corepack enable && corepack prepare pnpm@11 --activate
 
 # --- deps: instala node_modules de todo el workspace, cacheable por
@@ -61,7 +61,7 @@ ENV NEXT_PUBLIC_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_TURNSTILE_SITE_KEY
 RUN pnpm --filter @dental-mirage/web build || pnpm --filter @dental-mirage/web build
 
 # --- runtime: solo lo que server.js standalone necesita para correr ---
-FROM node:22-alpine AS runtime
+FROM node:25-alpine AS runtime
 # Lo que Trivy encontró en la imagen base (seguridad-imagenes.yml): el openssl de
 # alpine atrasado respecto de sus parches, y avisos altos y críticos en las
 # dependencias que trae npm (tar, sigstore, pacote…). El servidor corre con
