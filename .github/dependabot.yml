@@ -1,13 +1,13 @@
-# Solo actualizaciones de SEGURIDAD (TR-199, addendum). Las de versión están
-# apagadas con `open-pull-requests-limit: 0`: el primer lunes abrieron más
-# de diez PRs, casi todos de versiones mayores, y el equipo prefirió hacer
-# las actualizaciones en rondas de dependencias a mano (TR-197). Ese límite
-# no afecta a las de seguridad, que Dependabot abre apenas sale un aviso con
-# arreglo, contra la rama por defecto (`dev`). El archivo se queda porque
-# esas PRs toman de acá parte de su configuración (el prefijo del commit,
-# por ejemplo) y porque Scorecard lo mira (Dependency-Update-Tool). Para
-# volver a prender las de versión, subí el límite: el resto de la
-# configuración sigue armada para eso.
+# Dependabot NO abre PRs: solo avisa (TR-199, addendum). Las alertas siguen
+# prendidas, y cada arreglo se hace a mano, con el flujo de siempre.
+# - Las de versión están apagadas con `open-pull-requests-limit: 0`: el
+#   primer lunes abrieron más de diez PRs, casi todos de versiones mayores,
+#   y el equipo prefirió actualizar en rondas de dependencias (TR-197).
+# - Las de seguridad están apagadas en la configuración del repo (Settings →
+#   Code security → Dependabot security updates), no en este archivo.
+# El archivo se queda porque Scorecard lo mira (Dependency-Update-Tool) y
+# para poder volver atrás rápido: subí el límite para las de versión, o
+# prendé las de seguridad en Settings. El resto sigue armado para eso.
 #
 # `cooldown` es la misma espera de 7 días que `minimumReleaseAge` de pnpm
 # (TR-197): una versión recién publicada puede estar comprometida.
