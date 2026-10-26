@@ -106,4 +106,31 @@ describe("Despliegue", () => {
     expect(tarjeta()).toHaveClass("despliegue", "despliegue--derecha", "rounded-card");
     expect(tarjeta().style.getPropertyValue("--despliegue-orden")).toBe("3");
   });
+
+  it("cada forma pone su clase: 'abajo' ninguna, 'derecha' y 'fundido' la suya", () => {
+    conCaja(100);
+    const { rerender } = render(
+      <Despliegue>
+        <p>contenido</p>
+      </Despliegue>,
+    );
+    expect(tarjeta()).toHaveClass("despliegue");
+    expect(tarjeta().className).not.toMatch(/despliegue--/);
+
+    rerender(
+      <Despliegue forma="fundido">
+        <p>contenido</p>
+      </Despliegue>,
+    );
+    expect(tarjeta()).toHaveClass("despliegue", "despliegue--fundido");
+    expect(tarjeta()).not.toHaveClass("despliegue--derecha");
+
+    rerender(
+      <Despliegue forma="derecha">
+        <p>contenido</p>
+      </Despliegue>,
+    );
+    expect(tarjeta()).toHaveClass("despliegue--derecha");
+    expect(tarjeta()).not.toHaveClass("despliegue--fundido");
+  });
 });

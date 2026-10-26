@@ -89,4 +89,12 @@ Sirve para comprobar un arreglo sin esperar al workflow. El CLI v5.6.0 se usó e
 3. **Correr el binario de Linux dentro de un contenedor `alpine:3.20`** con el repo montado de solo lectura y con red (algunos chequeos consultan OSV), **sin token**.
 4. **Pasarle `--local <ruta del repo>`**, que mide solo lo que se puede ver en los archivos.
 
+El comando literal, con el binario de Linux v5.6.0 ya extraído y con su checksum verificado (`<bin>` es la carpeta que lo contiene y `<copia>` es una copia del repo sin `.git` ni `node_modules`, para que no mida de más):
+
+```
+docker run --rm -v <bin>:/sc:ro -v <copia>:/repo:ro alpine:3.20 /sc/scorecard --local=/repo --format=json --show-details
+```
+
+`--format=json --show-details` deja el detalle de cada chequeo (qué archivo y qué línea) en lugar de solo el puntaje, que es lo que sirve para ver qué alerta de *Security and quality* se cerró.
+
 **Por qué el total local no se compara con el público:** `--local` no corre los chequeos que leen la API de GitHub (Branch-Protection, Code-Review, Maintained, CI-Tests, Contributors, Signed-Releases, CII), y SAST da 0 solo en local porque no ve los análisis de CodeQL. El total local de esta ronda fue 8,8, y no es comparable con el 6,0 publicado. Lo que sí vale es mirar **chequeo por chequeo** los que se pueden medir: Pinned-Dependencies, Vulnerabilities y Fuzzing dieron 10.

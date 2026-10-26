@@ -94,7 +94,7 @@ export default async function PacientesPage({
     <div className={CLASE_PANTALLA_CON_ENCABEZADO}>
       {/* Encabezado de sección (correcciones generales, ítem 2). Sin el
           contador "x registrados" al lado del título (ítem 4). El selector
-          de recepción va arriba de la tarjeta, a su mismo ancho. */}
+          de recepción va debajo del título. */}
       {/* El aviso de conflictos va pegado al encabezado y trae su propia
           distancia solo cuando se ve: plegado a cero, adentro del `gap`
           de la pantalla sumaba un segundo hueco (48 px en vez de 24,

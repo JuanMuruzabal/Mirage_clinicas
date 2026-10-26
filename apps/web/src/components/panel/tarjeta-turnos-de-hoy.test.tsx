@@ -333,6 +333,79 @@ describe("TarjetaTurnosDeHoy — la cabecera de columnas", () => {
     montar([]);
     expect(screen.queryByRole("columnheader")).not.toBeInTheDocument();
   });
+
+  // --- Dos tablas: la cabecera visible y la de las filas (ítem 8, 2026-10-25) ---
+
+  it("sin turnos sigue el aviso y no hay ninguna tabla (ni la cabecera visible)", () => {
+    const { container } = montar([]);
+    expect(screen.getByText("No hay turnos para hoy.")).toBeInTheDocument();
+    expect(container.querySelector("table")).toBeNull();
+  });
+
+  it("las columnas se nombran una sola vez: la cabecera visible es aria-hidden", () => {
+    montar([turno()]);
+    expect(screen.getAllByRole("columnheader")).toHaveLength(4);
+  });
+
+  it("con Profesional, son exactamente cinco columnheader", () => {
+    montar([turno({ profesional: "Dra. Lucía Ferrer" })]);
+    expect(screen.getAllByRole("columnheader").map((th) => th.textContent)).toEqual([
+      "Horario",
+      "Paciente",
+      "Profesional",
+      "Estado",
+      "Asistencia",
+    ]);
+  });
+
+  it("la tabla real conserva su thead con th scope=col y el texto en sr-only", () => {
+    const { container } = montar([turno()]);
+    const tablas = container.querySelectorAll("table");
+    expect(tablas).toHaveLength(2);
+    const [visible, real] = Array.from(tablas);
+    expect(visible).toHaveAttribute("aria-hidden", "true");
+    expect(real).not.toHaveAttribute("aria-hidden");
+    const ths = real.querySelectorAll("thead th");
+    expect(ths).toHaveLength(4);
+    ths.forEach((th) => {
+      expect(th).toHaveAttribute("scope", "col");
+      expect(th.querySelector(".sr-only")).not.toBeNull();
+    });
+    // La cabecera visible lleva la variante sobre el vidrio, sin la capa sticky.
+    visible.querySelectorAll("th").forEach((th) => expect(th).not.toHaveClass("panel-th-sticky"));
+    expect(real.querySelector("tbody tr")).not.toBeNull();
+  });
+
+  it.each([
+    ["sin Profesional", {}],
+    ["con Profesional", { profesional: "Dra. Lucía Ferrer" }],
+  ] as const)("las dos tablas tienen el mismo colgroup (%s)", (_, over) => {
+    const { container } = montar([turno(over)]);
+    const [visible, real] = Array.from(container.querySelectorAll("table"));
+    const clases = (t: Element) => Array.from(t.querySelectorAll("colgroup > col")).map((c) => c.className);
+    const columnas = screen.getAllByRole("columnheader").length;
+    expect(clases(visible)).toHaveLength(columnas);
+    expect(clases(visible)).toEqual(clases(real));
+    // Las dos tablas tienen el mismo ancho mínimo.
+    expect(visible.className).toBe(real.className);
+  });
+
+  it("al scrollear las filas de costado, la cabecera copia su scrollLeft", () => {
+    const { container } = montar([turno(), turno({ id: "t2" })]);
+    const [visible, real] = Array.from(container.querySelectorAll("table"));
+    const cajaCabecera = visible.parentElement as HTMLElement;
+    const cajaFilas = real.parentElement as HTMLElement;
+    expect(cajaCabecera).toHaveClass("overflow-hidden");
+    expect(cajaFilas).toHaveClass("overflow-auto");
+
+    cajaFilas.scrollLeft = 150;
+    fireEvent.scroll(cajaFilas);
+    expect(cajaCabecera.scrollLeft).toBe(150);
+
+    cajaFilas.scrollLeft = 0;
+    fireEvent.scroll(cajaFilas);
+    expect(cajaCabecera.scrollLeft).toBe(0);
+  });
 });
 
 // Fase 3.2.6 — la vista general de recepción: los turnos son de varias

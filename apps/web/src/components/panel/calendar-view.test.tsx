@@ -576,6 +576,60 @@ describe("CalendarView", () => {
     expect(botones.map((b) => b.textContent)).toEqual(["Día", "Semana", "Mes"]);
   });
 
+  // Ítem 8 (26/10): el encabezado es el h1 y, debajo, UNA tarjeta de
+  // controles con ‹ Hoy › y el segmentado; las acciones van fuera de ella.
+  it("encabezado: h1 y después la tarjeta con ‹ Hoy › y el segmentado", () => {
+    const { container } = render(
+      <CalendarView tiposConsulta={tiposConsulta} turnosIniciales={[]} />,
+    );
+    const titulo = screen.getByRole("heading", { level: 1, name: "Calendario" });
+    const tarjeta = container.querySelector(".vidrio.encabezado-seccion")!;
+    expect(tarjeta).not.toBeNull();
+    expect(
+      titulo.compareDocumentPosition(tarjeta) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(tarjeta.contains(titulo)).toBe(false);
+
+    const mover = screen.getByRole("group", { name: "Moverse en el calendario" });
+    expect(tarjeta.contains(mover)).toBe(true);
+    expect(
+      within(mover).getAllByRole("button").map((b) => b.getAttribute("aria-label") ?? b.textContent),
+    ).toEqual(["Anterior", "Hoy", "Siguiente"]);
+
+    const segmentado = screen.getByRole("group", { name: "Vista del calendario" });
+    expect(tarjeta.contains(segmentado)).toBe(true);
+    // ‹ Hoy › antes que el segmentado en el orden de tabulación.
+    expect(
+      mover.compareDocumentPosition(segmentado) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    const pressed = within(segmentado)
+      .getAllByRole("button")
+      .map((b) => [b.textContent, b.getAttribute("aria-pressed")]);
+    expect(pressed).toEqual([
+      ["Día", "true"],
+      ["Semana", "false"],
+      ["Mes", "false"],
+    ]);
+    for (const b of within(segmentado).getAllByRole("button")) {
+      expect(b).toBeEnabled();
+    }
+
+    // Las acciones siguen en la pantalla, fuera de la tarjeta de controles.
+    for (const nombre of ["Reservar horario", "+ Agregar turno", "Configuración de calendario"]) {
+      const boton = screen.getByRole("button", { name: nombre });
+      expect(tarjeta.contains(boton)).toBe(false);
+    }
+  });
+
+  it("aria-pressed sigue a la vista elegida", async () => {
+    const user = userEvent.setup();
+    render(<CalendarView tiposConsulta={tiposConsulta} turnosIniciales={[]} />);
+    const segmentado = screen.getByRole("group", { name: "Vista del calendario" });
+    await user.click(within(segmentado).getByRole("button", { name: "Semana" }));
+    expect(within(segmentado).getByRole("button", { name: "Semana" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(segmentado).getByRole("button", { name: "Día" })).toHaveAttribute("aria-pressed", "false");
+  });
+
   it("cambiar a vista mes pide los turnos de nuevo (rango distinto)", async () => {
     const user = userEvent.setup();
     render(<CalendarView tiposConsulta={tiposConsulta} turnosIniciales={[]} />);
@@ -899,6 +953,36 @@ describe("CalendarView", () => {
       await user.click(screen.getByRole("button", { name: "Semana" }));
 
       expect(elegirVistaActionMock).not.toHaveBeenCalled();
+    });
+
+    // Ítem 8 (26/10): mientras el cambio de foco está en vuelo, el
+    // segmentado no acepta otro toque (dejaría la agenda y el selector
+    // diciendo cosas distintas).
+    it("el segmentado queda deshabilitado mientras el cambio de foco está en vuelo", async () => {
+      const user = userEvent.setup();
+      let soltar!: () => void;
+      elegirVistaActionMock.mockImplementationOnce(
+        () => new Promise((resolve) => { soltar = () => resolve({}); }),
+      );
+      render(
+        <CalendarView
+          tiposConsulta={tiposConsulta}
+          turnosIniciales={[]}
+          zonaProfesional={zonaGeneral}
+        />,
+      );
+      const grupo = screen.getByRole("group", { name: "Vista del calendario" });
+
+      await user.click(within(grupo).getByRole("button", { name: "Mes" }));
+
+      await waitFor(() => expect(elegirVistaActionMock).toHaveBeenCalledWith("u1"));
+      for (const nombre of ["Día", "Semana", "Mes"]) {
+        expect(within(grupo).getByRole("button", { name: nombre })).toBeDisabled();
+      }
+      soltar();
+      await waitFor(() =>
+        expect(within(grupo).getByRole("button", { name: "Día" })).toBeEnabled(),
+      );
     });
 
     // QA de la 3.2.6 (2026-09-20): *"el horario reservado de un

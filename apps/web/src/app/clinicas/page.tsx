@@ -45,41 +45,48 @@ export default async function ClinicasPage() {
       <FondoOndas />
       {/* El mismo <main> que /seleccionar-servicio (ítem 14, 2026-10-19:
           "la misma clase de diseño debe tener las mismas decisiones de
-          diseño"): alineado a la izquierda, con el margen que crece con la
-          pantalla, y el contenido a `max-w-5xl`. */}
+          diseño"): una columna centrada a `max-w-5xl`, con el mismo relleno
+          a los dos lados, y los títulos contra el borde izquierdo de las
+          tarjetas (ítem 8, 2026-10-25). */}
       <main
-        className={`flex w-full flex-1 flex-col gap-8 px-8 pb-16 pt-[calc(var(--header-height)+2rem)] max-md:px-[clamp(1rem,4vw,2rem)] md:pl-[clamp(2rem,8vw,8rem)] ${
+        className={`flex w-full flex-1 flex-col px-8 pb-16 pt-[calc(var(--header-height)+2rem)] max-md:px-[clamp(1rem,4vw,2rem)] ${
           perfilIncompleto ? "pointer-events-none blur-sm select-none" : ""
         }`}
         aria-hidden={perfilIncompleto}
       >
-        {/* El saludo es propio de esta pantalla (de servicios se sacó porque
-            acá ya saluda). Va en el estilo de los títulos, en el degradé de
-            los dibujos y más grande que la pregunta, que es el h1 a su tamaño
-            de siempre, igual que "¿Qué necesitás hoy?". */}
-        <div className="flex max-w-5xl flex-col gap-1">
-          <p className="font-[family-name:var(--font-display)] text-4xl leading-tight font-semibold tracking-tight [overflow-wrap:anywhere] sm:text-5xl">
-            <span className="titulo-prismatico">Hola, {me.perfil?.nombre ?? me.email}</span>
-          </p>
-          {/* La pregunta en el verde petróleo, como los títulos de las tarjetas
-              (pedido de la persona, 2026-10-19); el saludo sigue prismático. */}
-          <h1 className="font-[family-name:var(--font-display)] text-3xl font-semibold tracking-tight text-marca sm:text-4xl">
-            ¿Dónde trabajás hoy?
-          </h1>
-        </div>
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-8">
+          {/* El saludo es propio de esta pantalla (de servicios se sacó porque
+              acá ya saluda). Va en el estilo de los títulos, en el degradé de
+              los dibujos (`.titulo-prismatico`) y más grande que la pregunta,
+              que es el h1 a su tamaño de siempre. Un paso de diseño del ítem 8
+              (26/10) lo había bajado a un renglón chico en grafito y llevado
+              la pregunta a `CLASE_TITULO_DE_PANTALLA`; la persona lo pidió
+              como estaba. */}
+          <div className="flex flex-col gap-1">
+            <p className="font-[family-name:var(--font-display)] text-4xl leading-tight font-semibold tracking-tight [overflow-wrap:anywhere] sm:text-5xl">
+              <span className="titulo-prismatico">Hola, {me.perfil?.nombre ?? me.email}</span>
+            </p>
+            {/* La pregunta en el verde petróleo, como los títulos de las
+                tarjetas (pedido de la persona, 2026-10-19); el saludo sigue
+                prismático. */}
+            <h1 className="font-[family-name:var(--font-display)] text-3xl font-semibold tracking-tight text-marca sm:text-4xl">
+              ¿Dónde trabajás hoy?
+            </h1>
+          </div>
 
-        <div className="flex max-w-5xl flex-col gap-10">
-          {/* `perfil` y `especialidades` viajan por el encadenado de la
-              Fase 3.2.3: quien no atiende pacientes y quiere armar su
-              propia clínica completa primero la matrícula que le falta,
-              en un modal, sin salir de esta pantalla. */}
-          <DondeTrabajas
-            clinicas={misClinicas.clinicas}
-            invitaciones={misClinicas.invitaciones}
-            codigoInicial={misClinicas.codigoInvitacion}
-            perfil={me.perfil}
-            especialidades={especialidades}
-          />
+          <div className="flex flex-col gap-10">
+            {/* `perfil` y `especialidades` viajan por el encadenado de la
+                Fase 3.2.3: quien no atiende pacientes y quiere armar su
+                propia clínica completa primero la matrícula que le falta,
+                en un modal, sin salir de esta pantalla. */}
+            <DondeTrabajas
+              clinicas={misClinicas.clinicas}
+              invitaciones={misClinicas.invitaciones}
+              codigoInicial={misClinicas.codigoInvitacion}
+              perfil={me.perfil}
+              especialidades={especialidades}
+            />
+          </div>
         </div>
       </main>
 

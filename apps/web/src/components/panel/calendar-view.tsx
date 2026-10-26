@@ -49,7 +49,6 @@ import { ZonaProfesional, type OpcionProfesional } from "./zona-profesional";
 import { CLASE_PANTALLA_CON_ENCABEZADO, EncabezadoDeSeccion } from "./encabezado-de-seccion";
 import { useAhora } from "@/lib/reloj";
 import { estadoDeTurno } from "@/lib/turno-format";
-import { CLASE_TACTIL } from "@/components/editor-pagina/estilos";
 import { elegirVistaAction } from "@/app/actions/topbar-panel";
 import { panelNotificacionesAction } from "@/app/actions/panel";
 import type { VistaActual } from "@dental-mirage/shared-types";
@@ -1053,18 +1052,19 @@ export function CalendarView({
           `overflow-x-auto` unas líneas más abajo) — nunca la página. Mes
           no necesita nada de esto (7 columnas fluidas, sin overflow) y
           Día tampoco (una sola columna). */}
-      {/* ENCABEZADO DE SECCIÓN (correcciones generales, ítem 2, pedido de
-          la persona): una tarjeta de vidrio con el contenido a la izquierda, en
-          este orden de arriba abajo: "Calendario"; ‹ Hoy ›; el día que se
-          está viendo, destacado; el resumen de los turnos de ese rango; y el
-          segmentado Día/Semana/Mes. La escena de la mano y las notitas ocupa
-          el resto, a la derecha (en el celular, arriba). La configuración
-          salió de la tarjeta: es un botón más de la fila de acciones.
-          El selector de recepción va arriba de la tarjeta, afuera y a su
-          mismo ancho (dice DE QUIÉN es la agenda, como en las otras
-          secciones), y
-          ofrece la vista general SOLO en Día: en Semana/Mes no hay columnas
-          por profesional donde dibujarla (QA de la 3.2.6). */}
+      {/* ENCABEZADO DE SECCIÓN (pedido de la persona, ítem 8, 26/10:
+          "quitarle el diseño y reacomodar la tarjeta transparente, dejando
+          los botones bien acomodados"): "Calendario" suelto, como el título
+          de los otros módulos, y debajo una tarjeta de vidrio solo con los
+          controles, en una fila como la de Google Calendar: ‹ Hoy ›, el día
+          que se está viendo con el resumen de sus turnos, y el segmentado
+          Día/Semana/Mes a la derecha (en el celular, la fecha arriba; el
+          reparto lo decide `EncabezadoDeSeccion`). Se fue el planificador
+          dibujado. La configuración es un botón más de la fila de acciones.
+          El selector de recepción va entre el título y la tarjeta (dice DE
+          QUIÉN es la agenda, como en las otras secciones) y ofrece la vista
+          general SOLO en Día: en Semana/Mes no hay columnas por profesional
+          donde dibujarla (QA de la 3.2.6). */}
       <EncabezadoDeSeccion
         seccion="calendario"
         titulo="Calendario"
@@ -1081,18 +1081,18 @@ export function CalendarView({
             />
           ) : undefined
         }
-        debajo={
-          // ‹ Hoy ›: las flechas a los costados y "Hoy" estirado en el medio,
-          // con el MISMO ancho que el segmentado Día/Semana/Mes de abajo (a
-          // todo el ancho en el celular, 19rem en la computadora). Borde y
-          // texto en el verde de marca: el borde gris se perdía (el de marca
-          // da 7:1 contra el blanco; el gris daba 1,5:1). Con `relieve`
-          // (rediseño del 18/10): sobre el vidrio de la tarjeta, un botón
-          // blanco plano se confundía con ella. 44 px en cualquier pantalla.
+        navegacion={
+          // ‹ Hoy ›: las flechas a los costados y "Hoy" a su ancho en el
+          // medio; se estira solo cuando queda sola en su fila del celular.
+          // Borde y texto en el verde de marca: el borde gris se perdía (el
+          // de marca da 7:1 contra el blanco; el gris daba 1,5:1). Con
+          // `relieve` (rediseño del 18/10): sobre el vidrio de la tarjeta,
+          // un botón blanco plano se confundía con ella. 44 px en cualquier
+          // pantalla.
           <div
             role="group"
             aria-label="Moverse en el calendario"
-            className="grid w-full grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] gap-2 @3xl:w-[19rem]"
+            className="grid w-full grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] gap-2"
           >
             <button
               type="button"
@@ -1105,7 +1105,7 @@ export function CalendarView({
             <button
               type="button"
               onClick={irAHoy}
-              className="relieve h-11 rounded-control border border-marca bg-marfil text-sm font-semibold text-marca transition-colors hover:bg-velo"
+              className="relieve h-11 rounded-control border border-marca bg-marfil px-4 text-sm font-semibold text-marca transition-colors hover:bg-velo"
             >
               Hoy
             </button>
@@ -1119,51 +1119,63 @@ export function CalendarView({
             </button>
           </div>
         }
+        opciones={
+          // Segmentado Día/Semana/Mes: la pastilla activa flota adentro de
+          // la barra (mismo criterio que las pestañas de Turnos y
+          // Pacientes, 2026-09-06). Sobre el vidrio, la barra es blanca y
+          // con `relieve`, y la pastilla elegida también lo lleva (rediseño
+          // del 18/10). Cada opción mide 36 px y la barra, con su relleno,
+          // 44: la misma altura que ‹ Hoy ›, así la fila queda pareja. Con
+          // el dedo la pastilla NO crece (con `CLASE_TACTIL` medía 44 y la
+          // barra 52, 8 px más alta que ‹ Hoy › en la misma fila de una
+          // tablet): el objetivo de 44 px lo da un `::before` que cubre el
+          // relleno de la barra, arriba y abajo (HIG, Accessibility: 44 × 44
+          // en pantallas táctiles).
+          <div
+            role="group"
+            aria-label="Vista del calendario"
+            className="relieve grid w-full grid-cols-3 rounded-control bg-marfil p-1 text-sm"
+          >
+            {(["dia", "semana", "mes"] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                aria-pressed={vista === v}
+                // Mientras el cambio de foco está en vuelo, el toggle no
+                // acepta otro: salir de la vista general dispara una
+                // escritura en el servidor, y encadenar dos dejaría el
+                // calendario mostrando una agenda y el selector diciendo
+                // otra.
+                disabled={cambiandoDeFoco}
+                onClick={() => cambiarVista(v)}
+                className={`relative min-h-9 rounded-pastilla px-4 py-1.5 font-medium transition-colors before:absolute before:inset-x-0 before:-inset-y-1 disabled:opacity-60 max-md:px-2 ${vista === v ? "relieve bg-marca-relleno text-marfil" : "text-grafito hover:bg-velo"}`}
+              >
+                {VISTA_LABEL[v]}
+              </button>
+            ))}
+          </div>
+        }
       >
         {/* El día (o el rango) que se está viendo, y debajo su resumen:
             cuántos turnos hay y cuántos todavía no empezaron. "Pendiente"
             es el rótulo de `estadoDeTurno` (TR-158): sale del reloj, así
             que recién se suma al hidratar (en el servidor no hay hora,
-            `useAhora`). */}
-        <div className="flex flex-col gap-1">
-          <p className="font-[family-name:var(--font-display)] tracking-tight text-2xl leading-tight font-semibold text-grafito max-md:text-xl">
+            `useAhora`). A 20 px: en la fila, junto a controles de 44 px y
+            debajo del h1 (28/32), un tamaño más arriba competía con él. */}
+        <div className="flex flex-col gap-0.5">
+          <p className="font-[family-name:var(--font-display)] text-xl leading-tight font-semibold tracking-tight text-grafito">
             {titulo}
           </p>
           <p className="text-sm text-grafito/75">{resumenDeTurnos}</p>
-        </div>
-        {/* Segmentado Día/Semana/Mes: la pastilla activa flota adentro de
-            la barra (mismo criterio que las pestañas de Turnos y
-            Pacientes, 2026-09-06). Sobre el vidrio, la barra es blanca y
-            con `relieve`, y la pastilla elegida también lo lleva (rediseño
-            del 18/10). */}
-        <div
-          role="group"
-          aria-label="Vista del calendario"
-          className="relieve grid w-full grid-cols-3 rounded-control bg-marfil p-1 text-sm @3xl:w-[19rem]"
-        >
-          {(["dia", "semana", "mes"] as const).map((v) => (
-            <button
-              key={v}
-              type="button"
-              aria-pressed={vista === v}
-              // Mientras el cambio de foco está en vuelo, el toggle no
-              // acepta otro: salir de la vista general dispara una
-              // escritura en el servidor, y encadenar dos dejaría el
-              // calendario mostrando una agenda y el selector diciendo
-              // otra.
-              disabled={cambiandoDeFoco}
-              onClick={() => cambiarVista(v)}
-              className={`min-h-[34px] rounded-pastilla px-4 py-1.5 font-medium transition-colors disabled:opacity-60 max-md:px-2 ${CLASE_TACTIL} ${vista === v ? "relieve bg-marca-relleno text-marfil" : "text-grafito hover:bg-velo"}`}
-            >
-              {VISTA_LABEL[v]}
-            </button>
-          ))}
         </div>
       </EncabezadoDeSeccion>
 
       {/* LAS ACCIONES DE LA PANTALLA, debajo de la tarjeta (ítem 2), a la
           izquierda: "Reservar horario", "+ Agregar turno" (la principal) y
-          "Configuración", del mismo alto (44 px). En el celular la fila
+          "Configuración", del mismo alto (44 px). Los dos secundarios llevan
+          el mismo dibujo: texto en petróleo y el velo al pasar el mouse
+          ("Reservar horario" iba en grafito y "Configuración" en petróleo,
+          paso de diseño del ítem 8, 26/10). En el celular la fila
           scrollea de costado sin envolver, con el ancho exacto de la tarjeta
           (los mismos dos bordes), y cada botón mide lo justo para que entren
           dos y medio: el último queda cortado a la mitad en el borde de la
@@ -1176,7 +1188,7 @@ export function CalendarView({
         <button
           type="button"
           onClick={() => setReservarHorarioAbierto(true)}
-          className={`${CLASE_ACCION} border-[0.5px] border-arena bg-marfil text-grafito hover:border-marca-medio hover:text-marca`}
+          className={`${CLASE_ACCION} border-[0.5px] border-arena bg-marfil text-marca hover:border-marca-medio hover:bg-velo`}
         >
           Reservar horario
         </button>

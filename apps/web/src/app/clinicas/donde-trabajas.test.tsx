@@ -540,5 +540,142 @@ describe("DondeTrabajas (Fase 3.2.3)", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("invitación no encontrada");
   });
+
+  // --- Una columna, Unirme al final (ítem 8, 2026-10-25) ---
+
+  // Los títulos de las tarjetas de "Otras clínicas", en el orden del DOM.
+  function ordenEnOtras() {
+    const seccion = screen.getByRole("heading", { level: 2, name: "Otras clínicas" }).parentElement!;
+    return within(seccion)
+      .getAllByRole("heading", { level: 3 })
+      .map((h) => h.textContent);
+  }
+
+  function grillaDeOtras() {
+    const seccion = screen.getByRole("heading", { level: 2, name: "Otras clínicas" }).parentElement!;
+    return seccion.querySelector(":scope > div.grid") as HTMLElement;
+  }
+
+  it("'Mi clínica' y 'Otras clínicas' son títulos de sección (h2)", () => {
+    render(<DondeTrabajas clinicas={[clinica()]} />);
+    expect(screen.getByRole("heading", { level: 2, name: "Mi clínica" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Otras clínicas" })).toBeInTheDocument();
+  });
+
+  it("sin otras clínicas: el aviso y después 'Unirme a otra clínica', en una sola columna", () => {
+    render(<DondeTrabajas clinicas={[clinica()]} />);
+    expect(ordenEnOtras()).toEqual(["Todavía no trabajás en otras clínicas", "Unirme a otra clínica"]);
+    const grilla = grillaDeOtras();
+    expect(grilla).not.toBeNull();
+    expect(grilla.className).not.toMatch(/grid-cols-2/);
+  });
+
+  it("con otras clínicas: las clínicas y 'Unirme' al final, sin el aviso", () => {
+    render(
+      <DondeTrabajas
+        clinicas={[
+          clinica(),
+          clinica({ id: "c2", nombre: "Clínica A", esPropia: false, rolPrincipal: "profesional" }),
+          clinica({ id: "c3", nombre: "Clínica B", esPropia: false, rolPrincipal: "recepcion" }),
+        ]}
+      />,
+    );
+    expect(ordenEnOtras()).toEqual(["Clínica A", "Clínica B", "Unirme a otra clínica"]);
+    expect(screen.queryByText("Todavía no trabajás en otras clínicas")).not.toBeInTheDocument();
+    expect(grillaDeOtras().className).not.toMatch(/grid-cols-2/);
+  });
+
+  it("con invitación y otras: la invitación primero, después las clínicas y 'Unirme' al final", () => {
+    render(
+      <DondeTrabajas
+        clinicas={[clinica(), clinica({ id: "c2", nombre: "Clínica A", esPropia: false, rolPrincipal: "admin" })]}
+        invitaciones={[invitacion]}
+      />,
+    );
+    const orden = ordenEnOtras();
+    expect(orden[orden.length - 1]).toBe("Unirme a otra clínica");
+    expect(orden.indexOf("Clínica Que Invita")).toBeLessThan(orden.indexOf("Clínica A"));
+    expect(orden.indexOf("Clínica A")).toBeLessThan(orden.indexOf("Unirme a otra clínica"));
+    expect(screen.queryByText("Todavía no trabajás en otras clínicas")).not.toBeInTheDocument();
+  });
+
+  it("solo con una invitación: ni el aviso de 'no trabajás' ni falta 'Unirme' al final", () => {
+    render(<DondeTrabajas clinicas={[clinica()]} invitaciones={[invitacion]} />);
+    const orden = ordenEnOtras();
+    expect(orden[orden.length - 1]).toBe("Unirme a otra clínica");
+    expect(orden).not.toContain("Todavía no trabajás en otras clínicas");
+  });
+
+  it.each([
+    ["owner", "titular"],
+    ["admin", "administrador de página"],
+    ["profesional", "profesional"],
+    ["recepcion", "recepción"],
+  ] as const)("una otra clínica con rol %s dice 'Trabajás acá como %s.'", (rol, etiqueta) => {
+    render(
+      <DondeTrabajas
+        clinicas={[clinica(), clinica({ id: "c2", nombre: "Clínica A", esPropia: false, rolPrincipal: rol })]}
+      />,
+    );
+    const tarjeta = screen.getByRole("heading", { name: "Clínica A" }).parentElement!;
+    expect(within(tarjeta).getByText(`Trabajás acá como ${etiqueta}.`)).toBeInTheDocument();
+  });
+
+  // El rol va en mitad de la frase: un rol que el backend sume algún día no
+  // deja "como undefined.", dice que trabaja ahí sin nombrarlo.
+  it("una otra clínica con un rol desconocido dice 'Trabajás en esta clínica.'", () => {
+    render(
+      <DondeTrabajas
+        clinicas={[
+          clinica(),
+          clinica({
+            id: "c2",
+            nombre: "Clínica A",
+            esPropia: false,
+            rolPrincipal: "suplente" as ClinicaDelUsuario["rolPrincipal"],
+          }),
+        ]}
+      />,
+    );
+    const tarjeta = screen.getByRole("heading", { name: "Clínica A" }).parentElement!;
+    expect(within(tarjeta).getByText("Trabajás en esta clínica.")).toBeInTheDocument();
+    expect(screen.queryByText(/Trabajás acá como/)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["recepcion", "recepción"],
+    ["profesional", "profesional"],
+  ] as const)("una invitación de %s dice 'Te invitaron como %s.', en minúscula", (rol, etiqueta) => {
+    render(<DondeTrabajas clinicas={[]} invitaciones={[{ ...invitacion, rol }]} />);
+    expect(screen.getByText(new RegExp(`^Te invitaron como ${etiqueta}\\.`))).toBeInTheDocument();
+  });
+
+  it("la propia conserva su descripción, no la del rol", () => {
+    render(<DondeTrabajas clinicas={[clinica()]} />);
+    expect(screen.getByText(/^Tu clínica\. Desde acá manejás/)).toBeInTheDocument();
+    expect(screen.queryByText(/Trabajás acá como/)).not.toBeInTheDocument();
+  });
+
+  it("las otras clínicas son tarjetas de vidrio en fila, como la propia", () => {
+    render(
+      <DondeTrabajas clinicas={[clinica(), clinica({ id: "c2", nombre: "Clínica A", esPropia: false, rolPrincipal: "profesional" })]} />,
+    );
+    const tarjeta = screen.getByRole("heading", { name: "Clínica A" }).closest(".vidrio")!;
+    expect(tarjeta).toHaveClass("md:flex-row");
+    expect(tarjeta.querySelector('[aria-hidden="true"] svg')).not.toBeNull();
+  });
+
+  it("todas las tarjetas entran con el despliegue 'fundido'", () => {
+    const { container } = render(
+      <DondeTrabajas
+        clinicas={[clinica(), clinica({ id: "c2", nombre: "Clínica A", esPropia: false, rolPrincipal: "profesional" })]}
+        invitaciones={[invitacion]}
+      />,
+    );
+    const despliegues = container.querySelectorAll(".despliegue");
+    // Mi clínica + invitación + Clínica A + Unirme.
+    expect(despliegues).toHaveLength(4);
+    despliegues.forEach((d) => expect(d).toHaveClass("despliegue--fundido"));
+  });
 });
 

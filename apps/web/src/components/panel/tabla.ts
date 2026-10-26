@@ -42,7 +42,8 @@
 //   (blanca y opaca sobre el vidrio, para que las filas que pasan por
 //   debajo no se mezclen; `hueso` en un diálogo), y una línea
 //   inferior que acompaña el scroll. La columna fija del celular es la
-//   misma capa clara.
+//   misma capa clara. La excepción es una cabecera que queda afuera del
+//   scroll vertical (`CLASE_CABECERA_SOBRE_VIDRIO`, más abajo).
 // - Las celdas: 14 px, `grafito` para el dato y `grafito/75` para lo
 //   secundario (4,5:1 como mínimo, la regla del repo; sobre el vidrio da
 //   más de 5:1 en el tramo más oscuro del fondo, también con el velo del
@@ -59,8 +60,20 @@ export const CLASE_CAJA_VACIA = "vidrio vidrio-tabla";
 
 export const CLASE_TABLA = "w-full border-collapse text-left text-sm";
 
-export const CLASE_CABECERA =
-  "panel-th-sticky whitespace-nowrap px-3 py-2.5 md:px-2 2xl:px-3 text-left align-middle text-xs font-semibold tracking-wide text-grafito/75 uppercase";
+const CABECERA = "whitespace-nowrap py-2.5 text-left align-middle text-xs font-semibold tracking-wide text-grafito/75 uppercase";
+
+export const CLASE_CABECERA = `panel-th-sticky px-3 md:px-2 2xl:px-3 ${CABECERA}`;
+
+// La cabecera de una tabla cuyas filas NO pasan por debajo ("Turnos de hoy",
+// pedido de la persona, ítem 8, 2026-10-25): va afuera del scroll vertical,
+// así que no necesita la capa opaca de `.panel-th-sticky` y queda sobre el
+// vidrio, con solo su línea inferior translúcida. En `grafito/75` como las
+// demás cabeceras: sobre el vidrio da 5,2:1 en el tramo más oscuro del fondo
+// (medido con el DOM a 390 y 1440 px, ocho muestras con las ondas en
+// movimiento; en grafito entero, 10,5:1). Con `px-4`, el relleno de las
+// celdas de esa tarjeta en todos los anchos: con el `md:px-2` de las otras
+// cabeceras, los rótulos quedaban 8 px a la izquierda de los datos.
+export const CLASE_CABECERA_SOBRE_VIDRIO = `px-4 ${CABECERA} shadow-[inset_0_-1px_0_var(--vidrio-separador)]`;
 
 // Separadores sutiles entre filas, la última sin línea (la cierra el borde
 // de la caja). Una fila que lleva a algún lado se ilumina con el velo. El

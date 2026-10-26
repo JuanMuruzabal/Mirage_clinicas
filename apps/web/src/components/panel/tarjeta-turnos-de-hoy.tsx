@@ -17,7 +17,7 @@ import { IconoReloj } from "./tarjeta-turnero-iconos";
 import { LinkConVista } from "./link-con-vista";
 import { BotonMantenerApretado } from "./boton-mantener-apretado";
 import { Despliegue } from "./despliegue";
-import { CLASE_CABECERA, CLASE_FILA } from "./tabla";
+import { CLASE_CABECERA_SOBRE_VIDRIO, CLASE_FILA } from "./tabla";
 
 // TarjetaTurnosDeHoy — la tarjeta principal del panel (2026-09-19,
 // rediseño pedido por el cliente).
@@ -28,11 +28,14 @@ import { CLASE_CABECERA, CLASE_FILA } from "./tabla";
 // en dos: a la izquierda el bloque que la identifica y la cuenta, a la
 // derecha una tabla con una fila por turno.
 //
-// Las cuatro columnas —HORARIO, PACIENTE, ESTADO, ASISTENCIA— van en una
-// cabecera FIJA que no se va con el scroll. Es una `<table>` de verdad y
-// no una grilla de divs: son datos tabulares, la cabecera tiene que
-// acompañar al cuerpo, y en mobile el ancho mínimo de la tabla es lo que
-// produce el scroll horizontal sin declarar anchos dos veces.
+// Las cuatro columnas —HORARIO, PACIENTE, ESTADO, ASISTENCIA— llevan una
+// cabecera que no se va con el scroll vertical. Es una `<table>` de verdad
+// y no una grilla de divs: son datos tabulares, la cabecera tiene que
+// acompañar al cuerpo de costado, y en mobile el ancho mínimo es lo que
+// produce el scroll horizontal. Desde el ítem 8 (2026-10-25) esa cabecera
+// queda sobre el vidrio, sin la capa opaca de las cabeceras fijas: para que
+// ninguna fila pase por debajo, sale del scroll vertical y la tabla se parte
+// en dos (ver TablaDeTurnos, más abajo).
 //
 // ## La asistencia de acá es REVERSIBLE
 //
@@ -63,9 +66,10 @@ const INTERVALO_RELOJ_MS = 15_000;
 // botones se habilitarían para que el servidor los rechace.
 const ANTICIPO_ASISTENCIA_MS = 5 * 60 * 1000;
 
-// Los anchos de las columnas, en un solo lugar para que la cabecera fija
-// y las filas no se puedan desalinear. El total define el ancho mínimo
-// de la tabla, que es lo que dispara el scroll horizontal en mobile.
+// Los anchos de las columnas, en un solo lugar: las dos tablas (la cabecera
+// visible y la de las filas) los declaran con el mismo `<colgroup>`, así no
+// se pueden desalinear. El total define el ancho mínimo de la tabla, que es
+// lo que dispara el scroll horizontal en mobile.
 //
 // Van con `table-layout: fixed` (ver la tabla): con el layout automático
 // el navegador reparte el sobrante entre las columnas de texto, y la de
@@ -82,13 +86,47 @@ const COL_PROFESIONAL = "w-[11rem]";
 
 const CELDA = "px-4 py-3 align-middle";
 
-// La cabecera es la de todas las tablas del panel (CLASE_CABECERA,
-// correcciones generales, ítem 9): se pega arriba celda por celda, no en el
-// `<thead>`, con su fondo `hueso` y su línea inferior. El cuerpo de esta
-// tarjeta conserva la tipografía display del Turnero (pedido del cliente,
-// 2026-09-19): es la tarjeta de lo más urgente del día, no una lista de
-// gestión.
-const TH_STICKY = CLASE_CABECERA;
+// La cabecera es la de las tablas del panel en su variante sobre el vidrio
+// (CLASE_CABECERA_SOBRE_VIDRIO, ítem 8, 2026-10-25): el mismo renglón en
+// mayúsculas, sin fondo y con la línea inferior translúcida. El cuerpo de
+// esta tarjeta conserva la tipografía display del Turnero (pedido del
+// cliente, 2026-09-19): es la tarjeta de lo más urgente del día, no una lista
+// de gestión.
+interface Columna {
+  nombre: string;
+  /** Sin ancho, la columna absorbe lo que sobra (en las dos tablas). */
+  ancho?: string;
+  clase?: string;
+}
+
+function columnasDeLaTabla(conProfesional: boolean): Columna[] {
+  return [
+    { nombre: "Horario", ancho: COL_HORARIO },
+    { nombre: "Paciente", ancho: COL_PACIENTE },
+    // Solo en la vista general de recepción: ahí los turnos son de varias
+    // personas y la lista tiene que decir de quién es cada uno.
+    ...(conProfesional ? [{ nombre: "Profesional", ancho: COL_PROFESIONAL }] : []),
+    // `pl-7` y no `pl-4`: la píldora de abajo tiene su propio `px-3`, así
+    // que su TEXTO arranca 12 px más adentro que su caja. Alineado contra
+    // la caja, el rótulo quedaba corrido respecto de la palabra que nombra
+    // (2026-09-19, pedido del cliente). Repetido con `md:` y `2xl:`, o el
+    // padding de la cabecera común se lo pisa.
+    { nombre: "Estado", ancho: COL_ESTADO, clase: "pl-7 md:pl-7 2xl:pl-7" },
+    // Sin ancho: absorbe lo que sobra, y así ESTADO queda pegado al nombre
+    // en vez de empujado al otro extremo de la tarjeta.
+    { nombre: "Asistencia" },
+  ];
+}
+
+function AnchosDeColumnas({ columnas }: { columnas: Columna[] }) {
+  return (
+    <colgroup>
+      {columnas.map((c) => (
+        <col key={c.nombre} className={c.ancho} />
+      ))}
+    </colgroup>
+  );
+}
 
 export function TarjetaTurnosDeHoy({
   turnos,
@@ -111,9 +149,6 @@ export function TarjetaTurnosDeHoy({
   hrefPie: string;
 }) {
   const router = useRouter();
-  // En el celular, cuatro filas enteras antes del scroll (ver lib/alto-de-filas.ts).
-  const cajaTabla = useRef<HTMLDivElement>(null);
-  useAltoDeFilas(cajaTabla);
   // `useAhora` es `null` en el servidor y durante la hidratación, a
   // propósito (lib/reloj.ts). Hasta que llega el reloj del cliente se usa
   // la hora que trae la página desde el servidor (2026-10-10): la misma en
@@ -180,71 +215,20 @@ export function TarjetaTurnosDeHoy({
           </p>
         </div>
 
-        {/* DOS CAJAS (2026-09-19, el scroll horizontal no andaba ni
-            siquiera en el emulador de Edge): la de afuera recorta el
-            despliegue (`despliegue-cuerpo`, un `clip-path` que se abre
-            hacia la derecha) y la de adentro scrollea. `min-w-0` en las
-            dos, para que ninguno de los dos hijos de flex se niegue a
-            bajar de su ancho de contenido. La de afuera cierra los dos
+        {/* La caja de afuera recorta el despliegue (`despliegue-cuerpo`,
+            un `clip-path` que se abre hacia la derecha) y cierra los dos
             ejes: con uno solo en `hidden`, el otro computa `auto` y sería
-            un segundo contenedor de scroll. */}
-        <div ref={cajaTabla} className="despliegue-cuerpo flex max-h-64 min-h-[11rem] min-w-0 flex-1 overflow-hidden max-md:max-h-[var(--alto-mobile,16rem)]">
+            otro contenedor de scroll. Adentro van la cabecera visible y UNA
+            caja que scrollea las filas en los dos sentidos (TablaDeTurnos).
+            `min-w-0` para que ningún hijo de flex se niegue a bajar de su
+            ancho de contenido. */}
+        <div className="despliegue-cuerpo flex min-h-[11rem] min-w-0 flex-1 overflow-hidden">
           {turnos.length === 0 ? (
             <p className="p-6 font-[family-name:var(--font-display)] text-base font-semibold text-grafito/75">
               No hay turnos para hoy.
             </p>
           ) : (
-            <div className="panel-card-scroll w-full min-w-0 overflow-auto">
-            <table
-              className={`w-full table-fixed border-collapse text-left ${conProfesional ? "min-w-[55rem]" : "min-w-[44rem]"}`}
-            >
-              {/* La cabecera es la común de las tablas del panel (ver
-                  TH_STICKY).
-
-                  El `sticky` va en cada `<th>` y no en el `<thead>`: es
-                  la decisión que ya tomó el proyecto para las tres
-                  tablas de gestión (ver `.panel-th-sticky` en
-                  globals.css), porque Safari de iOS despega un thead
-                  sticky durante el rebote elástico. */}
-              <thead>
-                <tr>
-                  <th scope="col" className={`${TH_STICKY} ${COL_HORARIO}`}>
-                    Horario
-                  </th>
-                  <th scope="col" className={`${TH_STICKY} ${COL_PACIENTE}`}>
-                    Paciente
-                  </th>
-                  {/* Solo en la vista general de recepción: ahí los
-                      turnos son de varias personas y la lista tiene que
-                      decir de quién es cada uno. */}
-                  {conProfesional && (
-                    <th scope="col" className={`${TH_STICKY} ${COL_PROFESIONAL}`}>
-                      Profesional
-                    </th>
-                  )}
-                  {/* `pl-7` y no `pl-4`: la píldora de abajo tiene su
-                      propio `px-3`, así que su TEXTO arranca 12 px más
-                      adentro que su caja. Alineado contra la caja, el
-                      rótulo quedaba corrido respecto de la palabra que
-                      nombra (2026-09-19, pedido del cliente). */}
-                  <th scope="col" className={`${TH_STICKY} pl-7 ${COL_ESTADO}`}>
-                    Estado
-                  </th>
-                  {/* Sin ancho: absorbe lo que sobra, y así ESTADO queda
-                      pegado al nombre en vez de empujado al otro extremo
-                      de la tarjeta. */}
-                  <th scope="col" className={TH_STICKY}>
-                    Asistencia
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {turnos.map((t) => (
-                  <FilaTurnoDeHoy key={t.id} turno={t} ahora={ahora} conProfesional={conProfesional} />
-                ))}
-              </tbody>
-            </table>
-            </div>
+            <TablaDeTurnos turnos={turnos} ahora={ahora} conProfesional={conProfesional} />
           )}
         </div>
       </div>
@@ -258,6 +242,101 @@ export function TarjetaTurnosDeHoy({
         </Link>
       </div>
     </Despliegue>
+  );
+}
+
+// TablaDeTurnos — las dos tablas alineadas de la tarjeta: la cabecera
+// visible arriba y, debajo, UNA caja que scrollea las filas en los dos
+// sentidos. La cabecera queda fuera del scroll vertical (ítem 8, 2026-10-25:
+// así ninguna fila le pasa por debajo y puede ir sin fondo) y sigue el de
+// costado copiando el `scrollLeft` de la caja, sin estado ni renders.
+//
+// Hasta el 25/10 el scroll de costado era de una caja de afuera, con una
+// columna al ancho mínimo de la tabla y la caja vertical adentro: en la
+// tablet (768 a 1279 px) la barra vertical quedaba al final de esa columna
+// de 44 rem, escondida hasta llegar de costado al borde. Con una sola caja
+// la barra vertical está en el borde visible y la horizontal, debajo de
+// las filas.
+//
+// Es un componente aparte porque es dueño de la caja que mide
+// `useAltoDeFilas`: se monta recién cuando hay turnos, así el hook la mide
+// también si la lista llega después (de "No hay turnos para hoy" a la
+// primera fila, con un refresh).
+function TablaDeTurnos({
+  turnos,
+  ahora,
+  conProfesional,
+}: {
+  turnos: ResumenTurnoItem[];
+  ahora: number | null;
+  conProfesional: boolean;
+}) {
+  // En el celular, cuatro filas enteras antes del scroll (ver lib/alto-de-filas.ts).
+  // La barra horizontal ahora vive en esta misma caja: el hook la descuenta
+  // como parte del marco (`offsetHeight - clientHeight`).
+  const cajaTabla = useRef<HTMLDivElement>(null);
+  const cabecera = useRef<HTMLDivElement>(null);
+  useAltoDeFilas(cajaTabla);
+  const columnas = columnasDeLaTabla(conProfesional);
+  const anchoMinimo = conProfesional ? "min-w-[55rem]" : "min-w-[44rem]";
+  return (
+    <div className="flex w-full min-w-0 flex-col">
+      {/* La cabecera que se ve. `aria-hidden`: la que leen los lectores
+          de pantalla es el `<thead>` de la tabla de abajo.
+          La barra vertical ocupa ancho en la caja de las filas y no acá:
+          sin compensarla, en Windows con mouse las columnas se corrían
+          su ancho. `scrollbar-gutter: stable` en las DOS cajas, con la
+          misma clase de barra: el navegador reserva el mismo canal en
+          ambas (también con `overflow: hidden`), sin medir con JS, y con
+          barras superpuestas (celular, macOS) el canal vale 0 en las dos.
+          El costo: con pocas filas queda un canal vacío de 8 px. */}
+      <div ref={cabecera} className="panel-card-scroll shrink-0 overflow-hidden [scrollbar-gutter:stable]">
+        <table aria-hidden="true" className={`w-full table-fixed border-collapse text-left ${anchoMinimo}`}>
+          <AnchosDeColumnas columnas={columnas} />
+          <thead>
+            <tr>
+              {columnas.map((c) => (
+                <th key={c.nombre} className={`${CLASE_CABECERA_SOBRE_VIDRIO} ${c.clase ?? ""}`}>
+                  {c.nombre}
+                </th>
+              ))}
+            </tr>
+          </thead>
+        </table>
+      </div>
+      {/* El alto desde `md`: cuatro filas y media, para que la quinta
+          asome y se note que hay más. Una fila mide 55 px (el `py-3` de
+          CELDA más los botones de asistencia): 4,5 × 55 = 247,5 px ≈
+          15,5 rem. En el celular, cuatro filas medidas con
+          `useAltoDeFilas`. */}
+      <div
+        ref={cajaTabla}
+        onScroll={(e) => {
+          if (cabecera.current) cabecera.current.scrollLeft = e.currentTarget.scrollLeft;
+        }}
+        className="panel-card-scroll min-h-0 flex-1 overflow-auto [scrollbar-gutter:stable] max-h-[15.5rem] max-md:max-h-[var(--alto-mobile,15.5rem)]"
+      >
+        <table className={`w-full table-fixed border-collapse text-left ${anchoMinimo}`}>
+          <AnchosDeColumnas columnas={columnas} />
+          {/* El `<thead>` de verdad, de alto cero: sin relleno ni
+              borde, y el texto solo para los lectores de pantalla. */}
+          <thead>
+            <tr>
+              {columnas.map((c) => (
+                <th key={c.nombre} scope="col" className="p-0">
+                  <span className="sr-only">{c.nombre}</span>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {turnos.map((t) => (
+              <FilaTurnoDeHoy key={t.id} turno={t} ahora={ahora} conProfesional={conProfesional} />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 
