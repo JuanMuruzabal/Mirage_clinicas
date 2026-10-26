@@ -647,7 +647,7 @@ describe("DondeTrabajas (Fase 3.2.3)", () => {
     ["profesional", "profesional"],
   ] as const)("una invitación de %s dice 'Te invitaron como %s.', en minúscula", (rol, etiqueta) => {
     render(<DondeTrabajas clinicas={[]} invitaciones={[{ ...invitacion, rol }]} />);
-    expect(screen.getByText(new RegExp(`^Te invitaron como ${etiqueta}\.`))).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`^Te invitaron como ${etiqueta}\\.`))).toBeInTheDocument();
   });
 
   it("la propia conserva su descripción, no la del rol", () => {
