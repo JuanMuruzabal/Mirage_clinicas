@@ -3899,3 +3899,52 @@ La persona probó el odontograma completo y pidió seis correcciones. Quedan hec
   4. Si movés código de carpeta, revisá los `paths` de la regla que lo nombra.
 - **Verificación:** un script (fuera del repo) cortó el `CLAUDE.md` viejo por secciones y por bullet de primer nivel, asignó cada pieza a un archivo y comparó renglón por renglón: **no se perdió ninguno** salvo los tres de las referencias cambiadas, **cada glob de `paths` encuentra archivos** y las únicas rutas nombradas que quedan sin cubrir son las seis de arriba. El `CLAUDE.md` mide 25.699 bytes; las reglas, entre 1,5 y 29 KB.
 - **Documento:** la sección «Reglas por área (`.claude/rules/`)» del `CLAUDE.md`.
+
+## TR-202: Ítem 8, primera tanda: los módulos sin tarjeta de título, el calendario con su tarjeta de controles y las tarjetas de `/clinicas` y `/seleccionar-servicio` con el dibujo quieto
+
+- **Fecha:** 2026-10-25 a 2026-10-26 · **Fase:** execution (rama `feature/cambios-front`, PR a `dev`; corrige parte de TR-195)
+- **Contexto:** el ítem 8 de las correcciones generales de frontend pedía ajustar lo que TR-195 había dejado: las escenas animadas de los encabezados, el título en degradé, el barrido de entrada y la cabecera opaca de "Turnos de hoy". La persona fue cambiando de dirección a medida que veía el resultado, **tres veces en dos días**, así que lo que vale es lo último; las dos primeras direcciones se anotan con su porqué para que nadie las vuelva a proponer.
+- **Referencias de diseño que se usaron:** las ilustraciones "spot" de Atlassian (un objeto quieto con un solo gesto, no una escena), los pictogramas "productivos" de IBM Carbon (la ilustración acompaña, no compite con el contenido), Shopify Polaris (el título de la página es texto, la tarjeta es para agrupar controles) y las skills `apple-design` (Emil Kowalski: la animación se gasta donde la persona la espera) y `apple-hig` (jerarquía de títulos, blancos táctiles de 44 px, contraste). Son referencias, no una especificación: nada se copió.
+- **Las tres direcciones:**
+  1. **25/10, mañana:** sacar las manos de todas las escenas (la del calendario que clava la notita, la de Documentos que firma): la acción la hacen los objetos solos. Los bordes más rectos de las tarjetas de título se descartaron. Alinea las escenas con la regla de TR-195, "acciones con objetos, sin personas", que las manos contradecían.
+  2. **25/10, tarde:** una primera tanda de cinco cambios (columna centrada en `/clinicas` y `/seleccionar-servicio`, entrada con fundido, dibujos que desbordan, escena nueva del calendario sin el corcho y "Turnos de hoy" con la cabecera sobre el vidrio).
+  3. **26/10:** "no me convencen los dibujos de las tarjetas de los módulos, vamos a quitarlos completamente, solo quedará el título". Es el giro más grande: salen las escenas de los encabezados, y con ellas la tarjeta de título.
+- **Decisión** (todo lo pidió o lo aprobó la persona; lo que vale es lo final):
+  1. **Los módulos (General, Turnos, Pacientes, Documentos) quedan solo con el `h1`**, en petróleo y a 28/32 px (el Title 1 de iOS), con la clase `CLASE_TITULO_DE_PANTALLA` (`components/titulo-de-pantalla.ts`), sin tarjeta ni dibujo. Es la misma clase en el `h1` de todas las pantallas con sesión: una sola jerarquía. La orientación de cada sección queda en manos del `h1` y del sidebar.
+  2. **El calendario:** el `h1` va afuera, como en los otros módulos, y una tarjeta de vidrio redondeada lleva **solo los controles**, en una fila desde `@3xl` (‹ Hoy ›, la fecha con su resumen y Día/Semana/Mes) y apilados en orden de lectura en el celular. `EncabezadoDeSeccion` pasó de `debajo` + `children` a `navegacion`, `opciones` y `children`: es la única forma de ubicar la fecha y el segmentado por separado. El encabezado bajó de 262 a 122 px en la computadora.
+  3. **`/clinicas` y `/seleccionar-servicio`:**
+     - columna centrada (`mx-auto max-w-5xl`), con los títulos alineados al borde de las tarjetas (el texto no se centra);
+     - entrada con `Despliegue forma="fundido"` (opacidad más 4 px de `translateY`, ~280 ms, 50 ms por tarjeta, sin `clip-path`): el barrido queda solo en General. **El fundido va sobre el cuerpo de adentro y nunca sobre el vidrio**, porque una `opacity` en un ancestro le corta el desenfoque mientras dura;
+     - **las tarjetas conservan su dibujo, pero como un objeto quieto**: agrandado, anclado abajo a la derecha, recortado por la tarjeta, a 0,55 de opacidad, con esquinas de 14 px y el vidrio con el relleno al 36 % (`--vidrio-relleno-encabezado`). Nunca tapa el texto;
+     - el saludo "Hola, {nombre}" grande y "¿Qué necesitás hoy?" siguen en degradé (`.titulo-prismatico`, **idéntica a HEAD**), y "¿Dónde trabajás hoy?" en petróleo;
+     - "Mi clínica" y "Otras clínicas" pasan a ser títulos de sección en petróleo; las otras clínicas son tarjetas completas en una columna, con "Trabajás acá como {rol}" (los roles en minúscula; "Trabajás en esta clínica." si el rol es desconocido) y "Unirme a otra clínica" siempre al final.
+  4. **"Turnos de hoy": la cabecera sobre el vidrio, fuera del scroll vertical.** Una cabecera fija tiene que ser opaca mientras las filas pasen por debajo, así que la única forma de dejarla transparente es sacarla del scroll. Va en una tabla `aria-hidden` con los mismos `<col>`, y la tabla real conserva su `thead` en `sr-only` (los lectores de pantalla y `getByRole("columnheader")` siguen igual). **Una sola caja de scroll**, la cabecera copia el `scrollLeft`, y `scrollbar-gutter: stable` para que las columnas no se corran cuando aparece la barra vertical (`CLASE_CABECERA_SOBRE_VIDRIO`, `tabla.ts`).
+  5. **El segmentado Día/Semana/Mes** mide 44 px de barra sin crecer con `CLASE_TACTIL`: la pastilla va a 36 px y un `::before` cubre el relleno, para que el blanco táctil sea de 44 px sin engordar la fila (`max-w-64` desde `@md`). "Reservar horario" pasó a petróleo, como "Configuración".
+  6. **Lo que salió:** las escenas de los encabezados, las manos, las mesas, `TarjetaConEscenas` (borrado), los keyframes de las acciones y los restos que quedaron muertos (`--vb-*`, `data-ajuste`, el arreglo del guion).
+- **Qué cambia de TR-195:**
+  - **Los encabezados con escenas** (`EncabezadoDeSeccion` "con sus escenas") ya no existen: es un `h1`, debajo `antes` y, solo en el calendario, la tarjeta de controles.
+  - **"Un título de encabezado es `.titulo-prismatico`"** ya no vale para los módulos: es `CLASE_TITULO_DE_PANTALLA` en petróleo. `.titulo-prismatico` queda solo para el saludo de `/clinicas` y el `h1` de `/seleccionar-servicio`.
+  - **Los dibujos "acciones con objetos que descansan 9 s"** existen ahora solo en las tarjetas de esas dos pantallas, y quietos.
+  - **Las esquinas:** `.vidrio.encabezado-seccion` volvió a 14 px (`--radius-encabezado`), con el relleno al 36 % y el canto nítido. "Los bordes más rectos" se descartó el 25/10 y "los bordes más redondeados como estaban antes" se pidió el 26/10.
+  - **"La cabecera fija de una tabla es opaca"** sigue valiendo, con una excepción: la de "Turnos de hoy" sale del scroll vertical.
+- **Alternativas descartadas:**
+  - **Dejar los módulos con una tarjeta de vidrio sin dibujo:** la persona pidió eliminarla por completo.
+  - **Meter el título del calendario dentro de su tarjeta:** rompe la coherencia con los otros módulos; la fila única (como Google Calendar) se logra con el `h1` afuera.
+  - **Centrar el objeto entero en la columna de la tarjeta:** es lo que "cuelga en el medio" (palabras de la persona).
+  - **Mantener el saludo chico y la pregunta en petróleo, por jerarquía y contraste** (el degradé sobre las ondas da entre 2,7 y 3,5:1): la persona prefiere su identidad del 19/10 y pidió revertirlo ("¿por qué cambió el diseño de /clinicas y /seleccionar-servicio? El hola en grande con colores que tenía antes"). Lo había cambiado la pasada de "más profesional" sin consultarla.
+  - **Centrar el texto de los títulos** de las dos pantallas, **una `opacity` sobre toda la tarjeta** para la entrada y **dejar la cabecera de "Turnos de hoy" sin fijar** (se pierden los rótulos al scrollear).
+  - **Una sola tabla con la cabecera `sticky` transparente:** las filas se verían a través.
+  - **Un `transform: scale` del contenedor de la escena** para que desborde: corría lo importante fuera de la caja según el ancho.
+  - **Hacer la auditoría del front en este mismo PR** (se había pedido antes: "todo en un mismo PR"): la persona lo revirtió al cerrar la tanda; va en una rama que sale de esta, con su propio PR, para poder mergear esto ya y revertir cada cosa por separado.
+- **Se sacrifica:**
+  - **Las escenas animadas de los módulos y su acción**, y el título en degradé en esos módulos (identidad del 19/10): se pierde marca visual a cambio de jerarquía y alto.
+  - **"¿Qué necesitás hoy?" en degradé, sobre las ondas sin vidrio, puede bajar de 3:1** (cian y dorado dan 2,8:1): ya era así y la persona lo aceptó el 19/10.
+  - **"Turnos de hoy" lleva su cabecera dos veces en el DOM** (la visible `aria-hidden` y la del `thead` en `sr-only`) y hay que mantenerlas alineadas con las mismas constantes `COL_*`.
+  - **Dos PR encadenados** (este y la auditoría): si este recibe cambios en la revisión, hay que traerlos a la rama de la auditoría.
+- **Lo que queda afuera (no es de este PR):**
+  - **La auditoría del front** (con `apple-hig` y `apple-design`), en un PR propio. Hallazgos ya anotados: dos estilos de botón secundario, el anillo de foco por defecto, las pestañas de Turnos a 52 px con el dedo, el selector de recepción de 116 px, el relleno superior desparejo y el vidrio en la capa de contenido.
+  - **El error de hidratación de `/panel/calendario`** con el navegador en hora de Córdoba y el contenedor en UTC: bug previo, fix aparte. No se verificó en un navegador.
+  - **El scroll de costado de "Turnos de hoy" de recepción a 1280 px:** va en la auditoría.
+  - **Los ítems 5, 7, 8 y 9 del ítem 8** de la lista de correcciones.
+- **Verificación:** 2418 tests en verde (186 archivos), cobertura de 87,4 % (el gate de 80 % es global; `calendar-view.tsx` queda en 74,8 % y no bloquea), lint y typecheck sin errores, `scripts/qa-entorno-dev.sh` con 21 ok y 0 fallas, las 7 pantallas de la tanda en 200 con la estructura revisada en el HTML, y el DOM medido a 390, 768, 1024, 1280 y 1536 px sin scroll de costado (petróleo a 4,82:1 sobre las ondas, texto sobre vidrio a 5,46:1 o más). **No se verificó:** Safari de iOS ni el costo de GPU.
+- **Documento:** `.claude/rules/panel-ui.md`, sección «Ítem 8 (TR-202)».

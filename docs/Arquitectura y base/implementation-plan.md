@@ -963,7 +963,7 @@ Pedido directo del cliente, sin brief. Decisiones: `docs/Arquitectura y base/tra
 
 ## 16. Pulido visual del panel y la home pública (2026-09-26/27)
 
-Pedidos directos del cliente, sin brief. Decisiones: `tradeoffs.md` TR-180 (panel), TR-181 (home) y TR-195 (el rediseño de las correcciones generales de octubre).
+Pedidos directos del cliente, sin brief. Decisiones: `tradeoffs.md` TR-180 (panel), TR-181 (home), TR-195 (el rediseño de las correcciones generales de octubre) y TR-202 (su ítem 8, primera tanda).
 
 | Parte | Qué | Estado |
 |---|---|---|
@@ -973,6 +973,7 @@ Pedidos directos del cliente, sin brief. Decisiones: `tradeoffs.md` TR-180 (pane
 | Home, primera versión | Siete secciones contando el dolor del profesional, con ilustraciones de producto | ✅ mergeada (PR #73) — reemplazada por la segunda |
 | Home, segunda versión | Simple y al pie: qué es, la historia de Lucía en tres escenas, cuatro ventajas, pacientes y cierre, con dibujos propios (el mate, el celular, el calendario) | ✅ mergeada (PR #74) |
 | Panel y pantallas con sesión — rediseño (correcciones generales, 2026-10) | Fondo de ondas WebGL y blancos en lugar del cascarón; color de marca en petróleo, separado del verde de estado; Figtree y radios por escala; vidrio en tablas, General y encabezados (título prismático, escenas sin personas); contorno prismático en la acción principal de cada pantalla; íconos del sidebar rehechos; tablas que llenan el espacio libre (`useAltoLibre`) y completas en el celular; todo modal a `Dialogo` y cierre solo con la cruz; `TarjetaConDibujo` en `/clinicas` y `/seleccionar-servicio`; Pacientes sin "Ver ficha" y Turnos sin contadores; fix del cartel de asistencia al cambiar de clínica (TR-195). La home, la página pública y el PDF quedan afuera | ✅ PR #92 a `dev`; pendiente de mirar a ojo: el drawer y los popovers del header y el contorno en Safari de iOS |
+| Panel y pantallas con sesión — ítem 8, primera tanda (2026-10-26) | Los módulos quedan solo con el `h1` en petróleo (`CLASE_TITULO_DE_PANTALLA`), sin tarjeta ni dibujo; el calendario con el `h1` afuera y una tarjeta de controles en una fila; `/clinicas` y `/seleccionar-servicio` en columna centrada, entrada con `Despliegue forma="fundido"`, tarjetas con el objeto quieto recortado abajo a la derecha, otras clínicas como tarjetas completas; "Turnos de hoy" con la cabecera sobre el vidrio, fuera del scroll vertical. Salen las escenas de los encabezados, las manos y `TarjetaConEscenas` (TR-202). Quedan afuera: la auditoría del front (PR propio), el error de hidratación de `/panel/calendario` y el scroll de costado de "Turnos de hoy" a 1280 px | ✅ PR a `dev`; pendiente de mirar a ojo: Safari de iOS y la GPU |
 
 **Pendiente, sin fecha:** si el cliente quiere contar la seguridad o los pasos para empezar, van en una página aparte, no en la home (TR-181, "lo que se sacrifica").
 
