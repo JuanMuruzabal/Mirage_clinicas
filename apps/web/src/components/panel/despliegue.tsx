@@ -22,8 +22,11 @@ export function Despliegue({
   children,
 }: {
   /** Hacia dónde se abre el cuerpo. "derecha" es solo desde tablet: en el
-   *  celular las dos partes de "Turnos de hoy" se apilan. */
-  forma?: "abajo" | "derecha";
+   *  celular las dos partes de "Turnos de hoy" se apilan. "fundido" no
+   *  barre: el cuerpo aparece con un fundido corto, para las pantallas de
+   *  paso (/seleccionar-servicio y /clinicas, ítem 8, 2026-10-25), donde el
+   *  barrido de General demoraba el clic. */
+  forma?: "abajo" | "derecha" | "fundido";
   /** El lugar de la tarjeta en la página: las que se ven al entrar se
    *  despliegan en cascada, no todas juntas. */
   orden?: number;
@@ -59,7 +62,7 @@ export function Despliegue({
   return (
     <div
       ref={nodo}
-      className={`despliegue ${forma === "derecha" ? "despliegue--derecha" : ""} ${className}`}
+      className={`despliegue ${forma === "abajo" ? "" : `despliegue--${forma}`} ${className}`}
       style={{ "--despliegue-orden": orden } as CSSProperties}
     >
       {children}

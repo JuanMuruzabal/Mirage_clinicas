@@ -1,7 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { EscenaDeServicio, type DibujoDeTarjeta } from "./panel/escenas";
-import { EscenasAnimadas } from "./panel/tarjeta-con-escenas";
 
 // LA TARJETA CON DIBUJO: el armado común de las tarjetas de
 // /seleccionar-servicio (`NavCard`) y de /clinicas (las clínicas, las
@@ -9,34 +8,47 @@ import { EscenasAnimadas } from "./panel/tarjeta-con-escenas";
 // misma clase de diseño debe tener las mismas decisiones de diseño". Vive en
 // un solo lugar para que las dos pantallas no diverjan.
 //
-// Es de VIDRIO como los encabezados de sección del panel
-// (`.vidrio.encabezado-seccion`: el canto esmerilado y las esquinas de
-// 14 px) y, como las tarjetas de General, parte vidrio y parte blanco: el
-// contenido va en la carátula (`.vidrio-capa`, la segunda capa, más clara,
-// con `--vidrio-margen` alrededor) y la escena queda sobre el vidrio. Para la
-// curva concéntrica de la carátula, la tarjeta redefine `--radius-vidrio`
-// (como `.vidrio-tabla`): 14 − 6 = 8 px.
+// Es del vidrio más transparente de la app (`.vidrio.encabezado-seccion`:
+// el canto esmerilado y las esquinas a 14 px, que la carátula sigue a 8) y,
+// como las tarjetas de General, parte vidrio y parte blanco: el contenido va
+// en la carátula (`.vidrio-capa`, la segunda capa, más clara, con
+// `--vidrio-margen` alrededor) y la escena queda sobre el vidrio.
 //
-//   - `disposicion="fila"` (la de servicios y la de "Mi clínica"): desde
-//     `md`, la carátula a la izquierda y la escena a su lado; en el celular,
-//     la carátula arriba y la escena en una franja debajo.
-//   - `disposicion="columna"` (las de la grilla de "Otras clínicas", a dos
-//     columnas): siempre la carátula arriba y la franja abajo.
-//   - `blanca` ("Otras clínicas", ítem 15): la tarjeta es blanca y opaca,
-//     sin vidrio ni carátula, con su dibujo en la franja.
+// Todas van en fila (desde el ítem 8, 2026-10-25, también las de "Otras
+// clínicas", que eran blancas y en columna): desde `md`, la carátula a la
+// izquierda y la escena a su lado; en el celular, la carátula arriba y la
+// escena en una franja debajo.
 //
-// LA ESCENA es una de la paleta común (`EscenaDeServicio`, escenas.tsx),
-// contra el borde derecho y con la mesa saliendo por él; nunca va detrás del
-// texto. Sus colores van cambiando cada tanto, como en los encabezados
-// (`EscenasAnimadas`), y recorren el arco dos veces (`vueltas`). Al pasar el
-// mouse se corre apenas; con "reducir movimiento", ni eso.
+// LA ESCENA es UN objeto (`EscenaDeServicio`, escenas.tsx), y desde el ítem 8
+// (26/10, pedido de la persona: "con un foco más agrandado y con opacidad,
+// similar a como hicimos en mobile, porque ahora están como colgados muy al
+// medio") va AGRANDADO y APOYADO EN LA ESQUINA DE ABAJO A LA DERECHA (paso de
+// diseño del ítem 8, 26/10): la caja va contra el borde derecho y el de abajo
+// (`right-0 bottom-0`; en el celular, 20 px más abajo de la franja) y cada
+// objeto sale de la tarjeta 12 px por la derecha y unos 20 por abajo (eso lo
+// fija su `viewBox`, en escenas.tsx), con lo que lo identifica a la vista.
+// Apoyado ARRIBA, en una tarjeta más alta que el objeto quedaba flotando con
+// aire abajo ("colgado") y el recorte cambiaba de una tarjeta a otra (de 9 a
+// 51 px); apoyado abajo, todos se cortan igual y el alto de la tarjeta solo
+// cambia cuánto aire queda arriba. Se funde hacia la carátula por el lado
+// izquierdo de su caja (`mask-image`) y va tenue (0,55, en el lienzo y no en
+// el envoltorio, que anima su propia `opacity` al entrar). La escala es fija
+// (224 px de caja en la computadora, la mitad en el celular), así ninguno
+// crece con el texto de su tarjeta; el ancho de la caja también (`w-80`): al
+// 85 % de la columna, a 768 px los objetos se achicaban a lo que entraba y
+// quedaban enteros, sin recorte. Nunca se mete debajo de la carátula: la
+// columna que lo recorta termina donde ella empieza. Quieto también al pasar
+// el mouse (paso de diseño del ítem 8, 26/10): el hover lo marcan el velo de
+// la tarjeta y el del botón, como en el resto de la app.
 //
 // Con `href`, toda la tarjeta es el enlace; con `onClick`, un botón; sin
 // ninguno de los dos, un <article> con sus propios botones adentro.
 
-/** El título de la tarjeta, en petróleo. */
+/** El título de la tarjeta, en petróleo. A 20 px (paso de diseño del ítem 8,
+ *  26/10; eran 24): un paso por debajo de los títulos de sección de
+ *  /clinicas (24) y dos por debajo del h1 de la pantalla (30/36). */
 export const CLASE_TITULO_DE_TARJETA =
-  "font-[family-name:var(--font-display)] text-2xl leading-tight font-semibold tracking-tight text-marca [overflow-wrap:anywhere]";
+  "font-[family-name:var(--font-display)] text-xl leading-tight font-semibold tracking-tight text-marca [overflow-wrap:anywhere]";
 /** La descripción, en grafito. */
 export const CLASE_DESCRIPCION_DE_TARJETA = "text-[15px] text-grafito";
 /** El rótulo de arriba del título (el rol, el estado). */
@@ -57,45 +69,31 @@ interface TarjetaConDibujoProps {
   /** Toda la tarjeta es un botón. */
   onClick?: () => void;
   dibujo?: DibujoDeTarjeta;
-  disposicion?: "fila" | "columna";
-  blanca?: boolean;
   /** Lo que va en la carátula: el título, la descripción y el botón. */
   children: ReactNode;
 }
 
-export function TarjetaConDibujo({ href, onClick, dibujo, disposicion = "fila", blanca = false, children }: TarjetaConDibujoProps) {
-  const fila = disposicion === "fila";
+export function TarjetaConDibujo({ href, onClick, dibujo, children }: TarjetaConDibujoProps) {
   const interactiva = Boolean(href || onClick);
   const clase = [
-    "group flex h-full w-full flex-col overflow-hidden text-left",
-    blanca
-      ? "rounded-[var(--radius-encabezado)] border border-linea bg-marfil shadow-soft"
-      : "vidrio encabezado-seccion [--radius-vidrio:var(--radius-encabezado)]",
-    interactiva
-      ? `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-marca ${blanca ? "transition-colors hover:bg-velo" : "vidrio-enlace"}`
-      : "",
-    fila ? "md:min-h-40 md:flex-row" : "",
+    "group vidrio encabezado-seccion flex h-full w-full flex-col overflow-hidden text-left md:min-h-40 md:flex-row",
+    interactiva ? "vidrio-enlace focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-marca" : "",
   ].join(" ");
 
   const caratula = (
-    <div
-      className={`flex flex-1 flex-col px-5 py-4.5 ${blanca ? "" : "vidrio-capa"} ${
-        fila ? "md:w-[28rem] md:flex-none md:shrink-0 md:px-6 md:py-5" : "sm:px-6 sm:py-5"
-      }`}
-    >
+    <div className="vidrio-capa flex flex-1 flex-col px-5 py-4.5 md:w-[28rem] md:flex-none md:shrink-0 md:px-6 md:py-5">
       <div className="despliegue-cuerpo flex flex-1 flex-col gap-1.5">{children}</div>
     </div>
   );
 
   const escena = dibujo && (
-    <div aria-hidden="true" className={`relative h-20 shrink-0 min-w-0 overflow-hidden ${fila ? "md:h-auto md:flex-1" : "sm:h-24"}`}>
-      <EscenasAnimadas
-        className={`despliegue-dibujo pointer-events-none absolute right-0 bottom-0 h-20 transition-transform duration-500 ease-out motion-safe:group-hover:-translate-x-1.5 ${
-          fila ? "lg:h-36" : "sm:h-24"
-        }`}
-      >
-        <EscenaDeServicio servicio={dibujo} className="aspect-[7/3] h-full" />
-      </EscenasAnimadas>
+    <div
+      aria-hidden="true"
+      className="relative h-20 min-w-0 shrink-0 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_45%)] md:h-auto md:flex-1 md:[mask-image:linear-gradient(to_right,transparent,black_40%)]"
+    >
+      <div className="despliegue-dibujo pointer-events-none absolute right-0 -bottom-5 h-28 w-[70%] md:bottom-0 md:h-56 md:w-80">
+        <EscenaDeServicio servicio={dibujo} className="h-full w-full opacity-55" />
+      </div>
     </div>
   );
 

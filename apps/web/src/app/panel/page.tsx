@@ -100,11 +100,10 @@ export default async function PanelGeneralPage() {
 
   return (
     <div className={CLASE_PANTALLA_CON_ENCABEZADO}>
-      {/* Encabezado de sección (correcciones generales, ítem 2): el título
-          y la escena en una tarjeta opaca, sin el subtítulo "Turnero" (a
-          pedido de la persona). El selector de recepción va arriba
-          de la tarjeta, afuera y a su mismo ancho (dice DE QUIÉN es todo
-          lo que sigue; QA de la 3.2.6 y pedido de la persona, 2026-10-11). */}
+      {/* Encabezado de sección: solo el título, sin el subtítulo "Turnero"
+          (a pedido de la persona; ítem 8, 26/10). El selector de recepción
+          va debajo del título (dice DE QUIÉN es todo lo que sigue; QA de la
+          3.2.6). */}
       <EncabezadoDeSeccion
         seccion="general"
         titulo="General"

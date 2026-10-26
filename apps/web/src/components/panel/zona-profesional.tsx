@@ -20,9 +20,9 @@ import {
 // título, y tiene sentido — lo que se elige es el alcance de ESA
 // pantalla, no del sitio. (La primera versión de esta subfase lo puso
 // como un dropdown en el header global; estaba mal y se reemplazó por
-// esto.) Desde las correcciones generales (2026-10-11, pedido de la
-// persona) va ARRIBA de la tarjeta del encabezado de sección, afuera y a
-// su mismo ancho (`antes` de `EncabezadoDeSeccion`).
+// esto.) Va debajo del título de la pantalla (`antes` de
+// `EncabezadoDeSeccion`, ítem 8, 26/10): primero dónde estoy, después de
+// quién es lo que miro.
 //
 // LAS FLECHAS NO SON UN ADORNO. Recepción atiende un teléfono y pasa de
 // un profesional a otro todo el tiempo; con un menú, cada salto son dos

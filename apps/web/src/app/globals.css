@@ -154,7 +154,7 @@
      24 − 6 = 18, el mismo `--radius-card` del resto del panel. */
   --radius-vidrio: 24px;
   --vidrio-margen: 6px;
-  /* --radius-encabezado: la tarjeta del encabezado de cada sección
+  /* --radius-encabezado: las tarjetas de `.encabezado-seccion` y las tablas
      (rediseño del 18/10, pedido de la persona: "no tan redondos"). Sigue el
      paso de 4 px que ya separa la pastilla de adentro de un segmentado (6)
      del control (10): 6 → 10 → 14. Así la tarjeta del calendario, con sus
@@ -608,6 +608,7 @@ body {
 :root {
   --vidrio-relleno: color-mix(in srgb, var(--color-marfil) 48%, transparent);
   --vidrio-relleno-tabla: color-mix(in srgb, var(--color-marfil) 66%, transparent);
+  --vidrio-relleno-encabezado: color-mix(in srgb, var(--color-marfil) 36%, transparent);
   --vidrio-relleno-opaco: color-mix(in srgb, var(--color-marfil) 86%, transparent);
   /* La segunda capa (la carátula de una tarjeta) y la capa fija de una
      tabla (cabecera y columna fija). La fija es opaca: con un 5 % de
@@ -665,6 +666,7 @@ body {
   :root {
     --vidrio-relleno: color-mix(in srgb, var(--color-marfil) 60%, transparent);
     --vidrio-relleno-tabla: color-mix(in srgb, var(--color-marfil) 74%, transparent);
+    --vidrio-relleno-encabezado: color-mix(in srgb, var(--color-marfil) 52%, transparent);
   }
 }
 
@@ -685,60 +687,77 @@ body {
   box-shadow: inset 0 1px 0 var(--vidrio-luz-costados);
 }
 
-/* `.encabezado-seccion` — la tarjeta del encabezado de cada sección del
-   panel (`EncabezadoDeSeccion`), con `.vidrio` (rediseño del 18/10, pedido
-   de la persona: "dejan de ser blancas y tener el contorno multicolor,
-   pasan a tener la textura de vidrio y en los bordes un efecto de blur y no
-   tan redondos"; el 19/10 se quedó con este vidrio y con el título, sobre
-   la composición y los dibujos de antes). Es el mismo vidrio de las tablas y de General —relleno,
-   desenfoque, saturación y brillo de arriba— con dos cambios:
+/* `.encabezado-seccion` — el vidrio más transparente de la app (rediseño
+   del 18/10, pedido de la persona: "dejan de ser blancas y tener el
+   contorno multicolor, pasan a tener la textura de vidrio y en los bordes
+   un efecto de blur"). Nació para la tarjeta del encabezado de cada
+   sección del panel; desde el ítem 8 (26/10) los módulos son solo su
+   título y la clase queda en las tarjetas de /clinicas y
+   /seleccionar-servicio (`TarjetaConDibujo`, y las dos sin carátula de
+   `donde-trabajas.tsx`) y en la tarjeta de los controles del calendario
+   (`EncabezadoDeSeccion` con controles). Es el mismo vidrio de las tablas y
+   de General —desenfoque, saturación y brillo de arriba— con tres cambios:
 
-   - EL CANTO ESMERILADO. Sin la línea de 1 px del borde ni el filete de
-     grafito de afuera: el borde queda transparente y el canto lo dibuja un
-     brillo blanco difuso hacia adentro (14 px, como el vidrio esmerilado,
-     que se ve más blanco en el canto), con un halo blanco apenas afuera que
-     lo funde con el fondo, más la sombra larga de siempre. Se eligió así y
+   - EL CANTO ESMERILADO. El borde queda transparente y el canto lo dibuja
+     un brillo blanco difuso hacia adentro (como el vidrio esmerilado, que se
+     ve más blanco en el canto), más la sombra larga de siempre. Desde el
+     paso de diseño del ítem 8 (26/10, "más discreto y profesional") el canto
+     es más preciso: el brillo de adentro es más corto y más tenue, se fue el
+     halo blanco de afuera (10 px al 65 %: se veía como un resplandor
+     alrededor de la tarjeta) y vuelven dos filetes de 1 px, uno de luz
+     adentro y el de grafito al 7 % de `.vidrio` afuera, que le dan a la
+     tarjeta un borde nítido sobre cualquier tono del fondo. Se eligió así y
      no un borde desenfocado de verdad (un segundo `backdrop-filter` en un
      pseudo-elemento) ni una máscara de canto suave: las dos se recalculan
      en cada cuadro del fondo animado, y la máscara además recortaría el
      contenido. Una sombra interior se pinta una vez y no cuesta nada al
      moverse el fondo. `background-origin: border-box`: con el borde
      transparente, el brillo de arriba se repetía 1 px abajo, como una raya.
-   - LAS ESQUINAS: `--radius-encabezado` (14 px) en vez de las de 24.
-
-   Lo demás es de `.vidrio`: sin soporte de `backdrop-filter` el relleno
-   sube al 86 %, y "reducir transparencia" le da más cuerpo. El contraste
-   del título, medido sobre este vidrio, está en `.titulo-prismatico`. */
+   - MÁS TRANSPARENTE (pedido de la persona, ítem 8, 25/10: "un poco más de
+     transparencia para el efecto vidrio de estas"): el relleno baja del
+     48 % al 36 % de marfil (`--vidrio-relleno-encabezado`) y el brillo del
+     canto, del 55 % al 40 %. Con "reducir transparencia" el relleno sube
+     al 52 %, y sin soporte de `backdrop-filter` sigue en el 86 % de
+     `.vidrio`.
+   - LAS ESQUINAS A 14 PX (`--radius-encabezado`, las de las tablas). El
+     25/10 se habían hecho rectas para diferenciar el encabezado de los
+     módulos del contenido; sin ese encabezado no hay nada que diferenciar,
+     y la persona las pidió "más redondeadas como estaban antes" (ítem 8,
+     26/10). `--radius-vidrio` sigue al borde: la carátula (`.vidrio-capa`)
+     queda concéntrica, a 14 − 6 = 8 px. */
 .vidrio.encabezado-seccion {
+  --vidrio-relleno: var(--vidrio-relleno-encabezado);
+  --radius-vidrio: var(--radius-encabezado);
   border-color: transparent;
   border-radius: var(--radius-encabezado);
   background-origin: border-box;
   box-shadow:
-    inset 0 0 14px 1px color-mix(in srgb, var(--color-marfil) 55%, transparent),
-    0 0 10px 2px color-mix(in srgb, var(--color-marfil) 65%, transparent),
-    0 1px 3px rgb(53 49 43 / 0.05),
-    0 12px 32px -14px rgb(53 49 43 / 0.16);
+    inset 0 0 0 1px color-mix(in srgb, var(--color-marfil) 60%, transparent),
+    inset 0 0 10px color-mix(in srgb, var(--color-marfil) 32%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--color-grafito) 7%, transparent),
+    0 1px 2px rgb(53 49 43 / 0.04),
+    0 12px 32px -16px rgb(53 49 43 / 0.14);
 }
 
-/* `.titulo-prismatico` — el título de los encabezados de sección y el de
-   "¿Qué necesitás hoy?": el MISMO degradé apagado que pinta la línea de
-   los dibujos (`--prisma-*`, `DegradePrismatico`: las mismas cinco paradas,
-   parejas, de magenta a dorado, y la misma dirección, a lo largo de la caja
-   y apenas hacia abajo), recortado a las letras (`background-clip: text`).
-   Pedido de la persona (2026-10-19): el arco profundo que había antes
-   (`--prisma-titulo-*`, 3,6:1) le resultaba estridente, y quiere que el
-   título hable el idioma de los dibujos. SE ELIGIÓ SABIENDO QUE NO LLEGA A
-   3:1: medido sobre el vidrio de un encabezado da de 2,0:1 (dorado) a 2,7:1
-   (violeta), y sobre las ondas del fondo, sin vidrio ("¿Qué necesitás
-   hoy?"), de 1,7 a 2,3:1. Va siempre grande (24 px o más).
-   Quieto: un degradé que corre repintaría el texto adentro del vidrio en
+/* `.titulo-prismatico` — el saludo de /clinicas ("Hola, …") y el h1 de
+   "¿Qué necesitás hoy?" (/seleccionar-servicio): las dos únicas pantallas
+   que lo usan desde el ítem 8 (26/10), cuando los títulos de los módulos
+   pasaron a `CLASE_TITULO_DE_PANTALLA`, en petróleo. Un paso de diseño de
+   esa ronda lo había sacado también de esas dos; la persona las pidió como
+   estaban (26/10), y la regla vuelve tal cual estaba.
+   Es el MISMO degradé apagado que pinta la línea de los dibujos
+   (`--prisma-*`, `DegradePrismatico`: las mismas cinco paradas, parejas, de
+   magenta a dorado, y la misma dirección, a lo largo de la caja y apenas
+   hacia abajo), recortado a las letras (`background-clip: text`), con cada
+   parada mezclada con un 30 % de grafito (elección de la persona,
+   2026-10-19: los mismos tonos, más profundos). Pedido de la persona
+   (2026-10-19): que el título hable el idioma de los dibujos. SE ELIGIÓ
+   SABIENDO EL CONTRASTE: sobre las ondas del fondo, sin vidrio, da de 2,7 a
+   3,5:1 (el tramo dorado no llega al 3:1 del texto grande). Va siempre
+   grande (30 px o más). Quieto: un degradé que corre repintaría el texto en
    cada paso. Sin soporte de `background-clip: text`, el violeta sólido; con
    colores forzados, el color del sistema (el degradé desaparece y el texto
    transparente no se vería). */
-/* Después (2026-10-19), la persona eligió oscurecerlo apenas: cada parada se
-   mezcla con un 30 % de grafito. Son los mismos tonos, más profundos, y da
-   de 3,2 a 4,1:1 sobre el vidrio de un encabezado (pasa el 3:1 del texto
-   grande) y de 2,7 a 3,5:1 sobre las ondas del fondo. */
 .titulo-prismatico {
   --titulo-sombra: var(--color-grafito);
   color: color-mix(in oklab, var(--prisma-violeta) 70%, var(--titulo-sombra));
@@ -1277,11 +1296,32 @@ li > [data-pp-efecto] {
   animation-name: despliegue-fila-derecha;
 }
 
+/* "fundido" (las tarjetas de /seleccionar-servicio y /clinicas, pedido de
+   la persona, ítem 8, 2026-10-25): sin barrido, el cuerpo aparece con un
+   fundido corto y la cascada es más apretada; son pantallas de paso, y el
+   barrido de 700 ms con su espera demoraba el clic. El fundido va sobre el
+   cuerpo de ADENTRO y nunca sobre la tarjeta de vidrio ni un ancestro suyo:
+   una `opacity` ahí corta el `backdrop-filter` mientras dura. */
+.despliegue--fundido {
+  --despliegue-retraso: calc(var(--despliegue-orden, 0) * 50ms);
+}
+.despliegue--fundido .despliegue-cuerpo {
+  animation: despliegue-fundido 300ms ease-out backwards;
+  animation-delay: var(--despliegue-retraso);
+}
+.despliegue--fundido .despliegue-cuerpo :is(li, tbody tr) {
+  animation: none;
+}
+
 /* Los dibujos de fondo de cada tarjeta se arman con ella. Cada pieza dice
    cómo entra con una clase; `--i` escalona las que son varias. */
 .despliegue-dibujo {
   animation: despliegue-aparecer 500ms ease-out backwards;
   animation-delay: calc(var(--despliegue-retraso) + 200ms);
+}
+.despliegue--fundido .despliegue-dibujo {
+  animation-duration: 400ms;
+  animation-delay: var(--despliegue-retraso);
 }
 .despliegue-dibujo .dib-trazo {
   stroke-dasharray: 1;
@@ -1717,28 +1757,24 @@ li > [data-pp-efecto] {
   to { transform: translate(-50%, -50%) rotate(1turn); }
 }
 
-/* `.escena` — las escenas ilustradas de los encabezados (`escenas.tsx`).
-   Cada viñeta son dos SVG superpuestos. Abajo, la línea (`.escena-linea`):
-   el dibujo entero con rellenos blancos, que tapan lo que queda detrás, y
-   el contorno prismático. Arriba, los colores y la tinta
+@media (prefers-reduced-motion: reduce) {
+  .contorno-prisma::before {
+    animation: none !important;
+  }
+}
+
+/* `.escena` — los objetos de las tarjetas con dibujo de /clinicas y
+   /seleccionar-servicio (`escenas.tsx`). Cada uno son dos SVG
+   superpuestos. Abajo, la línea (`.escena-linea`): el dibujo entero con rellenos blancos, que tapan lo
+   que queda detrás, y el contorno prismático. Arriba, los colores
    (`.escena-relleno`), multiplicados: sobre el blanco dan su color y sobre
-   una línea la dejan ver teñida. El giro de tono va solo en la capa de la
-   línea porque sobre el dibujo entero giraba también la piel; y al blanco
-   no lo cambia. Sobre el vidrio, lo blanco deja pasar el fondo
-   (`--esc-blanco-vidrio`).
-   Los tonos de piel y de las notitas son de las ilustraciones y no se usan
-   en la interfaz: las notitas salen de mezclar los tokens con blanco. */
+   una línea la dejan ver teñida. Sobre el vidrio, lo blanco deja pasar el
+   fondo (`--esc-blanco-vidrio`).
+   Los tonos de las notitas son de las ilustraciones y no se usan en la
+   interfaz: salen de mezclar los tokens con blanco. */
 .escena {
-  --esc-piel-clara: #f4d8c4;
-  --esc-piel-miel: #e8bc94;
-  --esc-piel-triguena: #d39c6f;
-  --esc-piel-morena: #a7714b;
-  --esc-piel-oscura: #6f4732;
-  --esc-madera-frente: color-mix(in oklab, var(--color-cascaron) 55%, white);
-  --esc-corcho: color-mix(in oklab, var(--color-cascaron) 72%, var(--color-terracota));
   --esc-nota-verde: color-mix(in oklab, var(--color-salvia) 34%, white);
   --esc-nota-celeste: color-mix(in oklab, var(--color-acero) 30%, white);
-  --esc-nota-dorada: color-mix(in oklab, var(--prisma-dorado) 42%, white);
   --esc-nota-rosa: color-mix(in oklab, var(--prisma-magenta) 32%, white);
   --esc-nota-lila: color-mix(in oklab, var(--prisma-violeta) 30%, white);
   /* Sobre el vidrio, cuánto se ve una pieza blanca (la máscara de
@@ -1756,261 +1792,6 @@ li > [data-pp-efecto] {
 }
 .escena .escena-relleno {
   mix-blend-mode: multiply;
-}
-
-/* EL MOVIMIENTO: UNA ACCIÓN CORTA Y UN DESCANSO LARGO (correcciones
-   generales, 2026-10-11, pedido de la persona: "acortar las animaciones
-   para optimizar").
-   Una pieza de un SVG que cambia en un cuadro hace repintar las dos capas
-   de su viñeta, y el costo crece con lo que se mueve: con las piezas en
-   ciclos infinitos que no coincidían, siempre había alguna en movimiento y
-   cada escena costaba de 11 a 17 puntos de CPU del renderer (medido con
-   SwiftShader). Ahora las piezas solo se animan con `.en-accion` en su
-   viñeta: una sola vez, unos 3 s, y todas en la misma ventana. La clase la
-   pone `TarjetaConEscenas` (`tarjeta-con-escenas.tsx`), una viñeta por
-   vez y con un descanso de varios segundos, y no la pone fuera de pantalla,
-   con la pestaña oculta ni con "reducir movimiento". En el descanso no
-   corre ninguna animación (una animación infinita que "descansa" en un
-   tramo quieto igual se recalcula en cada cuadro: medido, unos 2 puntos).
-   Cada acción arranca y termina en el estado base de cada pieza, que es su
-   mejor cuadro (el gráfico crecido, el tilde hecho, la firma terminada, la
-   nota clavada) y lo que se ve sin JavaScript o con "reducir movimiento".
-   Los porcentajes son de la duración de la acción de la viñeta (`--accion`,
-   que fija `Lienzo`); `--d` corre una pieza dentro de su acción.
-   Solo `transform` y `opacity`, salvo el trazo de la firma y la línea del
-   gráfico (un solo `stroke-dashoffset` cada una, y solo en la capa de
-   arriba). */
-.escena.en-accion [class*="esc-"] {
-  animation-duration: var(--accion, 3s);
-  animation-delay: var(--d, 0ms);
-  animation-timing-function: ease-in-out;
-  animation-iteration-count: 1;
-}
-/* El giro de tono: cada acción corre el arcoíris de la línea un tramo
-   (`--giro`, que suma `TarjetaConEscenas`), con una transición del filtro
-   que resuelve el compositor. Antes giraba sin parar, 30 s por vuelta. */
-.escena .escena-linea {
-  filter: hue-rotate(var(--giro, 0deg));
-  transition: filter 3s ease-in-out;
-}
-
-/* Piezas que giran o se escalan sobre su propia caja. */
-.escena .esc-mecer,
-.escena .esc-agujas,
-.escena .esc-crecer,
-.escena .esc-tilde,
-.escena .esc-latido,
-.escena .esc-vibrar,
-.escena .esc-destacar,
-.escena .esc-nota-llega,
-.escena .esc-chinche {
-  transform-box: fill-box;
-  transform-origin: center;
-}
-.escena .esc-mecer,
-.escena .esc-agujas,
-.escena .esc-crecer,
-.escena .esc-vibrar {
-  transform-origin: 50% 100%;
-}
-
-/* Comunes: mecerse una vez y el tilde que aparece. */
-.escena.en-accion .esc-mecer {
-  animation-name: esc-mecer;
-}
-@keyframes esc-mecer {
-  0%, 70%, 100% { transform: rotate(0deg); }
-  25% { transform: rotate(-3deg); }
-  50% { transform: rotate(2deg); }
-}
-.escena .esc-trazo,
-.escena .esc-firma {
-  stroke-dasharray: 1;
-}
-/* El tilde se va al empezar y vuelve con un saltito hacia el final. */
-.escena.en-accion .esc-tilde {
-  animation-name: esc-tilde;
-  animation-timing-function: ease-out;
-}
-@keyframes esc-tilde {
-  0% { transform: scale(1); opacity: 1; }
-  6%, 54% { transform: scale(0); opacity: 0; }
-  60% { transform: scale(1.25); opacity: 1; }
-  66%, 100% { transform: scale(1); opacity: 1; }
-}
-
-/* General. Izquierda: el minutero da una vuelta. Derecha: las barras vuelven a crecer, la línea se
-   traza, aparece el tilde, el indicador late y la lista se tilda. */
-.escena.en-accion .esc-agujas {
-  animation-name: esc-agujas;
-}
-@keyframes esc-agujas {
-  0% { transform: rotate(0deg); }
-  75%, 100% { transform: rotate(360deg); }
-}
-.escena.en-accion .esc-crecer {
-  animation-name: esc-crecer;
-  animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-@keyframes esc-crecer {
-  0%, 100% { transform: scaleY(1); }
-  10%, 14% { transform: scaleY(0.3); }
-  40% { transform: scaleY(1); }
-}
-.escena.en-accion .esc-trazo {
-  animation-name: esc-trazo;
-}
-@keyframes esc-trazo {
-  0% { stroke-dashoffset: 0; opacity: 1; }
-  9% { stroke-dashoffset: 0; opacity: 0; }
-  10% { stroke-dashoffset: 1; opacity: 0; }
-  16% { stroke-dashoffset: 1; opacity: 1; }
-  50%, 100% { stroke-dashoffset: 0; opacity: 1; }
-}
-.escena.en-accion .esc-latido {
-  animation-name: esc-latido;
-  animation-timing-function: ease-out;
-}
-@keyframes esc-latido {
-  0%, 62% { transform: scale(1); opacity: 1; }
-  82% { transform: scale(2.4); opacity: 0; }
-  83% { transform: scale(1); opacity: 0; }
-  100% { transform: scale(1); opacity: 1; }
-}
-
-/* Turnos. Derecha: el celular vibra dos veces y salen las ondas, y
-   después el horario de la agenda se pinta y se tilda. Izquierda: en la
-   tablet, el tilde del próximo turno vuelve a aparecer y late
-   (`esc-destacar` y `esc-latido`, de las comunes). */
-.escena.en-accion .esc-vibrar {
-  animation-name: esc-vibrar;
-  animation-timing-function: linear;
-}
-@keyframes esc-vibrar {
-  0%, 8%, 24%, 32%, 48%, 100% { transform: translateX(0) rotate(0deg); }
-  10%, 14%, 18%, 34%, 38%, 42% { transform: translateX(-1px) rotate(-3deg); }
-  12%, 16%, 20%, 36%, 40%, 44% { transform: translateX(1px) rotate(3deg); }
-}
-.escena.en-accion .esc-onda {
-  animation-name: esc-onda;
-}
-@keyframes esc-onda {
-  0%, 52%, 100% { opacity: 1; }
-  6% { opacity: 0; }
-  12% { opacity: 1; }
-  24% { opacity: 0.15; }
-  36% { opacity: 1; }
-  46% { opacity: 0.15; }
-}
-.escena.en-accion .esc-resaltar {
-  animation-name: esc-resaltar;
-}
-@keyframes esc-resaltar {
-  0%, 66%, 100% { opacity: 1; }
-  6%, 54% { opacity: 0; }
-}
-
-/* Pacientes. Derecha: dos fichas pasan, la del medio sube y se destaca con
-   su tilde, y baja. Izquierda: la planta se mece. */
-.escena.en-accion .esc-pasar {
-  animation-name: esc-pasar;
-}
-@keyframes esc-pasar {
-  0%, 18%, 100% { transform: translateY(0); }
-  9% { transform: translateY(-5px); }
-}
-.escena.en-accion .esc-ficha {
-  animation-name: esc-ficha;
-}
-@keyframes esc-ficha {
-  0%, 24%, 94%, 100% { transform: translateY(0); }
-  38%, 80% { transform: translateY(-12px); }
-}
-.escena.en-accion .esc-destacar {
-  animation-name: esc-destacar;
-  animation-timing-function: ease-out;
-}
-@keyframes esc-destacar {
-  0%, 52%, 100% { transform: scale(1); }
-  6%, 38% { transform: scale(0); }
-  46% { transform: scale(1.25); }
-}
-
-/* Documentos. Derecha: la mano vuelve al principio y firma la hoja
-   mientras el trazo se dibuja; después aparece el tilde. La firma va de
-   (80, 88) a (114, 84): la mano arranca 34 a la izquierda y 4 más abajo,
-   que en su sistema (−70°, 0,8) es (−19.2, −38.2). Izquierda: la
-   sansevieria se mece. */
-.escena.en-accion .esc-firmar {
-  animation-name: esc-firmar;
-}
-@keyframes esc-firmar {
-  0%, 52%, 100% { transform: translate(0, 0); }
-  14%, 18% { transform: translate(-19.2px, -38.2px); }
-  26% { transform: translate(-10.7px, -29.4px); }
-  34% { transform: translate(-9.6px, -19.1px); }
-  42% { transform: translate(-3.4px, -9.4px); }
-}
-.escena.en-accion .esc-firma {
-  animation-name: esc-firma;
-}
-@keyframes esc-firma {
-  0% { stroke-dashoffset: 0; opacity: 1; }
-  10% { stroke-dashoffset: 0; opacity: 0; }
-  11% { stroke-dashoffset: 1; opacity: 0; }
-  17% { stroke-dashoffset: 1; opacity: 1; }
-  52%, 100% { stroke-dashoffset: 0; opacity: 1; }
-}
-
-/* Calendario: la mano se retira, la nota vieja se va, la mano vuelve con
-   una nueva, la aprieta y le aparece la chinche; queda apretándola, que es
-   el estado base. La mano está girada −70° en su `<g>` de afuera: sus
-   traslaciones van en ese sistema (y positivo es "hacia la muñeca");
-   (1.7, 63.2) ahí es lo mismo que (60, 20) en la pantalla, de donde viene
-   la nota. */
-.escena.en-accion .esc-mano {
-  animation-name: esc-mano;
-}
-@keyframes esc-mano {
-  0%, 72%, 100% { opacity: 1; transform: translate(0, 0); }
-  16% { opacity: 1; transform: translate(3px, 70px); }
-  22% { opacity: 0; transform: translate(4px, 100px); }
-  30% { opacity: 0; transform: translate(1.7px, 63.2px); }
-  34% { opacity: 1; }
-  60% { transform: translate(0, 0); }
-  66% { transform: translate(0, -2.5px); }
-}
-.escena.en-accion .esc-nota-llega {
-  animation-name: esc-nota-llega;
-}
-@keyframes esc-nota-llega {
-  0%, 24% { opacity: 1; transform: none; }
-  30% { opacity: 0; transform: none; }
-  30.1% { opacity: 0; transform: translate(60px, 20px) rotate(8deg); }
-  34% { opacity: 1; }
-  60% { transform: translate(0, 0) rotate(0deg) scale(1); }
-  66% { transform: scale(0.97); }
-  72%, 100% { opacity: 1; transform: none; }
-}
-.escena.en-accion .esc-chinche {
-  animation-name: esc-chinche;
-  animation-timing-function: ease-out;
-}
-@keyframes esc-chinche {
-  0%, 30% { transform: scale(1); }
-  30.1%, 66% { transform: scale(0); }
-  72% { transform: scale(1.25); }
-  77%, 100% { transform: scale(1); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .contorno-prisma::before,
-  .escena * {
-    animation: none !important;
-  }
-  .escena .escena-linea {
-    transition: none;
-  }
 }
 
 /* `.turno-notita` — la tarjeta de un turno en el calendario, con aspecto

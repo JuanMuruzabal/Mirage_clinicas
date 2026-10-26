@@ -31,9 +31,8 @@ export const metadata: Metadata = { title: "¿Qué necesitás hoy? — PRISMA" }
 //     y con un dibujo de fondo cada una (`NavCard`). Se pierde la jerarquía
 //     de "Gestión de clínica" como tarjeta principal, a propósito.
 //   - **Sin el saludo**: /clinicas, la pantalla anterior, ya saluda. El h1
-//     es la pregunta, a su tamaño de siempre y en el degradé de los dibujos
-//     (`.titulo-prismatico`); en las tarjetas, el título en petróleo y la
-//     descripción en grafito.
+//     es la pregunta, en el degradé de los dibujos (`.titulo-prismatico`);
+//     en las tarjetas, el título en petróleo y la descripción en grafito.
 //   - **Entran con `Despliegue`** (TR-180), no con `ScrollReveal`: framer-
 //     motion las escondía hasta hidratar, y su `opacity` en un ancestro le
 //     cortaba el desenfoque al vidrio mientras duraba la entrada.
@@ -84,27 +83,35 @@ export default async function SeleccionarServicioPage() {
           de ondas de toda la app, en lugar de las crucecitas y del hueso
           plano. Va afuera de <main>, fijo y detrás del contenido. */}
       <FondoOndas />
-      {/* Alineada a la izquierda y no en una columna centrada (se veía rara
-          en la computadora, pedido de la persona, 2026-10-19), pero tampoco
-          pegada al borde: el margen izquierdo crece con la pantalla (32 px
-          en una tablet, 102 a 1280 y 128 desde 1600). En el celular, el del
-          panel. Las tarjetas, a `max-w-5xl`: más anchas se estiraban sin
-          nada que poner en el medio. Es la base de /clinicas. */}
-      <main className="flex w-full flex-1 flex-col gap-8 px-8 pb-16 pt-[calc(var(--header-height)+2rem)] max-md:px-[clamp(1rem,4vw,2rem)] md:pl-[clamp(2rem,8vw,8rem)]">
-        {/* En el degradé de los dibujos, como los títulos del panel (pedido
-            de la persona, 2026-10-19), en un <span> en línea. */}
-        <h1 className="font-[family-name:var(--font-display)] text-3xl font-semibold tracking-tight sm:text-4xl">
-          <span className="titulo-prismatico">¿Qué necesitás hoy?</span>
-        </h1>
+      {/* Una columna centrada a `max-w-5xl`, con el mismo relleno a los dos
+          lados (pedido de la persona, ítem 8, 2026-10-25): alineada a la
+          izquierda, con el margen que crecía con la pantalla, dejaba un
+          hueco vacío a la derecha en la computadora. El título NO se centra:
+          queda contra el borde izquierdo de las tarjetas. Más anchas que
+          `max-w-5xl` las tarjetas se estiraban sin nada que poner en el
+          medio. Es la base de /clinicas. */}
+      <main className="flex w-full flex-1 flex-col px-8 pb-16 pt-[calc(var(--header-height)+2rem)] max-md:px-[clamp(1rem,4vw,2rem)]">
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-8">
+          {/* En el degradé de los dibujos (`.titulo-prismatico`), en un
+              <span> en línea (pedido de la persona, 2026-10-19). Un paso de
+              diseño del ítem 8 (26/10) lo había pasado a petróleo con
+              `CLASE_TITULO_DE_PANTALLA`; la persona lo pidió como estaba. */}
+          <h1 className="font-[family-name:var(--font-display)] text-3xl font-semibold tracking-tight sm:text-4xl">
+            <span className="titulo-prismatico">¿Qué necesitás hoy?</span>
+          </h1>
 
-        {/* Una tarjeta por fila, todas del mismo alto (`auto-rows-fr`): la
-            de descripción más larga marca el de las tres. */}
-        <div className="grid max-w-5xl auto-rows-fr gap-4">
-          {servicios.map((servicio, orden) => (
-            <Despliegue key={servicio.href} orden={orden}>
-              <NavCard {...servicio} />
-            </Despliegue>
-          ))}
+          {/* Una tarjeta por fila, todas del mismo alto (`auto-rows-fr`): la
+              de descripción más larga marca el de las tres. Entran con un
+              fundido corto y no con el barrido de General (ítem 8,
+              2026-10-25): es una pantalla de paso, el barrido demoraba el
+              clic. */}
+          <div className="grid auto-rows-fr gap-4">
+            {servicios.map((servicio, orden) => (
+              <Despliegue key={servicio.href} forma="fundido" orden={orden}>
+                <NavCard {...servicio} />
+              </Despliegue>
+            ))}
+          </div>
         </div>
       </main>
     </>

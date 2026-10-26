@@ -161,7 +161,7 @@ export default async function TurnosPage({
     <div className={CLASE_PANTALLA_CON_ENCABEZADO}>
       {/* Encabezado de sección (correcciones generales, ítem 2). Sin el
           contador "x en total" al lado del título (ítem 4). El selector
-          de recepción va arriba de la tarjeta, a su mismo ancho. */}
+          de recepción va debajo del título. */}
       <EncabezadoDeSeccion
         seccion="turnos"
         titulo="Turnos"
