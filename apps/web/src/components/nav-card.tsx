@@ -1,4 +1,5 @@
 import type { ServicioConEscena } from "./panel/escenas";
+import type { VarianteDeDibujo } from "./panel/dibujos-discretos";
 import {
   CLASE_ANTETITULO_DE_TARJETA,
   CLASE_BOTON_DE_TARJETA_ENLAZADA,
@@ -15,6 +16,8 @@ interface NavCardProps {
   cta?: string;
   /** La escena de fondo: una por servicio. */
   dibujo?: ServicioConEscena;
+  /** El objeto de hoy o una variante discreta (`?dibujo=`, a prueba). */
+  variante?: VarianteDeDibujo;
 }
 
 // Tarjeta de navegación de /seleccionar-servicio.
@@ -27,9 +30,9 @@ interface NavCardProps {
 //
 // Toda la tarjeta es el enlace, no solo el "Entrar": el objetivo de click
 // más grande es el que la persona ya está mirando.
-export function NavCard({ href, eyebrow, titulo, descripcion, cta = "Entrar", dibujo }: NavCardProps) {
+export function NavCard({ href, eyebrow, titulo, descripcion, cta = "Entrar", dibujo, variante }: NavCardProps) {
   return (
-    <TarjetaConDibujo href={href} dibujo={dibujo}>
+    <TarjetaConDibujo href={href} dibujo={dibujo} variante={variante}>
       {eyebrow && <p className={CLASE_ANTETITULO_DE_TARJETA}>{eyebrow}</p>}
       <h2 className={CLASE_TITULO_DE_TARJETA}>{titulo}</h2>
       <p className={`mb-3 ${CLASE_DESCRIPCION_DE_TARJETA}`}>{descripcion}</p>

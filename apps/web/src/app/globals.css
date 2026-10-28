@@ -1793,6 +1793,11 @@ li > [data-pp-efecto] {
 .escena .escena-relleno {
   mix-blend-mode: multiply;
 }
+/* Las variantes discretas de esos dibujos (`dibujos-discretos.tsx`): la
+   misma línea que no engorda al agrandar el ícono. */
+.dibujo-discreto * {
+  vector-effect: non-scaling-stroke;
+}
 
 /* `.turno-notita` — la tarjeta de un turno en el calendario, con aspecto
    de notita (correcciones generales, ítem 2, pedido de la persona: "las

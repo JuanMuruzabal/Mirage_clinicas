@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { EscenaDeServicio, type DibujoDeTarjeta } from "./panel/escenas";
+import { DibujoDiscreto, type VarianteDeDibujo } from "./panel/dibujos-discretos";
 
 // LA TARJETA CON DIBUJO: el armado común de las tarjetas de
 // /seleccionar-servicio (`NavCard`) y de /clinicas (las clínicas, las
@@ -69,11 +70,14 @@ interface TarjetaConDibujoProps {
   /** Toda la tarjeta es un botón. */
   onClick?: () => void;
   dibujo?: DibujoDeTarjeta;
+  /** Cómo se dibuja: el objeto de hoy o una de las variantes discretas que
+   *  se están probando (`dibujos-discretos.tsx`, 28/10). */
+  variante?: VarianteDeDibujo;
   /** Lo que va en la carátula: el título, la descripción y el botón. */
   children: ReactNode;
 }
 
-export function TarjetaConDibujo({ href, onClick, dibujo, children }: TarjetaConDibujoProps) {
+export function TarjetaConDibujo({ href, onClick, dibujo, variante = "objeto", children }: TarjetaConDibujoProps) {
   const interactiva = Boolean(href || onClick);
   const clase = [
     "group vidrio encabezado-seccion flex h-full w-full flex-col overflow-hidden text-left md:min-h-40 md:flex-row",
@@ -91,9 +95,15 @@ export function TarjetaConDibujo({ href, onClick, dibujo, children }: TarjetaCon
       aria-hidden="true"
       className="relative h-20 min-w-0 shrink-0 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_45%)] md:h-auto md:flex-1 md:[mask-image:linear-gradient(to_right,transparent,black_40%)]"
     >
-      <div className="despliegue-dibujo pointer-events-none absolute right-0 -bottom-5 h-28 w-[70%] md:bottom-0 md:h-56 md:w-80">
-        <EscenaDeServicio servicio={dibujo} className="h-full w-full opacity-55" />
-      </div>
+      {variante === "objeto" ? (
+        <div className="despliegue-dibujo pointer-events-none absolute right-0 -bottom-5 h-28 w-[70%] md:bottom-0 md:h-56 md:w-80">
+          <EscenaDeServicio servicio={dibujo} className="h-full w-full opacity-55" />
+        </div>
+      ) : (
+        <div className="despliegue-dibujo pointer-events-none absolute inset-0">
+          <DibujoDiscreto dibujo={dibujo} variante={variante} />
+        </div>
+      )}
     </div>
   );
 

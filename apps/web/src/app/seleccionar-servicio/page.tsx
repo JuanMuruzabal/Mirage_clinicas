@@ -4,6 +4,7 @@ import { requireOnboardingComplete } from "@/lib/session";
 import { NavCard } from "@/components/nav-card";
 import { Despliegue } from "@/components/panel/despliegue";
 import { FondoOndas } from "@/components/fondo-ondas";
+import { varianteDeDibujo } from "@/components/panel/dibujos-discretos";
 
 export const metadata: Metadata = { title: "¿Qué necesitás hoy? — PRISMA" };
 
@@ -58,8 +59,16 @@ export const metadata: Metadata = { title: "¿Qué necesitás hoy? — PRISMA" }
 //
 // Con los tres roles —el caso del titular— se ven las tres. La regla real
 // vive en el backend; acá solo se decide qué se dibuja.
-export default async function SeleccionarServicioPage() {
+export default async function SeleccionarServicioPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ dibujo?: string | string[] }>;
+}) {
   const sesion = await requireOnboardingComplete();
+  // A prueba (28/10): `?dibujo=icono|mancha|trazo` cambia el dibujo de las
+  // tarjetas por una variante más discreta, para compararlas con datos
+  // reales. Sin el parámetro, el objeto de siempre.
+  const variante = varianteDeDibujo((await searchParams).dibujo);
   const tiene = (rol: string) => sesion.roles.includes(rol as (typeof sesion.roles)[number]);
   const gestionaAgenda = tiene("profesional") || tiene("recepcion");
   const administraPagina = tiene("admin");
@@ -108,7 +117,7 @@ export default async function SeleccionarServicioPage() {
           <div className="grid auto-rows-fr gap-4">
             {servicios.map((servicio, orden) => (
               <Despliegue key={servicio.href} forma="fundido" orden={orden}>
-                <NavCard {...servicio} />
+                <NavCard {...servicio} variante={variante} />
               </Despliegue>
             ))}
           </div>
